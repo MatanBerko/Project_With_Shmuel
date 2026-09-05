@@ -34,6 +34,10 @@ def main():
     sigma_new = data["sigma_gas_new"].flatten()
     sigma_old = sigma_old[np.isfinite(sigma_old)]
     sigma_new = sigma_new[np.isfinite(sigma_new)]
+    mean_old = float(data["mean_old"])
+    median_old = float(data["median_old"])
+    mean_new = float(data["mean_new"])
+    median_new = float(data["median_new"])
 
     apply_style()
     fig, ax = plt.subplots(figsize=(6, 4.5))
@@ -46,17 +50,25 @@ def main():
     x_new, y_new = smoothed_line(sigma_new, bins)
 
     ax.plot(x_old, y_old, color=COLOR_PTOT, linewidth=1.5,
-            label="Old (1652 cm$^{-3}$/E, Zucker+21/O'Neill+24)")
+            label="Old (1652 cm$^{-3}$/E, O'Neill+24)")
     ax.plot(x_new, y_new, color=COLOR_ALPHA, linewidth=1.5,
             label="New (2700 cm$^{-3}$/E, McCallum+26)")
     ax.set_xscale("log")
 
+    ax.axvline(mean_old, color=COLOR_PTOT, linestyle="--",
+               label=f"Old mean = {mean_old:.2f}")
+    ax.axvline(median_old, color=COLOR_PTOT, linestyle=":",
+               label=f"Old median = {median_old:.2f}")
+    ax.axvline(mean_new, color=COLOR_ALPHA, linestyle="--",
+               label=f"New mean = {mean_new:.2f}")
+    ax.axvline(median_new, color=COLOR_ALPHA, linestyle=":",
+               label=f"New median = {median_new:.2f}")
+
     ax.set_xlabel(r"$\Sigma_{\rm gas}$ (M$_\odot$/pc$^2$)")
     ax.set_ylabel("Number of pixels")
-    ax.legend()
+    ax.legend(loc="upper center", bbox_to_anchor=(0.5, -0.15), ncol=3)
 
-    fig.tight_layout()
-    fig.savefig(OUTPUT_PATH)
+    fig.savefig(OUTPUT_PATH, bbox_inches="tight")
     print(f"Saved {OUTPUT_PATH}")
 
 
