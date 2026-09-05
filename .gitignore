@@ -1,0 +1,22 @@
+# Machine-specific config (real paths) — never commit this
+config/local_config.yaml
+
+# Large cached compute outputs, regenerated from source data
+cache/**/*.npz
+
+# Python
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Conda / venv environments
+venv/
+.venv/
+*.egg-info/
+
+# General safety net for any future local-only files
+*_local.*
