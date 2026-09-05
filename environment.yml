@@ -1,0 +1,21 @@
+# Conda environment for the alpha paper project.
+#
+# NOTE: This file is maintained manually. There is no automated dependency
+# scanning — when a new package is used in the project, add it here by hand
+# to keep this file in sync with what the code actually imports.
+
+name: research311
+channels:
+  - conda-forge
+dependencies:
+  - python=3.11
+  - numpy
+  - scipy
+  - matplotlib
+  - astropy
+  - zarr
+  - dask
+  - pyyaml
+  - pip
+  - pip:
+      - dustmaps
