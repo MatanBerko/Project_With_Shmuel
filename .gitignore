@@ -1,6 +1,9 @@
 # Machine-specific config (real paths) — never commit this
 config/local_config.yaml
 
+# Root-level local research data (large, machine-specific, not for git)
+/datasets/
+
 # Large cached compute outputs, regenerated from source data
 cache/**/*.npz
 
