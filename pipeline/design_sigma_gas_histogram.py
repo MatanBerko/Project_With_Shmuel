@@ -11,7 +11,7 @@ consistency with the map figure.
 import matplotlib.pyplot as plt
 import numpy as np
 
-from src.conventions import apply_style
+from src.conventions import COLOR_PTH, apply_style
 
 CACHE_PATH = "cache/sigma_gas_edenhofer.npz"
 OUTPUT_PATH = "figures/sigma_gas_histogram.png"
@@ -31,7 +31,7 @@ def main():
     # Sigma_gas spans two orders of magnitude and is right-skewed (mean > median),
     # so log-spaced bins on a log x-axis resolve the shape far better than linear.
     bins = np.logspace(np.log10(sigma_gas.min()), np.log10(sigma_gas.max()), N_BINS)
-    ax.hist(sigma_gas, bins=bins, color="steelblue", edgecolor="none")
+    ax.hist(sigma_gas, bins=bins, histtype="step", color=COLOR_PTH, linewidth=1.5)
     ax.set_xscale("log")
 
     ax.axvline(mean, color="#c0392b", linestyle="--", label=f"Mean = {mean:.2f}")
