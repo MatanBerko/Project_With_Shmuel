@@ -1,0 +1,10 @@
+# Template for config/local_config.yaml.
+#
+# Copy this file to config/local_config.yaml and fill in the real, machine-specific
+# paths for your own system. config/local_config.yaml is gitignored and must never
+# be committed — it exists so that no one's local filesystem paths end up hardcoded
+# into scripts or checked into git history.
+
+data_root: "/path/to/your/local/research_10.0"
+zarr_filename: "f98_sm_opt2_edendist.zarr"
+bs19_mat_filename: "Temp_Bialy_interp.mat"
