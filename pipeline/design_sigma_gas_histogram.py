@@ -10,6 +10,7 @@ consistency with the map figure.
 
 import matplotlib.pyplot as plt
 import numpy as np
+from scipy.ndimage import gaussian_filter1d
 
 from src.conventions import COLOR_PTH, apply_style
 
@@ -17,6 +18,9 @@ CACHE_PATH = "cache/sigma_gas_edenhofer.npz"
 OUTPUT_PATH = "figures/sigma_gas_histogram.png"
 
 N_BINS = 50
+# Modest smoothing (in units of bins): visibly removes staircase jaggedness
+# while preserving the real double-hump/shoulder feature around 3-9 Msun/pc^2.
+SMOOTHING_SIGMA_BINS = 1.5
 
 
 def main():
@@ -31,7 +35,11 @@ def main():
     # Sigma_gas spans two orders of magnitude and is right-skewed (mean > median),
     # so log-spaced bins on a log x-axis resolve the shape far better than linear.
     bins = np.logspace(np.log10(sigma_gas.min()), np.log10(sigma_gas.max()), N_BINS)
-    ax.hist(sigma_gas, bins=bins, histtype="step", color=COLOR_PTH, linewidth=1.5)
+    counts, edges = np.histogram(sigma_gas, bins=bins)
+    bin_centers = np.sqrt(edges[:-1] * edges[1:])  # geometric mean, for log-spaced bins
+    smoothed_counts = gaussian_filter1d(counts.astype(float), sigma=SMOOTHING_SIGMA_BINS)
+
+    ax.plot(bin_centers, smoothed_counts, color=COLOR_PTH, linewidth=1.5)
     ax.set_xscale("log")
 
     ax.axvline(mean, color="#c0392b", linestyle="--", label=f"Mean = {mean:.2f}")
