@@ -1,0 +1,20 @@
+Old Sigma_gas figure reproduction - cumulative decomposition
+==============================================================================
+Zarr grid spacing (from coordinate arrays): dx=2.000 pc, dy=2.000 pc, dz=2.000 pc
+Old script's hardcoded DZ_PC = 1.0 pc (vs real dz = 2.000 pc)
+
+Cumulative steps (median / arith_mean / mean-of-log10, all in Msun/pc^2):
+(0) correct: trapz, full column, cylinder:  N=196301  median= 4.8909  arith_mean= 7.2064  mean_of_log10= 5.1761
+         (1) + old dz (sum*1.0 pc):  N=196301  median= 2.4463  arith_mean= 3.6041  mean_of_log10= 2.5891   [median x 0.5002 vs previous row]
+     (2) + old neutral-at-z=0 mask:  N=105682  median= 3.7692  arith_mean= 4.7993  mean_of_log10= 3.8171   [median x 1.5407 vs previous row]
+
+(3) + old stat definition (mean = 10**mean(log10 Sigma)), both weightings:
+   unweighted (sightline-weighted):  median= 3.7691  mean_of_log10= 3.8171   [median x 1.0000 vs step 2]
+Sigma_gas-weighted (mass-weighted):  median= 6.2119  mean_of_log10= 6.0395   [median x 1.6481 vs step 2]
+
+Residual check -- full-column HIM_B density substitution (not one of the 4 listed causes, applied on top of step 2):
+(2r) step 2 + full-column HIM_B density subst.:  N=105682  median= 3.2923  arith_mean= 4.3032  mean_of_log10= 3.1323   [median x 0.8735 vs step 2]
+(2r) + old stat (log-mean, unweighted):  median= 3.2923  mean_of_log10= 3.1323
+
+Target from the old figure: median ~= 3.3, "mean" (mean of log10 Sigma) ~= 3.1
+Closer match to the old figure's weighting: unweighted
