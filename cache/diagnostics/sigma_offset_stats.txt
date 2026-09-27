@@ -1,0 +1,15 @@
+Sigma_gas offset diagnostic - controlled decomposition
+========================================================================
+Grid: XY +-500 pc @ 10 pc, Z +-750 pc @ 5 pc
+n_H factor (OLD script): 1653.0, (repo factor comparison script): 1652.0, ratio 1.000605
+
+Four-way decomposition (coverage >= 0.9 applied unless noted):
+         OLD (400, cylinder):  N=  7748  median=  4.246  arith_mean=  6.421  geom_mean=  4.228  mode=  2.371  frac(Sigma<1)=0.0583
+        OLD, no coverage cut:  N=  7845  median=  4.176  arith_mean=  6.355  geom_mean=  4.154  mode=  2.371  frac(Sigma<1)=0.0650
+               (400, square):  N= 10104  median=  4.134  arith_mean=  6.135  geom_mean=  4.058  mode=  2.371  frac(Sigma<1)=0.0714
+             (750, cylinder):  N=  7845  median=  4.818  arith_mean=  7.003  geom_mean=  5.099  mode=  2.985  frac(Sigma<1)=0.0000
+(750, square) = expected NEW:  N= 10201  median=  4.701  arith_mean=  6.717  geom_mean=  4.941  mode=  2.985  frac(Sigma<1)=0.0012
+          new pipeline as-is:  N=247288  median=  4.768  arith_mean=  6.794  geom_mean=  5.021  mode=  2.985  frac(Sigma<1)=0.0010
+
+Median n_H at |z| >= 600 pc (density floor): 0.02038 cm^-3
+Median implied extra Sigma_gas from 400 < |z| <= 750 pc shell (both sides): 0.5715 Msun/pc^2
