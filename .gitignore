@@ -6,6 +6,8 @@ config/local_config.yaml
 
 # Large cached compute outputs, regenerated from source data
 cache/**/*.npz
+cache/core/alpha_core.zarr/
+cache/core/_finalize_partial/
 
 # Python
 __pycache__/

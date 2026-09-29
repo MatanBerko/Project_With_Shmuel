@@ -1,0 +1,645 @@
+Alpha paper -- headline numbers table
+MASKED variant: not implemented -- no MASKED definition exists in any reference script.
+========================================================================================================================
+RAW     n/a   Sigma_gas             vol   median               4.80595 Msun/pc^2        Full-column trapezoid of variant density, +-500pc square footprint, unweighted median
+RAW     n/a   Sigma_gas             vol   mean                 6.90763 Msun/pc^2        Full-column trapezoid of variant density, +-500pc square footprint, arithmetic mean
+RAW     off   Pth                   vol   z0_median            2612.45 K cm^-3          Pth median, vol-weighted, 0+-25pc slab, neutral cells, +-500pc square
+RAW     off   Pth                   vol   z0_mean              3070.54 K cm^-3          Pth mean, vol-weighted, 0+-25pc slab, neutral cells, +-500pc square
+RAW     off   Pth                   vol   z0_p16               1319.85 K cm^-3          Pth p16, vol-weighted, 0+-25pc slab, neutral cells, +-500pc square
+RAW     off   Pth                   vol   z0_p84               4816.51 K cm^-3          Pth p84, vol-weighted, 0+-25pc slab, neutral cells, +-500pc square
+RAW     off   Pth                   mw    z0_median            2184 K cm^-3          Pth median, mw-weighted, 0+-25pc slab, neutral cells, +-500pc square
+RAW     off   Pth                   mw    z0_mean              2825.71 K cm^-3          Pth mean, mw-weighted, 0+-25pc slab, neutral cells, +-500pc square
+RAW     off   Pth                   mw    z0_p16               1095.35 K cm^-3          Pth p16, mw-weighted, 0+-25pc slab, neutral cells, +-500pc square
+RAW     off   Pth                   mw    z0_p84               4654.83 K cm^-3          Pth p84, mw-weighted, 0+-25pc slab, neutral cells, +-500pc square
+RAW     off   Ptot                  vol   z0_median            5184.43 K cm^-3          Ptot median, vol-weighted, 0+-25pc slab, neutral cells, +-500pc square
+RAW     off   Ptot                  vol   z0_mean              7086.09 K cm^-3          Ptot mean, vol-weighted, 0+-25pc slab, neutral cells, +-500pc square
+RAW     off   Ptot                  vol   z0_p16               3398.98 K cm^-3          Ptot p16, vol-weighted, 0+-25pc slab, neutral cells, +-500pc square
+RAW     off   Ptot                  vol   z0_p84               10057.2 K cm^-3          Ptot p84, vol-weighted, 0+-25pc slab, neutral cells, +-500pc square
+RAW     off   Ptot                  mw    z0_median            6304.34 K cm^-3          Ptot median, mw-weighted, 0+-25pc slab, neutral cells, +-500pc square
+RAW     off   Ptot                  mw    z0_mean              8405.36 K cm^-3          Ptot mean, mw-weighted, 0+-25pc slab, neutral cells, +-500pc square
+RAW     off   Ptot                  mw    z0_p16               3984.11 K cm^-3          Ptot p16, mw-weighted, 0+-25pc slab, neutral cells, +-500pc square
+RAW     off   Ptot                  mw    z0_p84               11868.2 K cm^-3          Ptot p84, mw-weighted, 0+-25pc slab, neutral cells, +-500pc square
+RAW     off   alpha                 vol   z0_median            2.10031 dimensionless    alpha median, vol-weighted, 0+-25pc slab, neutral cells, +-500pc square
+RAW     off   alpha                 vol   z0_mean              3.30076 dimensionless    alpha mean, vol-weighted, 0+-25pc slab, neutral cells, +-500pc square
+RAW     off   alpha                 vol   z0_p16               0.972782 dimensionless    alpha p16, vol-weighted, 0+-25pc slab, neutral cells, +-500pc square
+RAW     off   alpha                 vol   z0_p84               5.16064 dimensionless    alpha p84, vol-weighted, 0+-25pc slab, neutral cells, +-500pc square
+RAW     off   alpha                 mw    z0_median            3.14518 dimensionless    alpha median, mw-weighted, 0+-25pc slab, neutral cells, +-500pc square
+RAW     off   alpha                 mw    z0_mean              4.6986 dimensionless    alpha mean, mw-weighted, 0+-25pc slab, neutral cells, +-500pc square
+RAW     off   alpha                 mw    z0_p16               1.15272 dimensionless    alpha p16, mw-weighted, 0+-25pc slab, neutral cells, +-500pc square
+RAW     off   alpha                 mw    z0_p84               7.16067 dimensionless    alpha p84, mw-weighted, 0+-25pc slab, neutral cells, +-500pc square
+RAW     off   Pth                   vol   z150_median          1443.99 K cm^-3          Pth median, vol-weighted, 150+-25pc slab, neutral cells, +-500pc square
+RAW     off   Pth                   vol   z150_mean            1800.44 K cm^-3          Pth mean, vol-weighted, 150+-25pc slab, neutral cells, +-500pc square
+RAW     off   Pth                   vol   z150_p16             875.932 K cm^-3          Pth p16, vol-weighted, 150+-25pc slab, neutral cells, +-500pc square
+RAW     off   Pth                   vol   z150_p84             2937.79 K cm^-3          Pth p84, vol-weighted, 150+-25pc slab, neutral cells, +-500pc square
+RAW     off   Pth                   mw    z150_median          1401.16 K cm^-3          Pth median, mw-weighted, 150+-25pc slab, neutral cells, +-500pc square
+RAW     off   Pth                   mw    z150_mean            1916.3 K cm^-3          Pth mean, mw-weighted, 150+-25pc slab, neutral cells, +-500pc square
+RAW     off   Pth                   mw    z150_p16             880.641 K cm^-3          Pth p16, mw-weighted, 150+-25pc slab, neutral cells, +-500pc square
+RAW     off   Pth                   mw    z150_p84             3325.12 K cm^-3          Pth p84, mw-weighted, 150+-25pc slab, neutral cells, +-500pc square
+RAW     off   Ptot                  vol   z150_median          4105.95 K cm^-3          Ptot median, vol-weighted, 150+-25pc slab, neutral cells, +-500pc square
+RAW     off   Ptot                  vol   z150_mean            5059.96 K cm^-3          Ptot mean, vol-weighted, 150+-25pc slab, neutral cells, +-500pc square
+RAW     off   Ptot                  vol   z150_p16             2870.93 K cm^-3          Ptot p16, vol-weighted, 150+-25pc slab, neutral cells, +-500pc square
+RAW     off   Ptot                  vol   z150_p84             6432.71 K cm^-3          Ptot p84, vol-weighted, 150+-25pc slab, neutral cells, +-500pc square
+RAW     off   Ptot                  mw    z150_median          5951.38 K cm^-3          Ptot median, mw-weighted, 150+-25pc slab, neutral cells, +-500pc square
+RAW     off   Ptot                  mw    z150_mean            10674.2 K cm^-3          Ptot mean, mw-weighted, 150+-25pc slab, neutral cells, +-500pc square
+RAW     off   Ptot                  mw    z150_p16             3467.95 K cm^-3          Ptot p16, mw-weighted, 150+-25pc slab, neutral cells, +-500pc square
+RAW     off   Ptot                  mw    z150_p84             17287.5 K cm^-3          Ptot p84, mw-weighted, 150+-25pc slab, neutral cells, +-500pc square
+RAW     off   alpha                 vol   z150_median          2.78565 dimensionless    alpha median, vol-weighted, 150+-25pc slab, neutral cells, +-500pc square
+RAW     off   alpha                 vol   z150_mean            3.75294 dimensionless    alpha mean, vol-weighted, 150+-25pc slab, neutral cells, +-500pc square
+RAW     off   alpha                 vol   z150_p16             1.44957 dimensionless    alpha p16, vol-weighted, 150+-25pc slab, neutral cells, +-500pc square
+RAW     off   alpha                 vol   z150_p84             5.3188 dimensionless    alpha p84, vol-weighted, 150+-25pc slab, neutral cells, +-500pc square
+RAW     off   alpha                 mw    z150_median          3.67725 dimensionless    alpha median, mw-weighted, 150+-25pc slab, neutral cells, +-500pc square
+RAW     off   alpha                 mw    z150_mean            9.28504 dimensionless    alpha mean, mw-weighted, 150+-25pc slab, neutral cells, +-500pc square
+RAW     off   alpha                 mw    z150_p16             1.36219 dimensionless    alpha p16, mw-weighted, 150+-25pc slab, neutral cells, +-500pc square
+RAW     off   alpha                 mw    z150_p84             18.2794 dimensionless    alpha p84, mw-weighted, 150+-25pc slab, neutral cells, +-500pc square
+RAW     off   Pth                   vol   z300_median          1130.52 K cm^-3          Pth median, vol-weighted, 300+-25pc slab, neutral cells, +-500pc square
+RAW     off   Pth                   vol   z300_mean            1484.11 K cm^-3          Pth mean, vol-weighted, 300+-25pc slab, neutral cells, +-500pc square
+RAW     off   Pth                   vol   z300_p16             735.146 K cm^-3          Pth p16, vol-weighted, 300+-25pc slab, neutral cells, +-500pc square
+RAW     off   Pth                   vol   z300_p84             2362.31 K cm^-3          Pth p84, vol-weighted, 300+-25pc slab, neutral cells, +-500pc square
+RAW     off   Pth                   mw    z300_median          1825.71 K cm^-3          Pth median, mw-weighted, 300+-25pc slab, neutral cells, +-500pc square
+RAW     off   Pth                   mw    z300_mean            2129.61 K cm^-3          Pth mean, mw-weighted, 300+-25pc slab, neutral cells, +-500pc square
+RAW     off   Pth                   mw    z300_p16             972.78 K cm^-3          Pth p16, mw-weighted, 300+-25pc slab, neutral cells, +-500pc square
+RAW     off   Pth                   mw    z300_p84             3543.58 K cm^-3          Pth p84, mw-weighted, 300+-25pc slab, neutral cells, +-500pc square
+RAW     off   Ptot                  vol   z300_median          3038.71 K cm^-3          Ptot median, vol-weighted, 300+-25pc slab, neutral cells, +-500pc square
+RAW     off   Ptot                  vol   z300_mean            3402.24 K cm^-3          Ptot mean, vol-weighted, 300+-25pc slab, neutral cells, +-500pc square
+RAW     off   Ptot                  vol   z300_p16             2173.12 K cm^-3          Ptot p16, vol-weighted, 300+-25pc slab, neutral cells, +-500pc square
+RAW     off   Ptot                  vol   z300_p84             4474.84 K cm^-3          Ptot p84, vol-weighted, 300+-25pc slab, neutral cells, +-500pc square
+RAW     off   Ptot                  mw    z300_median          3603.24 K cm^-3          Ptot median, mw-weighted, 300+-25pc slab, neutral cells, +-500pc square
+RAW     off   Ptot                  mw    z300_mean            4316.61 K cm^-3          Ptot mean, mw-weighted, 300+-25pc slab, neutral cells, +-500pc square
+RAW     off   Ptot                  mw    z300_p16             2415.9 K cm^-3          Ptot p16, mw-weighted, 300+-25pc slab, neutral cells, +-500pc square
+RAW     off   Ptot                  mw    z300_p84             6239.17 K cm^-3          Ptot p84, mw-weighted, 300+-25pc slab, neutral cells, +-500pc square
+RAW     off   alpha                 vol   z300_median          2.51704 dimensionless    alpha median, vol-weighted, 300+-25pc slab, neutral cells, +-500pc square
+RAW     off   alpha                 vol   z300_mean            2.88877 dimensionless    alpha mean, vol-weighted, 300+-25pc slab, neutral cells, +-500pc square
+RAW     off   alpha                 vol   z300_p16             1.40739 dimensionless    alpha p16, vol-weighted, 300+-25pc slab, neutral cells, +-500pc square
+RAW     off   alpha                 vol   z300_p84             4.33949 dimensionless    alpha p84, vol-weighted, 300+-25pc slab, neutral cells, +-500pc square
+RAW     off   alpha                 mw    z300_median          2.00976 dimensionless    alpha median, mw-weighted, 300+-25pc slab, neutral cells, +-500pc square
+RAW     off   alpha                 mw    z300_mean            2.58887 dimensionless    alpha mean, mw-weighted, 300+-25pc slab, neutral cells, +-500pc square
+RAW     off   alpha                 mw    z300_p16             1.11596 dimensionless    alpha p16, mw-weighted, 300+-25pc slab, neutral cells, +-500pc square
+RAW     off   alpha                 mw    z300_p84             4.03255 dimensionless    alpha p84, mw-weighted, 300+-25pc slab, neutral cells, +-500pc square
+RAW     off   Pth                   vol   absz500_median       1434.83 K cm^-3          Pth median, vol-weighted, bin-average over |z|<=500pc profile, neutral cells
+RAW     off   Pth                   vol   absz500_mean         1791.1 K cm^-3          Pth mean, vol-weighted, bin-average over |z|<=500pc profile, neutral cells
+RAW     off   Pth                   vol   absz500_p16          879.541 K cm^-3          Pth p16, vol-weighted, bin-average over |z|<=500pc profile, neutral cells
+RAW     off   Pth                   vol   absz500_p84          2810.22 K cm^-3          Pth p84, vol-weighted, bin-average over |z|<=500pc profile, neutral cells
+RAW     off   Pth                   mw    absz500_median       1672.47 K cm^-3          Pth median, mw-weighted, bin-average over |z|<=500pc profile, neutral cells
+RAW     off   Pth                   mw    absz500_mean         2114.86 K cm^-3          Pth mean, mw-weighted, bin-average over |z|<=500pc profile, neutral cells
+RAW     off   Pth                   mw    absz500_p16          964.333 K cm^-3          Pth p16, mw-weighted, bin-average over |z|<=500pc profile, neutral cells
+RAW     off   Pth                   mw    absz500_p84          3502.46 K cm^-3          Pth p84, mw-weighted, bin-average over |z|<=500pc profile, neutral cells
+RAW     off   Ptot                  vol   absz500_median       3395.41 K cm^-3          Ptot median, vol-weighted, bin-average over |z|<=500pc profile, neutral cells
+RAW     off   Ptot                  vol   absz500_mean         4497.38 K cm^-3          Ptot mean, vol-weighted, bin-average over |z|<=500pc profile, neutral cells
+RAW     off   Ptot                  vol   absz500_p16          2380.09 K cm^-3          Ptot p16, vol-weighted, bin-average over |z|<=500pc profile, neutral cells
+RAW     off   Ptot                  vol   absz500_p84          6186.57 K cm^-3          Ptot p84, vol-weighted, bin-average over |z|<=500pc profile, neutral cells
+RAW     off   Ptot                  mw    absz500_median       4796.02 K cm^-3          Ptot median, mw-weighted, bin-average over |z|<=500pc profile, neutral cells
+RAW     off   Ptot                  mw    absz500_mean         6923.96 K cm^-3          Ptot mean, mw-weighted, bin-average over |z|<=500pc profile, neutral cells
+RAW     off   Ptot                  mw    absz500_p16          2802.67 K cm^-3          Ptot p16, mw-weighted, bin-average over |z|<=500pc profile, neutral cells
+RAW     off   Ptot                  mw    absz500_p84          11095.7 K cm^-3          Ptot p84, mw-weighted, bin-average over |z|<=500pc profile, neutral cells
+RAW     off   alpha                 vol   absz500_median       2.45422 dimensionless    alpha median, vol-weighted, bin-average over |z|<=500pc profile, neutral cells
+RAW     off   alpha                 vol   absz500_mean         3.12754 dimensionless    alpha mean, vol-weighted, bin-average over |z|<=500pc profile, neutral cells
+RAW     off   alpha                 vol   absz500_p16          1.35002 dimensionless    alpha p16, vol-weighted, bin-average over |z|<=500pc profile, neutral cells
+RAW     off   alpha                 vol   absz500_p84          4.51124 dimensionless    alpha p84, vol-weighted, bin-average over |z|<=500pc profile, neutral cells
+RAW     off   alpha                 mw    absz500_median       2.81759 dimensionless    alpha median, mw-weighted, bin-average over |z|<=500pc profile, neutral cells
+RAW     off   alpha                 mw    absz500_mean         4.47766 dimensionless    alpha mean, mw-weighted, bin-average over |z|<=500pc profile, neutral cells
+RAW     off   alpha                 mw    absz500_p16          1.21397 dimensionless    alpha p16, mw-weighted, bin-average over |z|<=500pc profile, neutral cells
+RAW     off   alpha                 mw    absz500_p84          7.48549 dimensionless    alpha p84, mw-weighted, bin-average over |z|<=500pc profile, neutral cells
+RAW     off   phase_fraction_CNM    vol   full_volume          0.00387923 dimensionless    Volume fraction of CNM, full +-500pc square x +-750pc column
+RAW     off   phase_fraction_CNM    mw    full_volume          0.218214 dimensionless    Mass fraction of CNM, full +-500pc square x +-750pc column
+RAW     off   phase_fraction_UNM    vol   full_volume          0.0246618 dimensionless    Volume fraction of UNM, full +-500pc square x +-750pc column
+RAW     off   phase_fraction_UNM    mw    full_volume          0.331367 dimensionless    Mass fraction of UNM, full +-500pc square x +-750pc column
+RAW     off   phase_fraction_WNM    vol   full_volume          0.143321 dimensionless    Volume fraction of WNM, full +-500pc square x +-750pc column
+RAW     off   phase_fraction_WNM    mw    full_volume          0.271384 dimensionless    Mass fraction of WNM, full +-500pc square x +-750pc column
+RAW     off   phase_fraction_HIM    vol   full_volume          0.828138 dimensionless    Volume fraction of HIM, full +-500pc square x +-750pc column
+RAW     off   phase_fraction_HIM    mw    full_volume          0.179035 dimensionless    Mass fraction of HIM, full +-500pc square x +-750pc column
+RAW     off   Mach                  vol   midplane             2.61243 dimensionless    Mach number at z=0, from volume-weighted mean alpha, neutral cells
+RAW     off   sigma_eff             vol   midplane             15.3004 km/s             Effective turbulent velocity dispersion at z=0, neutral cells, total (all phases)
+RAW     on    Pth                   vol   z0_median            2612.45 K cm^-3          Pth median, vol-weighted, 0+-25pc slab, neutral cells, +-500pc square
+RAW     on    Pth                   vol   z0_mean              3070.54 K cm^-3          Pth mean, vol-weighted, 0+-25pc slab, neutral cells, +-500pc square
+RAW     on    Pth                   vol   z0_p16               1319.85 K cm^-3          Pth p16, vol-weighted, 0+-25pc slab, neutral cells, +-500pc square
+RAW     on    Pth                   vol   z0_p84               4816.51 K cm^-3          Pth p84, vol-weighted, 0+-25pc slab, neutral cells, +-500pc square
+RAW     on    Pth                   mw    z0_median            2184 K cm^-3          Pth median, mw-weighted, 0+-25pc slab, neutral cells, +-500pc square
+RAW     on    Pth                   mw    z0_mean              2825.71 K cm^-3          Pth mean, mw-weighted, 0+-25pc slab, neutral cells, +-500pc square
+RAW     on    Pth                   mw    z0_p16               1095.35 K cm^-3          Pth p16, mw-weighted, 0+-25pc slab, neutral cells, +-500pc square
+RAW     on    Pth                   mw    z0_p84               4654.83 K cm^-3          Pth p84, mw-weighted, 0+-25pc slab, neutral cells, +-500pc square
+RAW     on    Ptot                  vol   z0_median            6912.63 K cm^-3          Ptot median, vol-weighted, 0+-25pc slab, neutral cells, +-500pc square
+RAW     on    Ptot                  vol   z0_mean              11482.4 K cm^-3          Ptot mean, vol-weighted, 0+-25pc slab, neutral cells, +-500pc square
+RAW     on    Ptot                  vol   z0_p16               4054.52 K cm^-3          Ptot p16, vol-weighted, 0+-25pc slab, neutral cells, +-500pc square
+RAW     on    Ptot                  vol   z0_p84               16373.7 K cm^-3          Ptot p84, vol-weighted, 0+-25pc slab, neutral cells, +-500pc square
+RAW     on    Ptot                  mw    z0_median            11252.7 K cm^-3          Ptot median, mw-weighted, 0+-25pc slab, neutral cells, +-500pc square
+RAW     on    Ptot                  mw    z0_mean              19654.1 K cm^-3          Ptot mean, mw-weighted, 0+-25pc slab, neutral cells, +-500pc square
+RAW     on    Ptot                  mw    z0_p16               5519.69 K cm^-3          Ptot p16, mw-weighted, 0+-25pc slab, neutral cells, +-500pc square
+RAW     on    Ptot                  mw    z0_p84               29604 K cm^-3          Ptot p84, mw-weighted, 0+-25pc slab, neutral cells, +-500pc square
+RAW     on    alpha                 vol   z0_median            2.75501 dimensionless    alpha median, vol-weighted, 0+-25pc slab, neutral cells, +-500pc square
+RAW     on    alpha                 vol   z0_mean              5.43698 dimensionless    alpha mean, vol-weighted, 0+-25pc slab, neutral cells, +-500pc square
+RAW     on    alpha                 vol   z0_p16               1.21673 dimensionless    alpha p16, vol-weighted, 0+-25pc slab, neutral cells, +-500pc square
+RAW     on    alpha                 vol   z0_p84               8.09971 dimensionless    alpha p84, vol-weighted, 0+-25pc slab, neutral cells, +-500pc square
+RAW     on    alpha                 mw    z0_median            5.8904 dimensionless    alpha median, mw-weighted, 0+-25pc slab, neutral cells, +-500pc square
+RAW     on    alpha                 mw    z0_mean              10.8405 dimensionless    alpha mean, mw-weighted, 0+-25pc slab, neutral cells, +-500pc square
+RAW     on    alpha                 mw    z0_p16               1.58586 dimensionless    alpha p16, mw-weighted, 0+-25pc slab, neutral cells, +-500pc square
+RAW     on    alpha                 mw    z0_p84               16.9046 dimensionless    alpha p84, mw-weighted, 0+-25pc slab, neutral cells, +-500pc square
+RAW     on    Pth                   vol   z150_median          1443.99 K cm^-3          Pth median, vol-weighted, 150+-25pc slab, neutral cells, +-500pc square
+RAW     on    Pth                   vol   z150_mean            1800.44 K cm^-3          Pth mean, vol-weighted, 150+-25pc slab, neutral cells, +-500pc square
+RAW     on    Pth                   vol   z150_p16             875.932 K cm^-3          Pth p16, vol-weighted, 150+-25pc slab, neutral cells, +-500pc square
+RAW     on    Pth                   vol   z150_p84             2937.79 K cm^-3          Pth p84, vol-weighted, 150+-25pc slab, neutral cells, +-500pc square
+RAW     on    Pth                   mw    z150_median          1401.16 K cm^-3          Pth median, mw-weighted, 150+-25pc slab, neutral cells, +-500pc square
+RAW     on    Pth                   mw    z150_mean            1916.3 K cm^-3          Pth mean, mw-weighted, 150+-25pc slab, neutral cells, +-500pc square
+RAW     on    Pth                   mw    z150_p16             880.641 K cm^-3          Pth p16, mw-weighted, 150+-25pc slab, neutral cells, +-500pc square
+RAW     on    Pth                   mw    z150_p84             3325.12 K cm^-3          Pth p84, mw-weighted, 150+-25pc slab, neutral cells, +-500pc square
+RAW     on    Ptot                  vol   z150_median          4987.63 K cm^-3          Ptot median, vol-weighted, 150+-25pc slab, neutral cells, +-500pc square
+RAW     on    Ptot                  vol   z150_mean            7060.86 K cm^-3          Ptot mean, vol-weighted, 150+-25pc slab, neutral cells, +-500pc square
+RAW     on    Ptot                  vol   z150_p16             3424.47 K cm^-3          Ptot p16, vol-weighted, 150+-25pc slab, neutral cells, +-500pc square
+RAW     on    Ptot                  vol   z150_p84             8461.03 K cm^-3          Ptot p84, vol-weighted, 150+-25pc slab, neutral cells, +-500pc square
+RAW     on    Ptot                  mw    z150_median          8100.78 K cm^-3          Ptot median, mw-weighted, 150+-25pc slab, neutral cells, +-500pc square
+RAW     on    Ptot                  mw    z150_mean            24141.7 K cm^-3          Ptot mean, mw-weighted, 150+-25pc slab, neutral cells, +-500pc square
+RAW     on    Ptot                  mw    z150_p16             4246.23 K cm^-3          Ptot p16, mw-weighted, 150+-25pc slab, neutral cells, +-500pc square
+RAW     on    Ptot                  mw    z150_p84             37794 K cm^-3          Ptot p84, mw-weighted, 150+-25pc slab, neutral cells, +-500pc square
+RAW     on    alpha                 vol   z150_median          3.39059 dimensionless    alpha median, vol-weighted, 150+-25pc slab, neutral cells, +-500pc square
+RAW     on    alpha                 vol   z150_mean            5.38524 dimensionless    alpha mean, vol-weighted, 150+-25pc slab, neutral cells, +-500pc square
+RAW     on    alpha                 vol   z150_p16             1.78016 dimensionless    alpha p16, vol-weighted, 150+-25pc slab, neutral cells, +-500pc square
+RAW     on    alpha                 vol   z150_p84             6.61021 dimensionless    alpha p84, vol-weighted, 150+-25pc slab, neutral cells, +-500pc square
+RAW     on    alpha                 mw    z150_median          4.76183 dimensionless    alpha median, mw-weighted, 150+-25pc slab, neutral cells, +-500pc square
+RAW     on    alpha                 mw    z150_mean            22.3591 dimensionless    alpha mean, mw-weighted, 150+-25pc slab, neutral cells, +-500pc square
+RAW     on    alpha                 mw    z150_p16             1.70224 dimensionless    alpha p16, mw-weighted, 150+-25pc slab, neutral cells, +-500pc square
+RAW     on    alpha                 mw    z150_p84             42.3629 dimensionless    alpha p84, mw-weighted, 150+-25pc slab, neutral cells, +-500pc square
+RAW     on    Pth                   vol   z300_median          1130.52 K cm^-3          Pth median, vol-weighted, 300+-25pc slab, neutral cells, +-500pc square
+RAW     on    Pth                   vol   z300_mean            1484.11 K cm^-3          Pth mean, vol-weighted, 300+-25pc slab, neutral cells, +-500pc square
+RAW     on    Pth                   vol   z300_p16             735.146 K cm^-3          Pth p16, vol-weighted, 300+-25pc slab, neutral cells, +-500pc square
+RAW     on    Pth                   vol   z300_p84             2362.31 K cm^-3          Pth p84, vol-weighted, 300+-25pc slab, neutral cells, +-500pc square
+RAW     on    Pth                   mw    z300_median          1825.71 K cm^-3          Pth median, mw-weighted, 300+-25pc slab, neutral cells, +-500pc square
+RAW     on    Pth                   mw    z300_mean            2129.61 K cm^-3          Pth mean, mw-weighted, 300+-25pc slab, neutral cells, +-500pc square
+RAW     on    Pth                   mw    z300_p16             972.78 K cm^-3          Pth p16, mw-weighted, 300+-25pc slab, neutral cells, +-500pc square
+RAW     on    Pth                   mw    z300_p84             3543.58 K cm^-3          Pth p84, mw-weighted, 300+-25pc slab, neutral cells, +-500pc square
+RAW     on    Ptot                  vol   z300_median          3639.7 K cm^-3          Ptot median, vol-weighted, 300+-25pc slab, neutral cells, +-500pc square
+RAW     on    Ptot                  vol   z300_mean            4192.89 K cm^-3          Ptot mean, vol-weighted, 300+-25pc slab, neutral cells, +-500pc square
+RAW     on    Ptot                  vol   z300_p16             2629.05 K cm^-3          Ptot p16, vol-weighted, 300+-25pc slab, neutral cells, +-500pc square
+RAW     on    Ptot                  vol   z300_p84             5555.49 K cm^-3          Ptot p84, vol-weighted, 300+-25pc slab, neutral cells, +-500pc square
+RAW     on    Ptot                  mw    z300_median          4375.44 K cm^-3          Ptot median, mw-weighted, 300+-25pc slab, neutral cells, +-500pc square
+RAW     on    Ptot                  mw    z300_mean            5269.62 K cm^-3          Ptot mean, mw-weighted, 300+-25pc slab, neutral cells, +-500pc square
+RAW     on    Ptot                  mw    z300_p16             2901.41 K cm^-3          Ptot p16, mw-weighted, 300+-25pc slab, neutral cells, +-500pc square
+RAW     on    Ptot                  mw    z300_p84             7682.94 K cm^-3          Ptot p84, mw-weighted, 300+-25pc slab, neutral cells, +-500pc square
+RAW     on    alpha                 vol   z300_median          3.04668 dimensionless    alpha median, vol-weighted, 300+-25pc slab, neutral cells, +-500pc square
+RAW     on    alpha                 vol   z300_mean            3.57532 dimensionless    alpha mean, vol-weighted, 300+-25pc slab, neutral cells, +-500pc square
+RAW     on    alpha                 vol   z300_p16             1.70169 dimensionless    alpha p16, vol-weighted, 300+-25pc slab, neutral cells, +-500pc square
+RAW     on    alpha                 vol   z300_p84             5.30254 dimensionless    alpha p84, vol-weighted, 300+-25pc slab, neutral cells, +-500pc square
+RAW     on    alpha                 mw    z300_median          2.43328 dimensionless    alpha median, mw-weighted, 300+-25pc slab, neutral cells, +-500pc square
+RAW     on    alpha                 mw    z300_mean            3.18584 dimensionless    alpha mean, mw-weighted, 300+-25pc slab, neutral cells, +-500pc square
+RAW     on    alpha                 mw    z300_p16             1.34136 dimensionless    alpha p16, mw-weighted, 300+-25pc slab, neutral cells, +-500pc square
+RAW     on    alpha                 mw    z300_p84             4.90236 dimensionless    alpha p84, mw-weighted, 300+-25pc slab, neutral cells, +-500pc square
+RAW     on    Pth                   vol   absz500_median       1434.83 K cm^-3          Pth median, vol-weighted, bin-average over |z|<=500pc profile, neutral cells
+RAW     on    Pth                   vol   absz500_mean         1791.1 K cm^-3          Pth mean, vol-weighted, bin-average over |z|<=500pc profile, neutral cells
+RAW     on    Pth                   vol   absz500_p16          879.541 K cm^-3          Pth p16, vol-weighted, bin-average over |z|<=500pc profile, neutral cells
+RAW     on    Pth                   vol   absz500_p84          2810.22 K cm^-3          Pth p84, vol-weighted, bin-average over |z|<=500pc profile, neutral cells
+RAW     on    Pth                   mw    absz500_median       1672.47 K cm^-3          Pth median, mw-weighted, bin-average over |z|<=500pc profile, neutral cells
+RAW     on    Pth                   mw    absz500_mean         2114.86 K cm^-3          Pth mean, mw-weighted, bin-average over |z|<=500pc profile, neutral cells
+RAW     on    Pth                   mw    absz500_p16          964.333 K cm^-3          Pth p16, mw-weighted, bin-average over |z|<=500pc profile, neutral cells
+RAW     on    Pth                   mw    absz500_p84          3502.46 K cm^-3          Pth p84, mw-weighted, bin-average over |z|<=500pc profile, neutral cells
+RAW     on    Ptot                  vol   absz500_median       4122.76 K cm^-3          Ptot median, vol-weighted, bin-average over |z|<=500pc profile, neutral cells
+RAW     on    Ptot                  vol   absz500_mean         6021.36 K cm^-3          Ptot mean, vol-weighted, bin-average over |z|<=500pc profile, neutral cells
+RAW     on    Ptot                  vol   absz500_p16          2770.68 K cm^-3          Ptot p16, vol-weighted, bin-average over |z|<=500pc profile, neutral cells
+RAW     on    Ptot                  vol   absz500_p84          8211.94 K cm^-3          Ptot p84, vol-weighted, bin-average over |z|<=500pc profile, neutral cells
+RAW     on    Ptot                  mw    absz500_median       6698.18 K cm^-3          Ptot median, mw-weighted, bin-average over |z|<=500pc profile, neutral cells
+RAW     on    Ptot                  mw    absz500_mean         11953.4 K cm^-3          Ptot mean, mw-weighted, bin-average over |z|<=500pc profile, neutral cells
+RAW     on    Ptot                  mw    absz500_p16          3430.67 K cm^-3          Ptot p16, mw-weighted, bin-average over |z|<=500pc profile, neutral cells
+RAW     on    Ptot                  mw    absz500_p84          18723.1 K cm^-3          Ptot p84, mw-weighted, bin-average over |z|<=500pc profile, neutral cells
+RAW     on    alpha                 vol   absz500_median       2.91219 dimensionless    alpha median, vol-weighted, bin-average over |z|<=500pc profile, neutral cells
+RAW     on    alpha                 vol   absz500_mean         4.06688 dimensionless    alpha mean, vol-weighted, bin-average over |z|<=500pc profile, neutral cells
+RAW     on    alpha                 vol   absz500_p16          1.59347 dimensionless    alpha p16, vol-weighted, bin-average over |z|<=500pc profile, neutral cells
+RAW     on    alpha                 vol   absz500_p84          5.64285 dimensionless    alpha p84, vol-weighted, bin-average over |z|<=500pc profile, neutral cells
+RAW     on    alpha                 mw    absz500_median       3.78167 dimensionless    alpha median, mw-weighted, bin-average over |z|<=500pc profile, neutral cells
+RAW     on    alpha                 mw    absz500_mean         7.79774 dimensionless    alpha mean, mw-weighted, bin-average over |z|<=500pc profile, neutral cells
+RAW     on    alpha                 mw    absz500_p16          1.47369 dimensionless    alpha p16, mw-weighted, bin-average over |z|<=500pc profile, neutral cells
+RAW     on    alpha                 mw    absz500_p84          12.67 dimensionless    alpha p84, mw-weighted, bin-average over |z|<=500pc profile, neutral cells
+RAW     on    phase_fraction_CNM    vol   full_volume          0.00387923 dimensionless    Volume fraction of CNM, full +-500pc square x +-750pc column
+RAW     on    phase_fraction_CNM    mw    full_volume          0.218214 dimensionless    Mass fraction of CNM, full +-500pc square x +-750pc column
+RAW     on    phase_fraction_UNM    vol   full_volume          0.0246618 dimensionless    Volume fraction of UNM, full +-500pc square x +-750pc column
+RAW     on    phase_fraction_UNM    mw    full_volume          0.331367 dimensionless    Mass fraction of UNM, full +-500pc square x +-750pc column
+RAW     on    phase_fraction_WNM    vol   full_volume          0.143321 dimensionless    Volume fraction of WNM, full +-500pc square x +-750pc column
+RAW     on    phase_fraction_WNM    mw    full_volume          0.271384 dimensionless    Mass fraction of WNM, full +-500pc square x +-750pc column
+RAW     on    phase_fraction_HIM    vol   full_volume          0.828138 dimensionless    Volume fraction of HIM, full +-500pc square x +-750pc column
+RAW     on    phase_fraction_HIM    mw    full_volume          0.179035 dimensionless    Mass fraction of HIM, full +-500pc square x +-750pc column
+RAW     on    Mach                  vol   midplane             3.72242 dimensionless    Mach number at z=0, from volume-weighted mean alpha, neutral cells
+RAW     on    sigma_eff             vol   midplane             21.8013 km/s             Effective turbulent velocity dispersion at z=0, neutral cells, total (all phases)
+HIM_A   n/a   Sigma_gas             vol   median               3.6043 Msun/pc^2        Full-column trapezoid of variant density, +-500pc square footprint, unweighted median
+HIM_A   n/a   Sigma_gas             vol   mean                 5.73517 Msun/pc^2        Full-column trapezoid of variant density, +-500pc square footprint, arithmetic mean
+HIM_A   off   Pth                   vol   z0_median            2612.45 K cm^-3          Pth median, vol-weighted, 0+-25pc slab, neutral cells, +-500pc square
+HIM_A   off   Pth                   vol   z0_mean              3070.54 K cm^-3          Pth mean, vol-weighted, 0+-25pc slab, neutral cells, +-500pc square
+HIM_A   off   Pth                   vol   z0_p16               1319.85 K cm^-3          Pth p16, vol-weighted, 0+-25pc slab, neutral cells, +-500pc square
+HIM_A   off   Pth                   vol   z0_p84               4816.51 K cm^-3          Pth p84, vol-weighted, 0+-25pc slab, neutral cells, +-500pc square
+HIM_A   off   Pth                   mw    z0_median            2184 K cm^-3          Pth median, mw-weighted, 0+-25pc slab, neutral cells, +-500pc square
+HIM_A   off   Pth                   mw    z0_mean              2825.71 K cm^-3          Pth mean, mw-weighted, 0+-25pc slab, neutral cells, +-500pc square
+HIM_A   off   Pth                   mw    z0_p16               1095.35 K cm^-3          Pth p16, mw-weighted, 0+-25pc slab, neutral cells, +-500pc square
+HIM_A   off   Pth                   mw    z0_p84               4654.83 K cm^-3          Pth p84, mw-weighted, 0+-25pc slab, neutral cells, +-500pc square
+HIM_A   off   Ptot                  vol   z0_median            2697.54 K cm^-3          Ptot median, vol-weighted, 0+-25pc slab, neutral cells, +-500pc square
+HIM_A   off   Ptot                  vol   z0_mean              4680.43 K cm^-3          Ptot mean, vol-weighted, 0+-25pc slab, neutral cells, +-500pc square
+HIM_A   off   Ptot                  vol   z0_p16               789.944 K cm^-3          Ptot p16, vol-weighted, 0+-25pc slab, neutral cells, +-500pc square
+HIM_A   off   Ptot                  vol   z0_p84               7817.64 K cm^-3          Ptot p84, vol-weighted, 0+-25pc slab, neutral cells, +-500pc square
+HIM_A   off   Ptot                  mw    z0_median            3911.53 K cm^-3          Ptot median, mw-weighted, 0+-25pc slab, neutral cells, +-500pc square
+HIM_A   off   Ptot                  mw    z0_mean              6032.43 K cm^-3          Ptot mean, mw-weighted, 0+-25pc slab, neutral cells, +-500pc square
+HIM_A   off   Ptot                  mw    z0_p16               1469.25 K cm^-3          Ptot p16, mw-weighted, 0+-25pc slab, neutral cells, +-500pc square
+HIM_A   off   Ptot                  mw    z0_p84               9668.75 K cm^-3          Ptot p84, mw-weighted, 0+-25pc slab, neutral cells, +-500pc square
+HIM_A   off   alpha                 vol   z0_median            1.00679 dimensionless    alpha median, vol-weighted, 0+-25pc slab, neutral cells, +-500pc square
+HIM_A   off   alpha                 vol   z0_mean              2.19406 dimensionless    alpha mean, vol-weighted, 0+-25pc slab, neutral cells, +-500pc square
+HIM_A   off   alpha                 vol   z0_p16               0.248434 dimensionless    alpha p16, vol-weighted, 0+-25pc slab, neutral cells, +-500pc square
+HIM_A   off   alpha                 vol   z0_p84               3.62574 dimensionless    alpha p84, vol-weighted, 0+-25pc slab, neutral cells, +-500pc square
+HIM_A   off   alpha                 mw    z0_median            1.84239 dimensionless    alpha median, mw-weighted, 0+-25pc slab, neutral cells, +-500pc square
+HIM_A   off   alpha                 mw    z0_mean              3.44835 dimensionless    alpha mean, mw-weighted, 0+-25pc slab, neutral cells, +-500pc square
+HIM_A   off   alpha                 mw    z0_p16               0.464673 dimensionless    alpha p16, mw-weighted, 0+-25pc slab, neutral cells, +-500pc square
+HIM_A   off   alpha                 mw    z0_p84               5.45641 dimensionless    alpha p84, mw-weighted, 0+-25pc slab, neutral cells, +-500pc square
+HIM_A   off   Pth                   vol   z150_median          1443.99 K cm^-3          Pth median, vol-weighted, 150+-25pc slab, neutral cells, +-500pc square
+HIM_A   off   Pth                   vol   z150_mean            1800.44 K cm^-3          Pth mean, vol-weighted, 150+-25pc slab, neutral cells, +-500pc square
+HIM_A   off   Pth                   vol   z150_p16             875.932 K cm^-3          Pth p16, vol-weighted, 150+-25pc slab, neutral cells, +-500pc square
+HIM_A   off   Pth                   vol   z150_p84             2937.79 K cm^-3          Pth p84, vol-weighted, 150+-25pc slab, neutral cells, +-500pc square
+HIM_A   off   Pth                   mw    z150_median          1401.16 K cm^-3          Pth median, mw-weighted, 150+-25pc slab, neutral cells, +-500pc square
+HIM_A   off   Pth                   mw    z150_mean            1916.3 K cm^-3          Pth mean, mw-weighted, 150+-25pc slab, neutral cells, +-500pc square
+HIM_A   off   Pth                   mw    z150_p16             880.641 K cm^-3          Pth p16, mw-weighted, 150+-25pc slab, neutral cells, +-500pc square
+HIM_A   off   Pth                   mw    z150_p84             3325.12 K cm^-3          Pth p84, mw-weighted, 150+-25pc slab, neutral cells, +-500pc square
+HIM_A   off   Ptot                  vol   z150_median          1612.49 K cm^-3          Ptot median, vol-weighted, 150+-25pc slab, neutral cells, +-500pc square
+HIM_A   off   Ptot                  vol   z150_mean            2709.83 K cm^-3          Ptot mean, vol-weighted, 150+-25pc slab, neutral cells, +-500pc square
+HIM_A   off   Ptot                  vol   z150_p16             453.027 K cm^-3          Ptot p16, vol-weighted, 150+-25pc slab, neutral cells, +-500pc square
+HIM_A   off   Ptot                  vol   z150_p84             4275.15 K cm^-3          Ptot p84, vol-weighted, 150+-25pc slab, neutral cells, +-500pc square
+HIM_A   off   Ptot                  mw    z150_median          3711.53 K cm^-3          Ptot median, mw-weighted, 150+-25pc slab, neutral cells, +-500pc square
+HIM_A   off   Ptot                  mw    z150_mean            8306.42 K cm^-3          Ptot mean, mw-weighted, 150+-25pc slab, neutral cells, +-500pc square
+HIM_A   off   Ptot                  mw    z150_p16             1042.92 K cm^-3          Ptot p16, mw-weighted, 150+-25pc slab, neutral cells, +-500pc square
+HIM_A   off   Ptot                  mw    z150_p84             14757 K cm^-3          Ptot p84, mw-weighted, 150+-25pc slab, neutral cells, +-500pc square
+HIM_A   off   alpha                 vol   z150_median          0.95652 dimensionless    alpha median, vol-weighted, 150+-25pc slab, neutral cells, +-500pc square
+HIM_A   off   alpha                 vol   z150_mean            1.9895 dimensionless    alpha mean, vol-weighted, 150+-25pc slab, neutral cells, +-500pc square
+HIM_A   off   alpha                 vol   z150_p16             0.276577 dimensionless    alpha p16, vol-weighted, 150+-25pc slab, neutral cells, +-500pc square
+HIM_A   off   alpha                 vol   z150_p84             2.96251 dimensionless    alpha p84, vol-weighted, 150+-25pc slab, neutral cells, +-500pc square
+HIM_A   off   alpha                 mw    z150_median          2.02016 dimensionless    alpha median, mw-weighted, 150+-25pc slab, neutral cells, +-500pc square
+HIM_A   off   alpha                 mw    z150_mean            7.55028 dimensionless    alpha mean, mw-weighted, 150+-25pc slab, neutral cells, +-500pc square
+HIM_A   off   alpha                 mw    z150_p16             0.41152 dimensionless    alpha p16, mw-weighted, 150+-25pc slab, neutral cells, +-500pc square
+HIM_A   off   alpha                 mw    z150_p84             15.4811 dimensionless    alpha p84, mw-weighted, 150+-25pc slab, neutral cells, +-500pc square
+HIM_A   off   Pth                   vol   z300_median          1130.52 K cm^-3          Pth median, vol-weighted, 300+-25pc slab, neutral cells, +-500pc square
+HIM_A   off   Pth                   vol   z300_mean            1484.11 K cm^-3          Pth mean, vol-weighted, 300+-25pc slab, neutral cells, +-500pc square
+HIM_A   off   Pth                   vol   z300_p16             735.146 K cm^-3          Pth p16, vol-weighted, 300+-25pc slab, neutral cells, +-500pc square
+HIM_A   off   Pth                   vol   z300_p84             2362.31 K cm^-3          Pth p84, vol-weighted, 300+-25pc slab, neutral cells, +-500pc square
+HIM_A   off   Pth                   mw    z300_median          1825.71 K cm^-3          Pth median, mw-weighted, 300+-25pc slab, neutral cells, +-500pc square
+HIM_A   off   Pth                   mw    z300_mean            2129.61 K cm^-3          Pth mean, mw-weighted, 300+-25pc slab, neutral cells, +-500pc square
+HIM_A   off   Pth                   mw    z300_p16             972.78 K cm^-3          Pth p16, mw-weighted, 300+-25pc slab, neutral cells, +-500pc square
+HIM_A   off   Pth                   mw    z300_p84             3543.58 K cm^-3          Pth p84, mw-weighted, 300+-25pc slab, neutral cells, +-500pc square
+HIM_A   off   Ptot                  vol   z300_median          1124.63 K cm^-3          Ptot median, vol-weighted, 300+-25pc slab, neutral cells, +-500pc square
+HIM_A   off   Ptot                  vol   z300_mean            1606.6 K cm^-3          Ptot mean, vol-weighted, 300+-25pc slab, neutral cells, +-500pc square
+HIM_A   off   Ptot                  vol   z300_p16             308.764 K cm^-3          Ptot p16, vol-weighted, 300+-25pc slab, neutral cells, +-500pc square
+HIM_A   off   Ptot                  vol   z300_p84             2865.89 K cm^-3          Ptot p84, vol-weighted, 300+-25pc slab, neutral cells, +-500pc square
+HIM_A   off   Ptot                  mw    z300_median          1896.3 K cm^-3          Ptot median, mw-weighted, 300+-25pc slab, neutral cells, +-500pc square
+HIM_A   off   Ptot                  mw    z300_mean            2570.99 K cm^-3          Ptot mean, mw-weighted, 300+-25pc slab, neutral cells, +-500pc square
+HIM_A   off   Ptot                  mw    z300_p16             537.36 K cm^-3          Ptot p16, mw-weighted, 300+-25pc slab, neutral cells, +-500pc square
+HIM_A   off   Ptot                  mw    z300_p84             4575.77 K cm^-3          Ptot p84, mw-weighted, 300+-25pc slab, neutral cells, +-500pc square
+HIM_A   off   alpha                 vol   z300_median          0.819917 dimensionless    alpha median, vol-weighted, 300+-25pc slab, neutral cells, +-500pc square
+HIM_A   off   alpha                 vol   z300_mean            1.23803 dimensionless    alpha mean, vol-weighted, 300+-25pc slab, neutral cells, +-500pc square
+HIM_A   off   alpha                 vol   z300_p16             0.266328 dimensionless    alpha p16, vol-weighted, 300+-25pc slab, neutral cells, +-500pc square
+HIM_A   off   alpha                 vol   z300_p84             2.18361 dimensionless    alpha p84, vol-weighted, 300+-25pc slab, neutral cells, +-500pc square
+HIM_A   off   alpha                 mw    z300_median          0.893172 dimensionless    alpha median, mw-weighted, 300+-25pc slab, neutral cells, +-500pc square
+HIM_A   off   alpha                 mw    z300_mean            1.44242 dimensionless    alpha mean, mw-weighted, 300+-25pc slab, neutral cells, +-500pc square
+HIM_A   off   alpha                 mw    z300_p16             0.311958 dimensionless    alpha p16, mw-weighted, 300+-25pc slab, neutral cells, +-500pc square
+HIM_A   off   alpha                 mw    z300_p84             2.46164 dimensionless    alpha p84, mw-weighted, 300+-25pc slab, neutral cells, +-500pc square
+HIM_A   off   Pth                   vol   absz500_median       1434.83 K cm^-3          Pth median, vol-weighted, bin-average over |z|<=500pc profile, neutral cells
+HIM_A   off   Pth                   vol   absz500_mean         1791.1 K cm^-3          Pth mean, vol-weighted, bin-average over |z|<=500pc profile, neutral cells
+HIM_A   off   Pth                   vol   absz500_p16          879.541 K cm^-3          Pth p16, vol-weighted, bin-average over |z|<=500pc profile, neutral cells
+HIM_A   off   Pth                   vol   absz500_p84          2810.22 K cm^-3          Pth p84, vol-weighted, bin-average over |z|<=500pc profile, neutral cells
+HIM_A   off   Pth                   mw    absz500_median       1672.47 K cm^-3          Pth median, mw-weighted, bin-average over |z|<=500pc profile, neutral cells
+HIM_A   off   Pth                   mw    absz500_mean         2114.86 K cm^-3          Pth mean, mw-weighted, bin-average over |z|<=500pc profile, neutral cells
+HIM_A   off   Pth                   mw    absz500_p16          964.333 K cm^-3          Pth p16, mw-weighted, bin-average over |z|<=500pc profile, neutral cells
+HIM_A   off   Pth                   mw    absz500_p84          3502.46 K cm^-3          Pth p84, mw-weighted, bin-average over |z|<=500pc profile, neutral cells
+HIM_A   off   Ptot                  vol   absz500_median       1294.85 K cm^-3          Ptot median, vol-weighted, bin-average over |z|<=500pc profile, neutral cells
+HIM_A   off   Ptot                  vol   absz500_mean         2545.75 K cm^-3          Ptot mean, vol-weighted, bin-average over |z|<=500pc profile, neutral cells
+HIM_A   off   Ptot                  vol   absz500_p16          372.014 K cm^-3          Ptot p16, vol-weighted, bin-average over |z|<=500pc profile, neutral cells
+HIM_A   off   Ptot                  vol   absz500_p84          4331.78 K cm^-3          Ptot p84, vol-weighted, bin-average over |z|<=500pc profile, neutral cells
+HIM_A   off   Ptot                  mw    absz500_median       2908.48 K cm^-3          Ptot median, mw-weighted, bin-average over |z|<=500pc profile, neutral cells
+HIM_A   off   Ptot                  mw    absz500_mean         5063.95 K cm^-3          Ptot mean, mw-weighted, bin-average over |z|<=500pc profile, neutral cells
+HIM_A   off   Ptot                  mw    absz500_p16          797.737 K cm^-3          Ptot p16, mw-weighted, bin-average over |z|<=500pc profile, neutral cells
+HIM_A   off   Ptot                  mw    absz500_p84          9372.02 K cm^-3          Ptot p84, mw-weighted, bin-average over |z|<=500pc profile, neutral cells
+HIM_A   off   alpha                 vol   absz500_median       0.75119 dimensionless    alpha median, vol-weighted, bin-average over |z|<=500pc profile, neutral cells
+HIM_A   off   alpha                 vol   absz500_mean         1.58636 dimensionless    alpha mean, vol-weighted, bin-average over |z|<=500pc profile, neutral cells
+HIM_A   off   alpha                 vol   absz500_p16          0.247808 dimensionless    alpha p16, vol-weighted, bin-average over |z|<=500pc profile, neutral cells
+HIM_A   off   alpha                 vol   absz500_p84          2.63 dimensionless    alpha p84, vol-weighted, bin-average over |z|<=500pc profile, neutral cells
+HIM_A   off   alpha                 mw    absz500_median       1.46556 dimensionless    alpha median, mw-weighted, bin-average over |z|<=500pc profile, neutral cells
+HIM_A   off   alpha                 mw    absz500_mean         3.22466 dimensionless    alpha mean, mw-weighted, bin-average over |z|<=500pc profile, neutral cells
+HIM_A   off   alpha                 mw    absz500_p16          0.360496 dimensionless    alpha p16, mw-weighted, bin-average over |z|<=500pc profile, neutral cells
+HIM_A   off   alpha                 mw    absz500_p84          5.93276 dimensionless    alpha p84, mw-weighted, bin-average over |z|<=500pc profile, neutral cells
+HIM_A   off   phase_fraction_CNM    vol   full_volume          0.00387923 dimensionless    Volume fraction of CNM, full +-500pc square x +-750pc column
+HIM_A   off   phase_fraction_CNM    mw    full_volume          0.262881 dimensionless    Mass fraction of CNM, full +-500pc square x +-750pc column
+HIM_A   off   phase_fraction_UNM    vol   full_volume          0.0246618 dimensionless    Volume fraction of UNM, full +-500pc square x +-750pc column
+HIM_A   off   phase_fraction_UNM    mw    full_volume          0.399196 dimensionless    Mass fraction of UNM, full +-500pc square x +-750pc column
+HIM_A   off   phase_fraction_WNM    vol   full_volume          0.143321 dimensionless    Volume fraction of WNM, full +-500pc square x +-750pc column
+HIM_A   off   phase_fraction_WNM    mw    full_volume          0.326934 dimensionless    Mass fraction of WNM, full +-500pc square x +-750pc column
+HIM_A   off   phase_fraction_HIM    vol   full_volume          0.828138 dimensionless    Volume fraction of HIM, full +-500pc square x +-750pc column
+HIM_A   off   phase_fraction_HIM    mw    full_volume          0.0109885 dimensionless    Mass fraction of HIM, full +-500pc square x +-750pc column
+HIM_A   off   Mach                  vol   midplane             1.86935 dimensionless    Mach number at z=0, from volume-weighted mean alpha, neutral cells
+HIM_A   off   sigma_eff             vol   midplane             10.9483 km/s             Effective turbulent velocity dispersion at z=0, neutral cells, total (all phases)
+HIM_A   on    Pth                   vol   z0_median            2612.45 K cm^-3          Pth median, vol-weighted, 0+-25pc slab, neutral cells, +-500pc square
+HIM_A   on    Pth                   vol   z0_mean              3070.54 K cm^-3          Pth mean, vol-weighted, 0+-25pc slab, neutral cells, +-500pc square
+HIM_A   on    Pth                   vol   z0_p16               1319.85 K cm^-3          Pth p16, vol-weighted, 0+-25pc slab, neutral cells, +-500pc square
+HIM_A   on    Pth                   vol   z0_p84               4816.51 K cm^-3          Pth p84, vol-weighted, 0+-25pc slab, neutral cells, +-500pc square
+HIM_A   on    Pth                   mw    z0_median            2184 K cm^-3          Pth median, mw-weighted, 0+-25pc slab, neutral cells, +-500pc square
+HIM_A   on    Pth                   mw    z0_mean              2825.71 K cm^-3          Pth mean, mw-weighted, 0+-25pc slab, neutral cells, +-500pc square
+HIM_A   on    Pth                   mw    z0_p16               1095.35 K cm^-3          Pth p16, mw-weighted, 0+-25pc slab, neutral cells, +-500pc square
+HIM_A   on    Pth                   mw    z0_p84               4654.83 K cm^-3          Pth p84, mw-weighted, 0+-25pc slab, neutral cells, +-500pc square
+HIM_A   on    Ptot                  vol   z0_median            3894.9 K cm^-3          Ptot median, vol-weighted, 0+-25pc slab, neutral cells, +-500pc square
+HIM_A   on    Ptot                  vol   z0_mean              8442.51 K cm^-3          Ptot mean, vol-weighted, 0+-25pc slab, neutral cells, +-500pc square
+HIM_A   on    Ptot                  vol   z0_p16               1009.4 K cm^-3          Ptot p16, vol-weighted, 0+-25pc slab, neutral cells, +-500pc square
+HIM_A   on    Ptot                  vol   z0_p84               13237.6 K cm^-3          Ptot p84, vol-weighted, 0+-25pc slab, neutral cells, +-500pc square
+HIM_A   on    Ptot                  mw    z0_median            8008.49 K cm^-3          Ptot median, mw-weighted, 0+-25pc slab, neutral cells, +-500pc square
+HIM_A   on    Ptot                  mw    z0_mean              16245.7 K cm^-3          Ptot mean, mw-weighted, 0+-25pc slab, neutral cells, +-500pc square
+HIM_A   on    Ptot                  mw    z0_p16               2418.68 K cm^-3          Ptot p16, mw-weighted, 0+-25pc slab, neutral cells, +-500pc square
+HIM_A   on    Ptot                  mw    z0_p84               25963.4 K cm^-3          Ptot p84, mw-weighted, 0+-25pc slab, neutral cells, +-500pc square
+HIM_A   on    alpha                 vol   z0_median            1.43968 dimensionless    alpha median, vol-weighted, 0+-25pc slab, neutral cells, +-500pc square
+HIM_A   on    alpha                 vol   z0_mean              4.04093 dimensionless    alpha mean, vol-weighted, 0+-25pc slab, neutral cells, +-500pc square
+HIM_A   on    alpha                 vol   z0_p16               0.32844 dimensionless    alpha p16, vol-weighted, 0+-25pc slab, neutral cells, +-500pc square
+HIM_A   on    alpha                 vol   z0_p84               6.1858 dimensionless    alpha p84, vol-weighted, 0+-25pc slab, neutral cells, +-500pc square
+HIM_A   on    alpha                 mw    z0_median            3.96302 dimensionless    alpha median, mw-weighted, 0+-25pc slab, neutral cells, +-500pc square
+HIM_A   on    alpha                 mw    z0_mean              9.0416 dimensionless    alpha mean, mw-weighted, 0+-25pc slab, neutral cells, +-500pc square
+HIM_A   on    alpha                 mw    z0_p16               0.717861 dimensionless    alpha p16, mw-weighted, 0+-25pc slab, neutral cells, +-500pc square
+HIM_A   on    alpha                 mw    z0_p84               14.4203 dimensionless    alpha p84, mw-weighted, 0+-25pc slab, neutral cells, +-500pc square
+HIM_A   on    Pth                   vol   z150_median          1443.99 K cm^-3          Pth median, vol-weighted, 150+-25pc slab, neutral cells, +-500pc square
+HIM_A   on    Pth                   vol   z150_mean            1800.44 K cm^-3          Pth mean, vol-weighted, 150+-25pc slab, neutral cells, +-500pc square
+HIM_A   on    Pth                   vol   z150_p16             875.932 K cm^-3          Pth p16, vol-weighted, 150+-25pc slab, neutral cells, +-500pc square
+HIM_A   on    Pth                   vol   z150_p84             2937.79 K cm^-3          Pth p84, vol-weighted, 150+-25pc slab, neutral cells, +-500pc square
+HIM_A   on    Pth                   mw    z150_median          1401.16 K cm^-3          Pth median, mw-weighted, 150+-25pc slab, neutral cells, +-500pc square
+HIM_A   on    Pth                   mw    z150_mean            1916.3 K cm^-3          Pth mean, mw-weighted, 150+-25pc slab, neutral cells, +-500pc square
+HIM_A   on    Pth                   mw    z150_p16             880.641 K cm^-3          Pth p16, mw-weighted, 150+-25pc slab, neutral cells, +-500pc square
+HIM_A   on    Pth                   mw    z150_p84             3325.12 K cm^-3          Pth p84, mw-weighted, 150+-25pc slab, neutral cells, +-500pc square
+HIM_A   on    Ptot                  vol   z150_median          2017.22 K cm^-3          Ptot median, vol-weighted, 150+-25pc slab, neutral cells, +-500pc square
+HIM_A   on    Ptot                  vol   z150_mean            4155.9 K cm^-3          Ptot mean, vol-weighted, 150+-25pc slab, neutral cells, +-500pc square
+HIM_A   on    Ptot                  vol   z150_p16             571.208 K cm^-3          Ptot p16, vol-weighted, 150+-25pc slab, neutral cells, +-500pc square
+HIM_A   on    Ptot                  vol   z150_p84             5587.61 K cm^-3          Ptot p84, vol-weighted, 150+-25pc slab, neutral cells, +-500pc square
+HIM_A   on    Ptot                  mw    z150_median          5173.92 K cm^-3          Ptot median, mw-weighted, 150+-25pc slab, neutral cells, +-500pc square
+HIM_A   on    Ptot                  mw    z150_mean            20703.6 K cm^-3          Ptot mean, mw-weighted, 150+-25pc slab, neutral cells, +-500pc square
+HIM_A   on    Ptot                  mw    z150_p16             1352.3 K cm^-3          Ptot p16, mw-weighted, 150+-25pc slab, neutral cells, +-500pc square
+HIM_A   on    Ptot                  mw    z150_p84             33404.5 K cm^-3          Ptot p84, mw-weighted, 150+-25pc slab, neutral cells, +-500pc square
+HIM_A   on    alpha                 vol   z150_median          1.19359 dimensionless    alpha median, vol-weighted, 150+-25pc slab, neutral cells, +-500pc square
+HIM_A   on    alpha                 vol   z150_mean            3.20737 dimensionless    alpha mean, vol-weighted, 150+-25pc slab, neutral cells, +-500pc square
+HIM_A   on    alpha                 vol   z150_p16             0.354867 dimensionless    alpha p16, vol-weighted, 150+-25pc slab, neutral cells, +-500pc square
+HIM_A   on    alpha                 vol   z150_p84             3.76567 dimensionless    alpha p84, vol-weighted, 150+-25pc slab, neutral cells, +-500pc square
+HIM_A   on    alpha                 mw    z150_median          2.74013 dimensionless    alpha median, mw-weighted, 150+-25pc slab, neutral cells, +-500pc square
+HIM_A   on    alpha                 mw    z150_mean            19.685 dimensionless    alpha mean, mw-weighted, 150+-25pc slab, neutral cells, +-500pc square
+HIM_A   on    alpha                 mw    z150_p16             0.536675 dimensionless    alpha p16, mw-weighted, 150+-25pc slab, neutral cells, +-500pc square
+HIM_A   on    alpha                 mw    z150_p84             37.2654 dimensionless    alpha p84, mw-weighted, 150+-25pc slab, neutral cells, +-500pc square
+HIM_A   on    Pth                   vol   z300_median          1130.52 K cm^-3          Pth median, vol-weighted, 300+-25pc slab, neutral cells, +-500pc square
+HIM_A   on    Pth                   vol   z300_mean            1484.11 K cm^-3          Pth mean, vol-weighted, 300+-25pc slab, neutral cells, +-500pc square
+HIM_A   on    Pth                   vol   z300_p16             735.146 K cm^-3          Pth p16, vol-weighted, 300+-25pc slab, neutral cells, +-500pc square
+HIM_A   on    Pth                   vol   z300_p84             2362.31 K cm^-3          Pth p84, vol-weighted, 300+-25pc slab, neutral cells, +-500pc square
+HIM_A   on    Pth                   mw    z300_median          1825.71 K cm^-3          Pth median, mw-weighted, 300+-25pc slab, neutral cells, +-500pc square
+HIM_A   on    Pth                   mw    z300_mean            2129.61 K cm^-3          Pth mean, mw-weighted, 300+-25pc slab, neutral cells, +-500pc square
+HIM_A   on    Pth                   mw    z300_p16             972.78 K cm^-3          Pth p16, mw-weighted, 300+-25pc slab, neutral cells, +-500pc square
+HIM_A   on    Pth                   mw    z300_p84             3543.58 K cm^-3          Pth p84, mw-weighted, 300+-25pc slab, neutral cells, +-500pc square
+HIM_A   on    Ptot                  vol   z300_median          1366.89 K cm^-3          Ptot median, vol-weighted, 300+-25pc slab, neutral cells, +-500pc square
+HIM_A   on    Ptot                  vol   z300_mean            2000.65 K cm^-3          Ptot mean, vol-weighted, 300+-25pc slab, neutral cells, +-500pc square
+HIM_A   on    Ptot                  vol   z300_p16             382.717 K cm^-3          Ptot p16, vol-weighted, 300+-25pc slab, neutral cells, +-500pc square
+HIM_A   on    Ptot                  vol   z300_p84             3502.41 K cm^-3          Ptot p84, vol-weighted, 300+-25pc slab, neutral cells, +-500pc square
+HIM_A   on    Ptot                  mw    z300_median          2293.7 K cm^-3          Ptot median, mw-weighted, 300+-25pc slab, neutral cells, +-500pc square
+HIM_A   on    Ptot                  mw    z300_mean            3144.91 K cm^-3          Ptot mean, mw-weighted, 300+-25pc slab, neutral cells, +-500pc square
+HIM_A   on    Ptot                  mw    z300_p16             667.24 K cm^-3          Ptot p16, mw-weighted, 300+-25pc slab, neutral cells, +-500pc square
+HIM_A   on    Ptot                  mw    z300_p84             5632.18 K cm^-3          Ptot p84, mw-weighted, 300+-25pc slab, neutral cells, +-500pc square
+HIM_A   on    alpha                 vol   z300_median          0.984792 dimensionless    alpha median, vol-weighted, 300+-25pc slab, neutral cells, +-500pc square
+HIM_A   on    alpha                 vol   z300_mean            1.55691 dimensionless    alpha mean, vol-weighted, 300+-25pc slab, neutral cells, +-500pc square
+HIM_A   on    alpha                 vol   z300_p16             0.334747 dimensionless    alpha p16, vol-weighted, 300+-25pc slab, neutral cells, +-500pc square
+HIM_A   on    alpha                 vol   z300_p84             2.66963 dimensionless    alpha p84, vol-weighted, 300+-25pc slab, neutral cells, +-500pc square
+HIM_A   on    alpha                 mw    z300_median          1.07245 dimensionless    alpha median, mw-weighted, 300+-25pc slab, neutral cells, +-500pc square
+HIM_A   on    alpha                 mw    z300_mean            1.78486 dimensionless    alpha mean, mw-weighted, 300+-25pc slab, neutral cells, +-500pc square
+HIM_A   on    alpha                 mw    z300_p16             0.392809 dimensionless    alpha p16, mw-weighted, 300+-25pc slab, neutral cells, +-500pc square
+HIM_A   on    alpha                 mw    z300_p84             2.99954 dimensionless    alpha p84, mw-weighted, 300+-25pc slab, neutral cells, +-500pc square
+HIM_A   on    Pth                   vol   absz500_median       1434.83 K cm^-3          Pth median, vol-weighted, bin-average over |z|<=500pc profile, neutral cells
+HIM_A   on    Pth                   vol   absz500_mean         1791.1 K cm^-3          Pth mean, vol-weighted, bin-average over |z|<=500pc profile, neutral cells
+HIM_A   on    Pth                   vol   absz500_p16          879.541 K cm^-3          Pth p16, vol-weighted, bin-average over |z|<=500pc profile, neutral cells
+HIM_A   on    Pth                   vol   absz500_p84          2810.22 K cm^-3          Pth p84, vol-weighted, bin-average over |z|<=500pc profile, neutral cells
+HIM_A   on    Pth                   mw    absz500_median       1672.47 K cm^-3          Pth median, mw-weighted, bin-average over |z|<=500pc profile, neutral cells
+HIM_A   on    Pth                   mw    absz500_mean         2114.86 K cm^-3          Pth mean, mw-weighted, bin-average over |z|<=500pc profile, neutral cells
+HIM_A   on    Pth                   mw    absz500_p16          964.333 K cm^-3          Pth p16, mw-weighted, bin-average over |z|<=500pc profile, neutral cells
+HIM_A   on    Pth                   mw    absz500_p84          3502.46 K cm^-3          Pth p84, mw-weighted, bin-average over |z|<=500pc profile, neutral cells
+HIM_A   on    Ptot                  vol   absz500_median       1645.01 K cm^-3          Ptot median, vol-weighted, bin-average over |z|<=500pc profile, neutral cells
+HIM_A   on    Ptot                  vol   absz500_mean         3661.4 K cm^-3          Ptot mean, vol-weighted, bin-average over |z|<=500pc profile, neutral cells
+HIM_A   on    Ptot                  vol   absz500_p16          459.737 K cm^-3          Ptot p16, vol-weighted, bin-average over |z|<=500pc profile, neutral cells
+HIM_A   on    Ptot                  vol   absz500_p84          5853.5 K cm^-3          Ptot p84, vol-weighted, bin-average over |z|<=500pc profile, neutral cells
+HIM_A   on    Ptot                  mw    absz500_median       4313.27 K cm^-3          Ptot median, mw-weighted, bin-average over |z|<=500pc profile, neutral cells
+HIM_A   on    Ptot                  mw    absz500_mean         9520.84 K cm^-3          Ptot mean, mw-weighted, bin-average over |z|<=500pc profile, neutral cells
+HIM_A   on    Ptot                  mw    absz500_p16          1071.74 K cm^-3          Ptot p16, mw-weighted, bin-average over |z|<=500pc profile, neutral cells
+HIM_A   on    Ptot                  mw    absz500_p84          16240.1 K cm^-3          Ptot p84, mw-weighted, bin-average over |z|<=500pc profile, neutral cells
+HIM_A   on    alpha                 vol   absz500_median       0.927814 dimensionless    alpha median, vol-weighted, bin-average over |z|<=500pc profile, neutral cells
+HIM_A   on    alpha                 vol   absz500_mean         2.23282 dimensionless    alpha mean, vol-weighted, bin-average over |z|<=500pc profile, neutral cells
+HIM_A   on    alpha                 vol   absz500_p16          0.301927 dimensionless    alpha p16, vol-weighted, bin-average over |z|<=500pc profile, neutral cells
+HIM_A   on    alpha                 vol   absz500_p84          3.39972 dimensionless    alpha p84, vol-weighted, bin-average over |z|<=500pc profile, neutral cells
+HIM_A   on    alpha                 mw    absz500_median       2.14086 dimensionless    alpha median, mw-weighted, bin-average over |z|<=500pc profile, neutral cells
+HIM_A   on    alpha                 mw    absz500_mean         6.17362 dimensionless    alpha mean, mw-weighted, bin-average over |z|<=500pc profile, neutral cells
+HIM_A   on    alpha                 mw    absz500_p16          0.462057 dimensionless    alpha p16, mw-weighted, bin-average over |z|<=500pc profile, neutral cells
+HIM_A   on    alpha                 mw    absz500_p84          10.5311 dimensionless    alpha p84, mw-weighted, bin-average over |z|<=500pc profile, neutral cells
+HIM_A   on    phase_fraction_CNM    vol   full_volume          0.00387923 dimensionless    Volume fraction of CNM, full +-500pc square x +-750pc column
+HIM_A   on    phase_fraction_CNM    mw    full_volume          0.262881 dimensionless    Mass fraction of CNM, full +-500pc square x +-750pc column
+HIM_A   on    phase_fraction_UNM    vol   full_volume          0.0246618 dimensionless    Volume fraction of UNM, full +-500pc square x +-750pc column
+HIM_A   on    phase_fraction_UNM    mw    full_volume          0.399196 dimensionless    Mass fraction of UNM, full +-500pc square x +-750pc column
+HIM_A   on    phase_fraction_WNM    vol   full_volume          0.143321 dimensionless    Volume fraction of WNM, full +-500pc square x +-750pc column
+HIM_A   on    phase_fraction_WNM    mw    full_volume          0.326934 dimensionless    Mass fraction of WNM, full +-500pc square x +-750pc column
+HIM_A   on    phase_fraction_HIM    vol   full_volume          0.828138 dimensionless    Volume fraction of HIM, full +-500pc square x +-750pc column
+HIM_A   on    phase_fraction_HIM    mw    full_volume          0.0109885 dimensionless    Mass fraction of HIM, full +-500pc square x +-750pc column
+HIM_A   on    Mach                  vol   midplane             3.11136 dimensionless    Mach number at z=0, from volume-weighted mean alpha, neutral cells
+HIM_A   on    sigma_eff             vol   midplane             18.2224 km/s             Effective turbulent velocity dispersion at z=0, neutral cells, total (all phases)
+HIM_B   n/a   Sigma_gas             vol   median               3.75447 Msun/pc^2        Full-column trapezoid of variant density, +-500pc square footprint, unweighted median
+HIM_B   n/a   Sigma_gas             vol   mean                 5.88674 Msun/pc^2        Full-column trapezoid of variant density, +-500pc square footprint, arithmetic mean
+HIM_B   off   Pth                   vol   z0_median            2612.45 K cm^-3          Pth median, vol-weighted, 0+-25pc slab, neutral cells, +-500pc square
+HIM_B   off   Pth                   vol   z0_mean              3070.54 K cm^-3          Pth mean, vol-weighted, 0+-25pc slab, neutral cells, +-500pc square
+HIM_B   off   Pth                   vol   z0_p16               1319.85 K cm^-3          Pth p16, vol-weighted, 0+-25pc slab, neutral cells, +-500pc square
+HIM_B   off   Pth                   vol   z0_p84               4816.51 K cm^-3          Pth p84, vol-weighted, 0+-25pc slab, neutral cells, +-500pc square
+HIM_B   off   Pth                   mw    z0_median            2184 K cm^-3          Pth median, mw-weighted, 0+-25pc slab, neutral cells, +-500pc square
+HIM_B   off   Pth                   mw    z0_mean              2825.71 K cm^-3          Pth mean, mw-weighted, 0+-25pc slab, neutral cells, +-500pc square
+HIM_B   off   Pth                   mw    z0_p16               1095.35 K cm^-3          Pth p16, mw-weighted, 0+-25pc slab, neutral cells, +-500pc square
+HIM_B   off   Pth                   mw    z0_p84               4654.83 K cm^-3          Pth p84, mw-weighted, 0+-25pc slab, neutral cells, +-500pc square
+HIM_B   off   Ptot                  vol   z0_median            3026.82 K cm^-3          Ptot median, vol-weighted, 0+-25pc slab, neutral cells, +-500pc square
+HIM_B   off   Ptot                  vol   z0_mean              5010.18 K cm^-3          Ptot mean, vol-weighted, 0+-25pc slab, neutral cells, +-500pc square
+HIM_B   off   Ptot                  vol   z0_p16               1144.46 K cm^-3          Ptot p16, vol-weighted, 0+-25pc slab, neutral cells, +-500pc square
+HIM_B   off   Ptot                  vol   z0_p84               8121.08 K cm^-3          Ptot p84, vol-weighted, 0+-25pc slab, neutral cells, +-500pc square
+HIM_B   off   Ptot                  mw    z0_median            4247.16 K cm^-3          Ptot median, mw-weighted, 0+-25pc slab, neutral cells, +-500pc square
+HIM_B   off   Ptot                  mw    z0_mean              6368.15 K cm^-3          Ptot mean, mw-weighted, 0+-25pc slab, neutral cells, +-500pc square
+HIM_B   off   Ptot                  mw    z0_p16               1819.98 K cm^-3          Ptot p16, mw-weighted, 0+-25pc slab, neutral cells, +-500pc square
+HIM_B   off   Ptot                  mw    z0_p84               9990.58 K cm^-3          Ptot p84, mw-weighted, 0+-25pc slab, neutral cells, +-500pc square
+HIM_B   off   alpha                 vol   z0_median            1.14562 dimensionless    alpha median, vol-weighted, 0+-25pc slab, neutral cells, +-500pc square
+HIM_B   off   alpha                 vol   z0_mean              2.34565 dimensionless    alpha mean, vol-weighted, 0+-25pc slab, neutral cells, +-500pc square
+HIM_B   off   alpha                 vol   z0_p16               0.376478 dimensionless    alpha p16, vol-weighted, 0+-25pc slab, neutral cells, +-500pc square
+HIM_B   off   alpha                 vol   z0_p84               3.81669 dimensionless    alpha p84, vol-weighted, 0+-25pc slab, neutral cells, +-500pc square
+HIM_B   off   alpha                 mw    z0_median            2.02482 dimensionless    alpha median, mw-weighted, 0+-25pc slab, neutral cells, +-500pc square
+HIM_B   off   alpha                 mw    z0_mean              3.62664 dimensionless    alpha mean, mw-weighted, 0+-25pc slab, neutral cells, +-500pc square
+HIM_B   off   alpha                 mw    z0_p16               0.571011 dimensionless    alpha p16, mw-weighted, 0+-25pc slab, neutral cells, +-500pc square
+HIM_B   off   alpha                 mw    z0_p84               5.69965 dimensionless    alpha p84, mw-weighted, 0+-25pc slab, neutral cells, +-500pc square
+HIM_B   off   Pth                   vol   z150_median          1443.99 K cm^-3          Pth median, vol-weighted, 150+-25pc slab, neutral cells, +-500pc square
+HIM_B   off   Pth                   vol   z150_mean            1800.44 K cm^-3          Pth mean, vol-weighted, 150+-25pc slab, neutral cells, +-500pc square
+HIM_B   off   Pth                   vol   z150_p16             875.932 K cm^-3          Pth p16, vol-weighted, 150+-25pc slab, neutral cells, +-500pc square
+HIM_B   off   Pth                   vol   z150_p84             2937.79 K cm^-3          Pth p84, vol-weighted, 150+-25pc slab, neutral cells, +-500pc square
+HIM_B   off   Pth                   mw    z150_median          1401.16 K cm^-3          Pth median, mw-weighted, 150+-25pc slab, neutral cells, +-500pc square
+HIM_B   off   Pth                   mw    z150_mean            1916.3 K cm^-3          Pth mean, mw-weighted, 150+-25pc slab, neutral cells, +-500pc square
+HIM_B   off   Pth                   mw    z150_p16             880.641 K cm^-3          Pth p16, mw-weighted, 150+-25pc slab, neutral cells, +-500pc square
+HIM_B   off   Pth                   mw    z150_p84             3325.12 K cm^-3          Pth p84, mw-weighted, 150+-25pc slab, neutral cells, +-500pc square
+HIM_B   off   Ptot                  vol   z150_median          1902.7 K cm^-3          Ptot median, vol-weighted, 150+-25pc slab, neutral cells, +-500pc square
+HIM_B   off   Ptot                  vol   z150_mean            3000.85 K cm^-3          Ptot mean, vol-weighted, 150+-25pc slab, neutral cells, +-500pc square
+HIM_B   off   Ptot                  vol   z150_p16             779.801 K cm^-3          Ptot p16, vol-weighted, 150+-25pc slab, neutral cells, +-500pc square
+HIM_B   off   Ptot                  vol   z150_p84             4520.18 K cm^-3          Ptot p84, vol-weighted, 150+-25pc slab, neutral cells, +-500pc square
+HIM_B   off   Ptot                  mw    z150_median          3975.33 K cm^-3          Ptot median, mw-weighted, 150+-25pc slab, neutral cells, +-500pc square
+HIM_B   off   Ptot                  mw    z150_mean            8596.82 K cm^-3          Ptot mean, mw-weighted, 150+-25pc slab, neutral cells, +-500pc square
+HIM_B   off   Ptot                  mw    z150_p16             1357.77 K cm^-3          Ptot p16, mw-weighted, 150+-25pc slab, neutral cells, +-500pc square
+HIM_B   off   Ptot                  mw    z150_p84             15048.1 K cm^-3          Ptot p84, mw-weighted, 150+-25pc slab, neutral cells, +-500pc square
+HIM_B   off   alpha                 vol   z150_median          1.15747 dimensionless    alpha median, vol-weighted, 150+-25pc slab, neutral cells, +-500pc square
+HIM_B   off   alpha                 vol   z150_mean            2.20505 dimensionless    alpha mean, vol-weighted, 150+-25pc slab, neutral cells, +-500pc square
+HIM_B   off   alpha                 vol   z150_p16             0.506007 dimensionless    alpha p16, vol-weighted, 150+-25pc slab, neutral cells, +-500pc square
+HIM_B   off   alpha                 vol   z150_p84             3.19505 dimensionless    alpha p84, vol-weighted, 150+-25pc slab, neutral cells, +-500pc square
+HIM_B   off   alpha                 mw    z150_median          2.19184 dimensionless    alpha median, mw-weighted, 150+-25pc slab, neutral cells, +-500pc square
+HIM_B   off   alpha                 mw    z150_mean            7.76029 dimensionless    alpha mean, mw-weighted, 150+-25pc slab, neutral cells, +-500pc square
+HIM_B   off   alpha                 mw    z150_p16             0.563608 dimensionless    alpha p16, mw-weighted, 150+-25pc slab, neutral cells, +-500pc square
+HIM_B   off   alpha                 mw    z150_p84             15.8137 dimensionless    alpha p84, mw-weighted, 150+-25pc slab, neutral cells, +-500pc square
+HIM_B   off   Pth                   vol   z300_median          1130.52 K cm^-3          Pth median, vol-weighted, 300+-25pc slab, neutral cells, +-500pc square
+HIM_B   off   Pth                   vol   z300_mean            1484.11 K cm^-3          Pth mean, vol-weighted, 300+-25pc slab, neutral cells, +-500pc square
+HIM_B   off   Pth                   vol   z300_p16             735.146 K cm^-3          Pth p16, vol-weighted, 300+-25pc slab, neutral cells, +-500pc square
+HIM_B   off   Pth                   vol   z300_p84             2362.31 K cm^-3          Pth p84, vol-weighted, 300+-25pc slab, neutral cells, +-500pc square
+HIM_B   off   Pth                   mw    z300_median          1825.71 K cm^-3          Pth median, mw-weighted, 300+-25pc slab, neutral cells, +-500pc square
+HIM_B   off   Pth                   mw    z300_mean            2129.61 K cm^-3          Pth mean, mw-weighted, 300+-25pc slab, neutral cells, +-500pc square
+HIM_B   off   Pth                   mw    z300_p16             972.78 K cm^-3          Pth p16, mw-weighted, 300+-25pc slab, neutral cells, +-500pc square
+HIM_B   off   Pth                   mw    z300_p84             3543.58 K cm^-3          Pth p84, mw-weighted, 300+-25pc slab, neutral cells, +-500pc square
+HIM_B   off   Ptot                  vol   z300_median          1369.46 K cm^-3          Ptot median, vol-weighted, 300+-25pc slab, neutral cells, +-500pc square
+HIM_B   off   Ptot                  vol   z300_mean            1852.97 K cm^-3          Ptot mean, vol-weighted, 300+-25pc slab, neutral cells, +-500pc square
+HIM_B   off   Ptot                  vol   z300_p16             592.999 K cm^-3          Ptot p16, vol-weighted, 300+-25pc slab, neutral cells, +-500pc square
+HIM_B   off   Ptot                  vol   z300_p84             3076.77 K cm^-3          Ptot p84, vol-weighted, 300+-25pc slab, neutral cells, +-500pc square
+HIM_B   off   Ptot                  mw    z300_median          2128.67 K cm^-3          Ptot median, mw-weighted, 300+-25pc slab, neutral cells, +-500pc square
+HIM_B   off   Ptot                  mw    z300_mean            2813.98 K cm^-3          Ptot mean, mw-weighted, 300+-25pc slab, neutral cells, +-500pc square
+HIM_B   off   Ptot                  mw    z300_p16             815.903 K cm^-3          Ptot p16, mw-weighted, 300+-25pc slab, neutral cells, +-500pc square
+HIM_B   off   Ptot                  mw    z300_p84             4791.4 K cm^-3          Ptot p84, mw-weighted, 300+-25pc slab, neutral cells, +-500pc square
+HIM_B   off   alpha                 vol   z300_median          1.02233 dimensionless    alpha median, vol-weighted, 300+-25pc slab, neutral cells, +-500pc square
+HIM_B   off   alpha                 vol   z300_mean            1.45912 dimensionless    alpha mean, vol-weighted, 300+-25pc slab, neutral cells, +-500pc square
+HIM_B   off   alpha                 vol   z300_p16             0.523739 dimensionless    alpha p16, vol-weighted, 300+-25pc slab, neutral cells, +-500pc square
+HIM_B   off   alpha                 vol   z300_p84             2.40173 dimensionless    alpha p84, vol-weighted, 300+-25pc slab, neutral cells, +-500pc square
+HIM_B   off   alpha                 mw    z300_median          1.02669 dimensionless    alpha median, mw-weighted, 300+-25pc slab, neutral cells, +-500pc square
+HIM_B   off   alpha                 mw    z300_mean            1.59909 dimensionless    alpha mean, mw-weighted, 300+-25pc slab, neutral cells, +-500pc square
+HIM_B   off   alpha                 mw    z300_p16             0.498246 dimensionless    alpha p16, mw-weighted, 300+-25pc slab, neutral cells, +-500pc square
+HIM_B   off   alpha                 mw    z300_p84             2.62627 dimensionless    alpha p84, mw-weighted, 300+-25pc slab, neutral cells, +-500pc square
+HIM_B   off   Pth                   vol   absz500_median       1434.83 K cm^-3          Pth median, vol-weighted, bin-average over |z|<=500pc profile, neutral cells
+HIM_B   off   Pth                   vol   absz500_mean         1791.1 K cm^-3          Pth mean, vol-weighted, bin-average over |z|<=500pc profile, neutral cells
+HIM_B   off   Pth                   vol   absz500_p16          879.541 K cm^-3          Pth p16, vol-weighted, bin-average over |z|<=500pc profile, neutral cells
+HIM_B   off   Pth                   vol   absz500_p84          2810.22 K cm^-3          Pth p84, vol-weighted, bin-average over |z|<=500pc profile, neutral cells
+HIM_B   off   Pth                   mw    absz500_median       1672.47 K cm^-3          Pth median, mw-weighted, bin-average over |z|<=500pc profile, neutral cells
+HIM_B   off   Pth                   mw    absz500_mean         2114.86 K cm^-3          Pth mean, mw-weighted, bin-average over |z|<=500pc profile, neutral cells
+HIM_B   off   Pth                   mw    absz500_p16          964.333 K cm^-3          Pth p16, mw-weighted, bin-average over |z|<=500pc profile, neutral cells
+HIM_B   off   Pth                   mw    absz500_p84          3502.46 K cm^-3          Pth p84, mw-weighted, bin-average over |z|<=500pc profile, neutral cells
+HIM_B   off   Ptot                  vol   absz500_median       1559.63 K cm^-3          Ptot median, vol-weighted, bin-average over |z|<=500pc profile, neutral cells
+HIM_B   off   Ptot                  vol   absz500_mean         2807.19 K cm^-3          Ptot mean, vol-weighted, bin-average over |z|<=500pc profile, neutral cells
+HIM_B   off   Ptot                  vol   absz500_p16          659.131 K cm^-3          Ptot p16, vol-weighted, bin-average over |z|<=500pc profile, neutral cells
+HIM_B   off   Ptot                  vol   absz500_p84          4564.5 K cm^-3          Ptot p84, vol-weighted, bin-average over |z|<=500pc profile, neutral cells
+HIM_B   off   Ptot                  mw    absz500_median       3164.52 K cm^-3          Ptot median, mw-weighted, bin-average over |z|<=500pc profile, neutral cells
+HIM_B   off   Ptot                  mw    absz500_mean         5323.5 K cm^-3          Ptot mean, mw-weighted, bin-average over |z|<=500pc profile, neutral cells
+HIM_B   off   Ptot                  mw    absz500_p16          1078.28 K cm^-3          Ptot p16, mw-weighted, bin-average over |z|<=500pc profile, neutral cells
+HIM_B   off   Ptot                  mw    absz500_p84          9613.15 K cm^-3          Ptot p84, mw-weighted, bin-average over |z|<=500pc profile, neutral cells
+HIM_B   off   alpha                 vol   absz500_median       0.95013 dimensionless    alpha median, vol-weighted, bin-average over |z|<=500pc profile, neutral cells
+HIM_B   off   alpha                 vol   absz500_mean         1.78728 dimensionless    alpha mean, vol-weighted, bin-average over |z|<=500pc profile, neutral cells
+HIM_B   off   alpha                 vol   absz500_p16          0.473479 dimensionless    alpha p16, vol-weighted, bin-average over |z|<=500pc profile, neutral cells
+HIM_B   off   alpha                 vol   absz500_p84          2.81717 dimensionless    alpha p84, vol-weighted, bin-average over |z|<=500pc profile, neutral cells
+HIM_B   off   alpha                 mw    absz500_median       1.62397 dimensionless    alpha median, mw-weighted, bin-average over |z|<=500pc profile, neutral cells
+HIM_B   off   alpha                 mw    absz500_mean         3.39395 dimensionless    alpha mean, mw-weighted, bin-average over |z|<=500pc profile, neutral cells
+HIM_B   off   alpha                 mw    absz500_p16          0.526807 dimensionless    alpha p16, mw-weighted, bin-average over |z|<=500pc profile, neutral cells
+HIM_B   off   alpha                 mw    absz500_p84          6.1198 dimensionless    alpha p84, mw-weighted, bin-average over |z|<=500pc profile, neutral cells
+HIM_B   off   phase_fraction_CNM    vol   full_volume          0.00387923 dimensionless    Volume fraction of CNM, full +-500pc square x +-750pc column
+HIM_B   off   phase_fraction_CNM    mw    full_volume          0.256103 dimensionless    Mass fraction of CNM, full +-500pc square x +-750pc column
+HIM_B   off   phase_fraction_UNM    vol   full_volume          0.0246618 dimensionless    Volume fraction of UNM, full +-500pc square x +-750pc column
+HIM_B   off   phase_fraction_UNM    mw    full_volume          0.388903 dimensionless    Mass fraction of UNM, full +-500pc square x +-750pc column
+HIM_B   off   phase_fraction_WNM    vol   full_volume          0.143321 dimensionless    Volume fraction of WNM, full +-500pc square x +-750pc column
+HIM_B   off   phase_fraction_WNM    mw    full_volume          0.318504 dimensionless    Mass fraction of WNM, full +-500pc square x +-750pc column
+HIM_B   off   phase_fraction_HIM    vol   full_volume          0.828138 dimensionless    Volume fraction of HIM, full +-500pc square x +-750pc column
+HIM_B   off   phase_fraction_HIM    mw    full_volume          0.0364903 dimensionless    Mass fraction of HIM, full +-500pc square x +-750pc column
+HIM_B   off   Mach                  vol   midplane             1.98454 dimensionless    Mach number at z=0, from volume-weighted mean alpha, neutral cells
+HIM_B   off   sigma_eff             vol   midplane             11.623 km/s             Effective turbulent velocity dispersion at z=0, neutral cells, total (all phases)
+HIM_B   on    Pth                   vol   z0_median            2612.45 K cm^-3          Pth median, vol-weighted, 0+-25pc slab, neutral cells, +-500pc square
+HIM_B   on    Pth                   vol   z0_mean              3070.54 K cm^-3          Pth mean, vol-weighted, 0+-25pc slab, neutral cells, +-500pc square
+HIM_B   on    Pth                   vol   z0_p16               1319.85 K cm^-3          Pth p16, vol-weighted, 0+-25pc slab, neutral cells, +-500pc square
+HIM_B   on    Pth                   vol   z0_p84               4816.51 K cm^-3          Pth p84, vol-weighted, 0+-25pc slab, neutral cells, +-500pc square
+HIM_B   on    Pth                   mw    z0_median            2184 K cm^-3          Pth median, mw-weighted, 0+-25pc slab, neutral cells, +-500pc square
+HIM_B   on    Pth                   mw    z0_mean              2825.71 K cm^-3          Pth mean, mw-weighted, 0+-25pc slab, neutral cells, +-500pc square
+HIM_B   on    Pth                   mw    z0_p16               1095.35 K cm^-3          Pth p16, mw-weighted, 0+-25pc slab, neutral cells, +-500pc square
+HIM_B   on    Pth                   mw    z0_p84               4654.83 K cm^-3          Pth p84, mw-weighted, 0+-25pc slab, neutral cells, +-500pc square
+HIM_B   on    Ptot                  vol   z0_median            4285.13 K cm^-3          Ptot median, vol-weighted, 0+-25pc slab, neutral cells, +-500pc square
+HIM_B   on    Ptot                  vol   z0_mean              8849.06 K cm^-3          Ptot mean, vol-weighted, 0+-25pc slab, neutral cells, +-500pc square
+HIM_B   on    Ptot                  vol   z0_p16               1407.74 K cm^-3          Ptot p16, vol-weighted, 0+-25pc slab, neutral cells, +-500pc square
+HIM_B   on    Ptot                  vol   z0_p84               13647.2 K cm^-3          Ptot p84, vol-weighted, 0+-25pc slab, neutral cells, +-500pc square
+HIM_B   on    Ptot                  mw    z0_median            8455.21 K cm^-3          Ptot median, mw-weighted, 0+-25pc slab, neutral cells, +-500pc square
+HIM_B   on    Ptot                  mw    z0_mean              16712.4 K cm^-3          Ptot mean, mw-weighted, 0+-25pc slab, neutral cells, +-500pc square
+HIM_B   on    Ptot                  mw    z0_p16               2833.31 K cm^-3          Ptot p16, mw-weighted, 0+-25pc slab, neutral cells, +-500pc square
+HIM_B   on    Ptot                  mw    z0_p84               26484.6 K cm^-3          Ptot p84, mw-weighted, 0+-25pc slab, neutral cells, +-500pc square
+HIM_B   on    alpha                 vol   z0_median            1.60139 dimensionless    alpha median, vol-weighted, 0+-25pc slab, neutral cells, +-500pc square
+HIM_B   on    alpha                 vol   z0_mean              4.22807 dimensionless    alpha mean, vol-weighted, 0+-25pc slab, neutral cells, +-500pc square
+HIM_B   on    alpha                 vol   z0_p16               0.475414 dimensionless    alpha p16, vol-weighted, 0+-25pc slab, neutral cells, +-500pc square
+HIM_B   on    alpha                 vol   z0_p84               6.43045 dimensionless    alpha p84, vol-weighted, 0+-25pc slab, neutral cells, +-500pc square
+HIM_B   on    alpha                 mw    z0_median            4.21939 dimensionless    alpha median, mw-weighted, 0+-25pc slab, neutral cells, +-500pc square
+HIM_B   on    alpha                 mw    z0_mean              9.29117 dimensionless    alpha mean, mw-weighted, 0+-25pc slab, neutral cells, +-500pc square
+HIM_B   on    alpha                 mw    z0_p16               0.838523 dimensionless    alpha p16, mw-weighted, 0+-25pc slab, neutral cells, +-500pc square
+HIM_B   on    alpha                 mw    z0_p84               14.7719 dimensionless    alpha p84, mw-weighted, 0+-25pc slab, neutral cells, +-500pc square
+HIM_B   on    Pth                   vol   z150_median          1443.99 K cm^-3          Pth median, vol-weighted, 150+-25pc slab, neutral cells, +-500pc square
+HIM_B   on    Pth                   vol   z150_mean            1800.44 K cm^-3          Pth mean, vol-weighted, 150+-25pc slab, neutral cells, +-500pc square
+HIM_B   on    Pth                   vol   z150_p16             875.932 K cm^-3          Pth p16, vol-weighted, 150+-25pc slab, neutral cells, +-500pc square
+HIM_B   on    Pth                   vol   z150_p84             2937.79 K cm^-3          Pth p84, vol-weighted, 150+-25pc slab, neutral cells, +-500pc square
+HIM_B   on    Pth                   mw    z150_median          1401.16 K cm^-3          Pth median, mw-weighted, 150+-25pc slab, neutral cells, +-500pc square
+HIM_B   on    Pth                   mw    z150_mean            1916.3 K cm^-3          Pth mean, mw-weighted, 150+-25pc slab, neutral cells, +-500pc square
+HIM_B   on    Pth                   mw    z150_p16             880.641 K cm^-3          Pth p16, mw-weighted, 150+-25pc slab, neutral cells, +-500pc square
+HIM_B   on    Pth                   mw    z150_p84             3325.12 K cm^-3          Pth p84, mw-weighted, 150+-25pc slab, neutral cells, +-500pc square
+HIM_B   on    Ptot                  vol   z150_median          2361.31 K cm^-3          Ptot median, vol-weighted, 150+-25pc slab, neutral cells, +-500pc square
+HIM_B   on    Ptot                  vol   z150_mean            4509.93 K cm^-3          Ptot mean, vol-weighted, 150+-25pc slab, neutral cells, +-500pc square
+HIM_B   on    Ptot                  vol   z150_p16             955.856 K cm^-3          Ptot p16, vol-weighted, 150+-25pc slab, neutral cells, +-500pc square
+HIM_B   on    Ptot                  vol   z150_p84             5901.62 K cm^-3          Ptot p84, vol-weighted, 150+-25pc slab, neutral cells, +-500pc square
+HIM_B   on    Ptot                  mw    z150_median          5508.4 K cm^-3          Ptot median, mw-weighted, 150+-25pc slab, neutral cells, +-500pc square
+HIM_B   on    Ptot                  mw    z150_mean            21118.9 K cm^-3          Ptot mean, mw-weighted, 150+-25pc slab, neutral cells, +-500pc square
+HIM_B   on    Ptot                  mw    z150_p16             1726.06 K cm^-3          Ptot p16, mw-weighted, 150+-25pc slab, neutral cells, +-500pc square
+HIM_B   on    Ptot                  mw    z150_p84             33909.2 K cm^-3          Ptot p84, mw-weighted, 150+-25pc slab, neutral cells, +-500pc square
+HIM_B   on    alpha                 vol   z150_median          1.43131 dimensionless    alpha median, vol-weighted, 150+-25pc slab, neutral cells, +-500pc square
+HIM_B   on    alpha                 vol   z150_mean            3.4695 dimensionless    alpha mean, vol-weighted, 150+-25pc slab, neutral cells, +-500pc square
+HIM_B   on    alpha                 vol   z150_p16             0.6203 dimensionless    alpha p16, vol-weighted, 150+-25pc slab, neutral cells, +-500pc square
+HIM_B   on    alpha                 vol   z150_p84             4.04073 dimensionless    alpha p84, vol-weighted, 150+-25pc slab, neutral cells, +-500pc square
+HIM_B   on    alpha                 mw    z150_median          2.94307 dimensionless    alpha median, mw-weighted, 150+-25pc slab, neutral cells, +-500pc square
+HIM_B   on    alpha                 mw    z150_mean            20.0043 dimensionless    alpha mean, mw-weighted, 150+-25pc slab, neutral cells, +-500pc square
+HIM_B   on    alpha                 mw    z150_p16             0.714589 dimensionless    alpha p16, mw-weighted, 150+-25pc slab, neutral cells, +-500pc square
+HIM_B   on    alpha                 mw    z150_p84             37.8624 dimensionless    alpha p84, mw-weighted, 150+-25pc slab, neutral cells, +-500pc square
+HIM_B   on    Pth                   vol   z300_median          1130.52 K cm^-3          Pth median, vol-weighted, 300+-25pc slab, neutral cells, +-500pc square
+HIM_B   on    Pth                   vol   z300_mean            1484.11 K cm^-3          Pth mean, vol-weighted, 300+-25pc slab, neutral cells, +-500pc square
+HIM_B   on    Pth                   vol   z300_p16             735.146 K cm^-3          Pth p16, vol-weighted, 300+-25pc slab, neutral cells, +-500pc square
+HIM_B   on    Pth                   vol   z300_p84             2362.31 K cm^-3          Pth p84, vol-weighted, 300+-25pc slab, neutral cells, +-500pc square
+HIM_B   on    Pth                   mw    z300_median          1825.71 K cm^-3          Pth median, mw-weighted, 300+-25pc slab, neutral cells, +-500pc square
+HIM_B   on    Pth                   mw    z300_mean            2129.61 K cm^-3          Pth mean, mw-weighted, 300+-25pc slab, neutral cells, +-500pc square
+HIM_B   on    Pth                   mw    z300_p16             972.78 K cm^-3          Pth p16, mw-weighted, 300+-25pc slab, neutral cells, +-500pc square
+HIM_B   on    Pth                   mw    z300_p84             3543.58 K cm^-3          Pth p84, mw-weighted, 300+-25pc slab, neutral cells, +-500pc square
+HIM_B   on    Ptot                  vol   z300_median          1657.31 K cm^-3          Ptot median, vol-weighted, 300+-25pc slab, neutral cells, +-500pc square
+HIM_B   on    Ptot                  vol   z300_mean            2296.73 K cm^-3          Ptot mean, vol-weighted, 300+-25pc slab, neutral cells, +-500pc square
+HIM_B   on    Ptot                  vol   z300_p16             727.533 K cm^-3          Ptot p16, vol-weighted, 300+-25pc slab, neutral cells, +-500pc square
+HIM_B   on    Ptot                  vol   z300_p84             3757.96 K cm^-3          Ptot p84, vol-weighted, 300+-25pc slab, neutral cells, +-500pc square
+HIM_B   on    Ptot                  mw    z300_median          2568.7 K cm^-3          Ptot median, mw-weighted, 300+-25pc slab, neutral cells, +-500pc square
+HIM_B   on    Ptot                  mw    z300_mean            3436.11 K cm^-3          Ptot mean, mw-weighted, 300+-25pc slab, neutral cells, +-500pc square
+HIM_B   on    Ptot                  mw    z300_p16             1002.91 K cm^-3          Ptot p16, mw-weighted, 300+-25pc slab, neutral cells, +-500pc square
+HIM_B   on    Ptot                  mw    z300_p84             5893.84 K cm^-3          Ptot p84, mw-weighted, 300+-25pc slab, neutral cells, +-500pc square
+HIM_B   on    alpha                 vol   z300_median          1.22862 dimensionless    alpha median, vol-weighted, 300+-25pc slab, neutral cells, +-500pc square
+HIM_B   on    alpha                 vol   z300_mean            1.82287 dimensionless    alpha mean, vol-weighted, 300+-25pc slab, neutral cells, +-500pc square
+HIM_B   on    alpha                 vol   z300_p16             0.633193 dimensionless    alpha p16, vol-weighted, 300+-25pc slab, neutral cells, +-500pc square
+HIM_B   on    alpha                 vol   z300_p84             2.92887 dimensionless    alpha p84, vol-weighted, 300+-25pc slab, neutral cells, +-500pc square
+HIM_B   on    alpha                 mw    z300_median          1.23376 dimensionless    alpha median, mw-weighted, 300+-25pc slab, neutral cells, +-500pc square
+HIM_B   on    alpha                 mw    z300_mean            1.97329 dimensionless    alpha mean, mw-weighted, 300+-25pc slab, neutral cells, +-500pc square
+HIM_B   on    alpha                 mw    z300_p16             0.607235 dimensionless    alpha p16, mw-weighted, 300+-25pc slab, neutral cells, +-500pc square
+HIM_B   on    alpha                 mw    z300_p84             3.19747 dimensionless    alpha p84, mw-weighted, 300+-25pc slab, neutral cells, +-500pc square
+HIM_B   on    Pth                   vol   absz500_median       1434.83 K cm^-3          Pth median, vol-weighted, bin-average over |z|<=500pc profile, neutral cells
+HIM_B   on    Pth                   vol   absz500_mean         1791.1 K cm^-3          Pth mean, vol-weighted, bin-average over |z|<=500pc profile, neutral cells
+HIM_B   on    Pth                   vol   absz500_p16          879.541 K cm^-3          Pth p16, vol-weighted, bin-average over |z|<=500pc profile, neutral cells
+HIM_B   on    Pth                   vol   absz500_p84          2810.22 K cm^-3          Pth p84, vol-weighted, bin-average over |z|<=500pc profile, neutral cells
+HIM_B   on    Pth                   mw    absz500_median       1672.47 K cm^-3          Pth median, mw-weighted, bin-average over |z|<=500pc profile, neutral cells
+HIM_B   on    Pth                   mw    absz500_mean         2114.86 K cm^-3          Pth mean, mw-weighted, bin-average over |z|<=500pc profile, neutral cells
+HIM_B   on    Pth                   mw    absz500_p16          964.333 K cm^-3          Pth p16, mw-weighted, bin-average over |z|<=500pc profile, neutral cells
+HIM_B   on    Pth                   mw    absz500_p84          3502.46 K cm^-3          Pth p84, mw-weighted, bin-average over |z|<=500pc profile, neutral cells
+HIM_B   on    Ptot                  vol   absz500_median       1953.77 K cm^-3          Ptot median, vol-weighted, bin-average over |z|<=500pc profile, neutral cells
+HIM_B   on    Ptot                  vol   absz500_mean         3972.21 K cm^-3          Ptot mean, vol-weighted, bin-average over |z|<=500pc profile, neutral cells
+HIM_B   on    Ptot                  vol   absz500_p16          788.358 K cm^-3          Ptot p16, vol-weighted, bin-average over |z|<=500pc profile, neutral cells
+HIM_B   on    Ptot                  vol   absz500_p84          6145.99 K cm^-3          Ptot p84, vol-weighted, bin-average over |z|<=500pc profile, neutral cells
+HIM_B   on    Ptot                  mw    absz500_median       4631.79 K cm^-3          Ptot median, mw-weighted, bin-average over |z|<=500pc profile, neutral cells
+HIM_B   on    Ptot                  mw    absz500_mean         9853.96 K cm^-3          Ptot mean, mw-weighted, bin-average over |z|<=500pc profile, neutral cells
+HIM_B   on    Ptot                  mw    absz500_p16          1397.19 K cm^-3          Ptot p16, mw-weighted, bin-average over |z|<=500pc profile, neutral cells
+HIM_B   on    Ptot                  mw    absz500_p84          16582.4 K cm^-3          Ptot p84, mw-weighted, bin-average over |z|<=500pc profile, neutral cells
+HIM_B   on    alpha                 vol   absz500_median       1.15965 dimensionless    alpha median, vol-weighted, bin-average over |z|<=500pc profile, neutral cells
+HIM_B   on    alpha                 vol   absz500_mean         2.46825 dimensionless    alpha mean, vol-weighted, bin-average over |z|<=500pc profile, neutral cells
+HIM_B   on    alpha                 vol   absz500_p16          0.555472 dimensionless    alpha p16, vol-weighted, bin-average over |z|<=500pc profile, neutral cells
+HIM_B   on    alpha                 vol   absz500_p84          3.62251 dimensionless    alpha p84, vol-weighted, bin-average over |z|<=500pc profile, neutral cells
+HIM_B   on    alpha                 mw    absz500_median       2.33238 dimensionless    alpha median, mw-weighted, bin-average over |z|<=500pc profile, neutral cells
+HIM_B   on    alpha                 mw    absz500_mean         6.38993 dimensionless    alpha mean, mw-weighted, bin-average over |z|<=500pc profile, neutral cells
+HIM_B   on    alpha                 mw    absz500_p16          0.649921 dimensionless    alpha p16, mw-weighted, bin-average over |z|<=500pc profile, neutral cells
+HIM_B   on    alpha                 mw    absz500_p84          10.7904 dimensionless    alpha p84, mw-weighted, bin-average over |z|<=500pc profile, neutral cells
+HIM_B   on    phase_fraction_CNM    vol   full_volume          0.00387923 dimensionless    Volume fraction of CNM, full +-500pc square x +-750pc column
+HIM_B   on    phase_fraction_CNM    mw    full_volume          0.256103 dimensionless    Mass fraction of CNM, full +-500pc square x +-750pc column
+HIM_B   on    phase_fraction_UNM    vol   full_volume          0.0246618 dimensionless    Volume fraction of UNM, full +-500pc square x +-750pc column
+HIM_B   on    phase_fraction_UNM    mw    full_volume          0.388903 dimensionless    Mass fraction of UNM, full +-500pc square x +-750pc column
+HIM_B   on    phase_fraction_WNM    vol   full_volume          0.143321 dimensionless    Volume fraction of WNM, full +-500pc square x +-750pc column
+HIM_B   on    phase_fraction_WNM    mw    full_volume          0.318504 dimensionless    Mass fraction of WNM, full +-500pc square x +-750pc column
+HIM_B   on    phase_fraction_HIM    vol   full_volume          0.828138 dimensionless    Volume fraction of HIM, full +-500pc square x +-750pc column
+HIM_B   on    phase_fraction_HIM    mw    full_volume          0.0364903 dimensionless    Mass fraction of HIM, full +-500pc square x +-750pc column
+HIM_B   on    Mach                  vol   midplane             3.19792 dimensionless    Mach number at z=0, from volume-weighted mean alpha, neutral cells
+HIM_B   on    sigma_eff             vol   midplane             18.7294 km/s             Effective turbulent velocity dispersion at z=0, neutral cells, total (all phases)

@@ -1,0 +1,20 @@
+Self-gravity effect: P_tot and alpha ratios (ON/OFF) vs |z|
+==========================================================================================
+
+Variant RAW:
+  |z| (pc)    P_tot ratio (median)    alpha ratio (median)
+       5.0                1.283229                1.283229
+     105.0                1.219997                1.219997
+     305.0                1.159700                1.159700
+
+Variant HIM_A:
+  |z| (pc)    P_tot ratio (median)    alpha ratio (median)
+       5.0                1.359524                1.359524
+     105.0                1.261279                1.261279
+     305.0                1.160629                1.160629
+
+Variant HIM_B:
+  |z| (pc)    P_tot ratio (median)    alpha ratio (median)
+       5.0                1.332519                1.332519
+     105.0                1.242383                1.242383
+     305.0                1.155131                1.155131
