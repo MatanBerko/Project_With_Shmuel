@@ -71,7 +71,15 @@ def weighted_mean(values: np.ndarray, weights: np.ndarray) -> float:
 
 
 def weighted_stats(values: np.ndarray, weights: np.ndarray) -> WeightedStats:
-    """median, arithmetic mean, 16th/84th percentile, all weighted."""
+    """median, arithmetic mean, 16th/84th percentile, all weighted.
+
+    Sorts once and reuses it for all three percentiles (median/p16/p84)
+    instead of calling weighted_percentile() three times -- same nearest-
+    rank formula and results as calling weighted_percentile() directly,
+    just without re-sorting the same data three times over (this matters:
+    this function runs inside a bin loop over ~150 vertical-profile bins x
+    2 self-gravity settings x 3 quantities, on up to ~1.25M elements each).
+    """
     v = np.asarray(values, dtype=float).ravel()
     w = np.asarray(weights, dtype=float).ravel()
     m = np.isfinite(v) & np.isfinite(w) & (w > 0)
@@ -79,12 +87,23 @@ def weighted_stats(values: np.ndarray, weights: np.ndarray) -> WeightedStats:
     if n == 0:
         return WeightedStats(n=0, median=float("nan"), arithmetic_mean=float("nan"),
                                p16=float("nan"), p84=float("nan"))
+    v, w = v[m], w[m]
+    idx = np.argsort(v)
+    v_sorted, w_sorted = v[idx], w[idx]
+    cw = np.cumsum(w_sorted)
+    total = cw[-1]
+
+    def _pct(pct):
+        i = np.searchsorted(cw, pct / 100.0 * total, side="left")
+        i = min(max(int(i), 0), v_sorted.size - 1)
+        return float(v_sorted[i])
+
     return WeightedStats(
         n=n,
-        median=weighted_percentile(v, w, 50.0),
-        arithmetic_mean=weighted_mean(v, w),
-        p16=weighted_percentile(v, w, 16.0),
-        p84=weighted_percentile(v, w, 84.0),
+        median=_pct(50.0),
+        arithmetic_mean=float(np.average(v, weights=w)),
+        p16=_pct(16.0),
+        p84=_pct(84.0),
     )
 
 
