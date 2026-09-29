@@ -25,7 +25,8 @@ import numpy as np
 import zarr
 
 from src.config_loader import load_resolved_config
-from src.conventions import CNM_TEMP_MAX_K, K_B, M_H, MU, WNM_TEMP_MIN_K, XY_HALF_RANGE_PC
+from src.conventions import CNM_TEMP_MAX_K, K_B, M_H, MU, WNM_TEMP_MIN_K, XY_HALF_RANGE_PC, \
+    SELF_GRAVITY_MODE_FOOTPRINT_MEAN, SELF_GRAVITY_MODE_OFF, SELF_GRAVITY_MODE_PER_COLUMN
 from src.physics import derived, gravity, hydrostatic, thermal
 from src.physics.him import PHASE_CNM, PHASE_HIM, PHASE_UNM, PHASE_WNM, apply_variant, him_flag, phase_flag
 from src.physics.loading import footprint_mask, load_xy_subset_coords, open_zarr
@@ -35,7 +36,22 @@ from src.physics.stats import mass_weighted_stats, volume_weighted_stats
 # Control block
 # ============================================================================
 VARIANTS = ("RAW", "HIM_A", "HIM_B")  # MASKED omitted -- no definition exists (see report)
-SELF_GRAVITY_SETTINGS = (False, True)  # INCLUDE_SELF_GRAVITY: compute both
+
+# Step 1b: self-gravity settings are now off | mean | column (was off/on,
+# i.e. False/True -- "on" always meant per-column). "mean"
+# (footprint_mean) is the new default per-paper convention; "column"
+# (per_column) is kept as an explicit sensitivity option.
+SELF_GRAVITY_SETTINGS = ("off", "mean", "column")
+SELF_GRAVITY_MODE_BY_SETTING = {
+    "off": SELF_GRAVITY_MODE_OFF,
+    "mean": SELF_GRAVITY_MODE_FOOTPRINT_MEAN,
+    "column": SELF_GRAVITY_MODE_PER_COLUMN,
+}
+# A Step-1 run may have cached self_gravity_off / self_gravity_on groups
+# (on == per_column). Reuse them under the new names instead of
+# recomputing -- the underlying physics is byte-for-byte identical.
+LEGACY_GROUP_NAME_BY_SETTING = {"off": "self_gravity_off", "column": "self_gravity_on"}
+
 SELF_GRAVITY_DENSITY = "same_as_weight"  # "same_as_weight" (default) | "observed"
 
 FOOTPRINT_HALF_RANGE_PC = XY_HALF_RANGE_PC  # +-500 pc square
@@ -302,32 +318,57 @@ def build_stage(variants):
             vg.create_array("Sigma_gas", data=sigma_gas_variant)
 
         rho = (MU * M_H * n_model.astype(np.float64))
+        # Already restricted to the +-500pc square footprint by the x_lo:x_hi/
+        # y_lo:y_hi slice above, so "footprint_mean" here averages over the
+        # entire loaded XY plane.
+        full_footprint_mask = np.ones((n_model.shape[1], n_model.shape[2]), dtype=bool)
 
-        for sg in SELF_GRAVITY_SETTINGS:
-            sg_key = "on" if sg else "off"
+        for sg_key in SELF_GRAVITY_SETTINGS:
+            mode = SELF_GRAVITY_MODE_BY_SETTING[sg_key]
             sg_group_name = f"self_gravity_{sg_key}"
             sg_cached = sg_group_name in vg and "Ptot" in vg[sg_group_name] and "alpha" in vg[sg_group_name]
 
             if sg_cached:
-                print(f"  self_gravity={sg}: already in zarr -- loading instead of recomputing")
-                sgg = vg[sg_group_name]
-                Ptot_kB = np.asarray(sgg["Ptot"][:], dtype=np.float32)
-                alpha_arr = np.asarray(sgg["alpha"][:], dtype=np.float32)
-            else:
-                if sg_group_name in vg:
-                    print(f"  self_gravity={sg}: partial group in zarr (killed mid-write?) -- discarding")
-                    del vg[sg_group_name]
-                print(f"  self_gravity={sg}: P_tot integration...")
-                gravity_density = (n_model if SELF_GRAVITY_DENSITY == "same_as_weight" else n_raw).astype(np.float64)
-                g = gravity.g_total_cgs(z_pc, gravity_density if sg else None, include_self_gravity=sg)
-                Ptot_kB = hydrostatic.p_tot_kb_full_column(z_pc, rho, g).astype(np.float32)
-                alpha_arr = derived.alpha(Ptot_kB.astype(np.float64), Pth_model.astype(np.float64)).astype(np.float32)
-                del g
+                print(f"  self_gravity={sg_key}: already complete in zarr -- skipping")
+                continue
 
+            if sg_group_name in vg:
+                print(f"  self_gravity={sg_key}: partial group in zarr (killed mid-write?) -- discarding")
+                del vg[sg_group_name]
+
+            legacy_name = LEGACY_GROUP_NAME_BY_SETTING.get(sg_key)
+            legacy_cached = (
+                legacy_name is not None and legacy_name in vg
+                and "Ptot" in vg[legacy_name] and "alpha" in vg[legacy_name]
+            )
+            if legacy_cached:
+                print(f"  self_gravity={sg_key}: migrating cached legacy group '{legacy_name}' "
+                      f"(Step 1 behavior is unchanged for off/column) -- no recompute")
+                Ptot_kB = np.asarray(vg[legacy_name]["Ptot"][:], dtype=np.float32)
+                alpha_arr = np.asarray(vg[legacy_name]["alpha"][:], dtype=np.float32)
                 sgg = vg.require_group(sg_group_name)
                 sgg.create_array("Ptot", data=Ptot_kB, chunks=(CHUNK_Z, Ptot_kB.shape[1], Ptot_kB.shape[2]))
                 sgg.create_array("alpha", data=alpha_arr, chunks=(CHUNK_Z, alpha_arr.shape[1], alpha_arr.shape[2]))
-                print(f"  self_gravity={sg}: written to zarr")
+                print(f"  self_gravity={sg_key}: written to zarr (migrated)")
+                del Ptot_kB, alpha_arr
+                gc.collect()
+                continue
+
+            print(f"  self_gravity={sg_key}: P_tot integration...")
+            gravity_density = None
+            if mode != SELF_GRAVITY_MODE_OFF:
+                gravity_density = (n_model if SELF_GRAVITY_DENSITY == "same_as_weight" else n_raw).astype(np.float64)
+            g, nan_fraction = gravity.g_total_cgs(z_pc, gravity_density, mode=mode, footprint_mask=full_footprint_mask)
+            Ptot_kB = hydrostatic.p_tot_kb_full_column(z_pc, rho, g).astype(np.float32)
+            alpha_arr = derived.alpha(Ptot_kB.astype(np.float64), Pth_model.astype(np.float64)).astype(np.float32)
+            del g
+
+            sgg = vg.require_group(sg_group_name)
+            sgg.create_array("Ptot", data=Ptot_kB, chunks=(CHUNK_Z, Ptot_kB.shape[1], Ptot_kB.shape[2]))
+            sgg.create_array("alpha", data=alpha_arr, chunks=(CHUNK_Z, alpha_arr.shape[1], alpha_arr.shape[2]))
+            if nan_fraction is not None:
+                sgg.create_array("footprint_nan_fraction", data=nan_fraction.astype(np.float32))
+            print(f"  self_gravity={sg_key}: written to zarr")
 
             del Ptot_kB, alpha_arr
             gc.collect()
@@ -401,11 +442,13 @@ def _finalize_one_variant(variant, core_store, footprint, z_pc, Iuv):
             summary[f"{variant}__pdf2d__{qx}_{qy}__z{int(zc)}__yedges"] = yedges
             summary[f"{variant}__pdf2d__{qx}_{qy}__z{int(zc)}__H"] = H
 
-    for sg in SELF_GRAVITY_SETTINGS:
-        sg_key = "on" if sg else "off"
+    for sg_key in SELF_GRAVITY_SETTINGS:
         sgg = vg[f"self_gravity_{sg_key}"]
         Ptot_kB = np.asarray(sgg["Ptot"][:], dtype=np.float32)
         alpha_arr = np.asarray(sgg["alpha"][:], dtype=np.float32)
+        if "footprint_nan_fraction" in sgg:
+            summary[f"{variant}__sg{sg_key}__footprint_nan_fraction"] = np.asarray(
+                sgg["footprint_nan_fraction"][:], dtype=np.float32)
 
         for zc in SLAB_CENTERS_PC:
             iz = int(np.argmin(np.abs(z_pc - zc)))
@@ -424,7 +467,7 @@ def _finalize_one_variant(variant, core_store, footprint, z_pc, Iuv):
                 summary[f"{variant}__sg{sg_key}__pdf1d__{qty}__z{int(zc)}__centers"] = centers
                 summary[f"{variant}__sg{sg_key}__pdf1d__{qty}__z{int(zc)}__counts"] = counts
 
-        print(f"  self_gravity={sg}: vertical profiles (signed z and |z|)...")
+        print(f"  self_gravity={sg_key}: vertical profiles (signed z and |z|)...")
         prof_signed = compute_vertical_profile(z_pc, Pth_model, Ptot_kB, alpha_arr, him_cube, phase_cube,
                                                   T, n_model, footprint, use_abs=False)
         prof_abs = compute_vertical_profile(z_pc, Pth_model, Ptot_kB, alpha_arr, him_cube, phase_cube,
@@ -505,7 +548,10 @@ def finalize_stage(variants):
 
     core_store = zarr.open_group(str(ALPHA_CORE_ZARR_PATH), mode="r")
     for variant in variants:
-        if variant not in core_store or "self_gravity_on" not in core_store[variant]:
+        missing = variant not in core_store or any(
+            f"self_gravity_{sg_key}" not in core_store[variant] for sg_key in SELF_GRAVITY_SETTINGS
+        )
+        if missing:
             raise RuntimeError(
                 f"{ALPHA_CORE_ZARR_PATH} is missing a complete '{variant}' group -- "
                 f"run `python pipeline/compute_all.py build {variant}` first."
@@ -602,10 +648,14 @@ def finalize_merge():
     with open(NUMBERS_TABLE_TXT_PATH, "w") as f:
         f.write("Alpha paper -- headline numbers table\n")
         f.write("MASKED variant: not implemented -- no MASKED definition exists in any reference script.\n")
+        f.write("self_gravity column: off | mean (footprint_mean, DEFAULT) | column (per_column, sensitivity option)\n")
+        f.write("  -- see results/README.md for full column definitions.\n")
         f.write("=" * 120 + "\n")
+        f.write(f"{'variant':<8}{'self_grav':<9}{'quantity':<22}{'weight':<7}{'stat':<20}{'value':>12} {'units':<16} definition\n")
+        f.write("-" * 120 + "\n")
         for row in numbers_rows:
             variant, sg_key, qty, wt, stat, val, units, definition = row
-            f.write(f"{variant:<8}{sg_key:<6}{qty:<22}{wt:<6}{stat:<20}{val: .6g} {units:<16} {definition}\n")
+            f.write(f"{variant:<8}{sg_key:<8}{qty:<22}{wt:<6}{stat:<20}{val: .6g} {units:<16} {definition}\n")
 
     elapsed = time.time() - t_start
     peak_mb = peak_working_set_mb()

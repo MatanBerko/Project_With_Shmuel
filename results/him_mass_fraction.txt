@@ -1,0 +1,2 @@
+HIM gas-mass fraction (observed/RAW density, +-500pc square footprint)
+z=0pc slab (-25 to 25pc): 3.1469% | z=150pc slab (125 to 175pc): 17.3266% | z=300pc slab (275 to 325pc): 45.9525% | total (full +-750pc column): 17.9035%
