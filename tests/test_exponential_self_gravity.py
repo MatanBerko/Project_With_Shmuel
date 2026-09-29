@@ -9,8 +9,9 @@ self-consistency.
 import numpy as np
 
 from src.conventions import G_PC_MSUN_KMS, K_B, KM2S2_PER_PC_TO_CGS, M_H, MU, \
-    PC_CM, M_SUN_G, RHO_DM_MSUN_PC3, SIGMA_STAR_MSUN_PC2, Z_H_PC
-from src.physics.gravity import g_gas_cgs, g_total_cgs
+    PC_CM, M_SUN_G, RHO_DM_MSUN_PC3, SELF_GRAVITY_MODE_OFF, SELF_GRAVITY_MODE_PER_COLUMN, \
+    SIGMA_STAR_MSUN_PC2, Z_H_PC
+from src.physics.gravity import g_total_cgs
 from src.physics.hydrostatic import p_tot_kb_full_column
 
 N0_CM3 = 1.0
@@ -67,7 +68,7 @@ def test_ptot_with_self_gravity_exponential_layer_vs_independent_integral():
     z_pkg = np.arange(-ZMAX_PC, ZMAX_PC + dz_pkg / 2, dz_pkg)
     n_pkg = N0_CM3 * np.exp(-np.abs(z_pkg) / H_PC)
     rho_pkg = MU * M_H * n_pkg
-    g_pkg = g_total_cgs(z_pkg, n_pkg, include_self_gravity=True)
+    g_pkg, _ = g_total_cgs(z_pkg, n_pkg, mode=SELF_GRAVITY_MODE_PER_COLUMN)
     ptot_pkg = p_tot_kb_full_column(z_pkg, rho_pkg, g_pkg)
 
     for z_test in (0.0, 100.0, 300.0):
@@ -86,8 +87,8 @@ def test_self_gravity_increases_ptot_over_ext_only():
     n = N0_CM3 * np.exp(-np.abs(z) / H_PC)
     rho = MU * M_H * n
 
-    g_ext_only = g_total_cgs(z, n, include_self_gravity=False)
-    g_with_self = g_total_cgs(z, n, include_self_gravity=True)
+    g_ext_only, _ = g_total_cgs(z, n, mode=SELF_GRAVITY_MODE_OFF)
+    g_with_self, _ = g_total_cgs(z, n, mode=SELF_GRAVITY_MODE_PER_COLUMN)
 
     p_ext_only = p_tot_kb_full_column(z, rho, g_ext_only)
     p_with_self = p_tot_kb_full_column(z, rho, g_with_self)

@@ -90,6 +90,24 @@ RHO_DM_MSUN_PC3 = 0.0133  # Msun/pc^3
 G_PC_MSUN_KMS = 4.30091e-3  # (pc/Msun) * (km/s)^2, gravitational constant
 KM2S2_PER_PC_TO_CGS = 1.0e10 / PC_CM  # (km/s)^2 -> cm^2/s^2, divided by pc-in-cm
 
+# ---------------------------------------------------------------------------
+# Gas self-gravity mode (Step 1b)
+# ---------------------------------------------------------------------------
+# SETTLED: Phase B found the per-column ("infinite slab per line of sight")
+# self-gravity inflates mass-weighted alpha by x1.9-2.6 near the midplane,
+# because it lets a single compact dense cloud source its own huge local
+# g_gas, over-weighting exactly the clumps that mass-weighting already
+# emphasizes. Guo+20's external field is a smooth, horizontally uniform
+# disk model -- so the physically consistent gas self-gravity to add
+# alongside it is likewise horizontally averaged over the footprint, not
+# a per-sightline slab. "footprint_mean" is now the default; "per_column"
+# (the original Step 1 behavior, unchanged) is kept as an explicit
+# sensitivity option.
+SELF_GRAVITY_MODE_FOOTPRINT_MEAN = "footprint_mean"
+SELF_GRAVITY_MODE_PER_COLUMN = "per_column"
+SELF_GRAVITY_MODE_OFF = "off"
+SELF_GRAVITY_MODE_DEFAULT = SELF_GRAVITY_MODE_FOOTPRINT_MEAN
+
 
 def apply_style() -> None:
     """Apply this project's publication-quality matplotlib style."""
