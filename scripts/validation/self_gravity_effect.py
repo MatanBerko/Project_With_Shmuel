@@ -5,30 +5,49 @@ off, for all three variants. Reads only cache/core/alpha_core.zarr
 (produced by pipeline/compute_all.py) -- no recomputation of any physics
 here.
 
-For each variant and each ON mode (mean, column), the per-cell ratio
-alpha_on / alpha_off is computed (Ptot ratio is identical, since
-alpha = Ptot/Pth and Pth doesn't depend on self-gravity), then reduced to
-four statistics -- volume-weighted median, volume-weighted mean,
-mass-weighted median, mass-weighted mean -- at three 50pc-thick z-slabs
-(0, 150, 300 pc, matching pipeline/compute_all.py's SLAB_HALF_THICKNESS_PC)
-and over the full |z| <= 500 pc range. HIM-flagged cells are excluded
+For each variant and each ON mode, the per-cell ratio alpha_on /
+alpha_off is computed (the Ptot ratio is identical, since alpha =
+Ptot/Pth and Pth doesn't depend on self-gravity), then reduced to four
+statistics -- volume-weighted median, volume-weighted mean, mass-weighted
+median, mass-weighted mean -- at the three 60pc-thick z-slabs (0, 150,
+300 pc) and over the whole STATS_BOX. HIM-flagged cells are excluded
 throughout (same convention as pipeline/compute_all.py).
+
+Step 1c-prep: every spatial convention here is imported from
+src.conventions rather than redeclared, so this script and
+pipeline/compute_all.py cannot drift apart:
+  * slabs are |z - z_c| <= 30 pc (60 pc thick), was +-25 pc;
+  * the reduction range is the STATS_BOX (|x|,|y| <= 500, |z| <= 400 pc),
+    was |z| <= 500 pc;
+  * "column" (per_column) is not swept in this run -- it stays in
+    ON_MODES_AVAILABLE and runs again by adding it back to ON_MODES.
+Note that the ratio itself is unaffected by the STATS_BOX change: alpha
+on both sides comes from the unchanged full-column P_tot integral, and
+the box only decides which cells enter the four statistics.
 """
 
+import sys
 from pathlib import Path
 
 import numpy as np
 import zarr
 
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+
+from src.conventions import (  # noqa: E402
+    PROVISIONAL_CUBE_HEADER,
+    SLAB_CENTERS_PC,
+    SLAB_HALF_THICKNESS_PC,
+    STATS_BOX_Z_HALF_RANGE_PC,
+    XY_HALF_RANGE_PC,
+)
+
 VARIANTS = ("RAW", "HIM_A", "HIM_B")
-ON_MODES = ("mean", "column")  # vs "off"
+ON_MODES_AVAILABLE = ("mean", "column")
+ON_MODES = ("mean",)  # vs "off" -- "column" kept available, not swept here
 ALPHA_CORE_ZARR_PATH = Path("cache/core/alpha_core.zarr")
 OUT_NPZ_PATH = Path("cache/core/self_gravity_effect.npz")
 OUT_TXT_PATH = Path("results/self_gravity_effect.txt")
-
-SLAB_CENTERS_PC = (0.0, 150.0, 300.0)
-SLAB_HALF_THICKNESS_PC = 25.0
-MAX_ABS_Z_PC = 500.0
 
 PHASE_HIM = 3
 
@@ -74,25 +93,36 @@ def main():
     Path("cache/core").mkdir(parents=True, exist_ok=True)
 
     g = zarr.open_group(str(ALPHA_CORE_ZARR_PATH), mode="r")
-    z_pc = np.asarray(g["z_pc"][:], dtype=np.float64)
+    z_pc_full = np.asarray(g["z_pc"][:], dtype=np.float64)
+    box = np.where(np.abs(z_pc_full) <= STATS_BOX_Z_HALF_RANGE_PC)[0]
+    zsl = slice(int(box.min()), int(box.max()) + 1)
+    z_pc = z_pc_full[zsl]
 
     npz_out = {"z_pc": z_pc}
-    lines = ["Self-gravity effect: alpha ratio (self-gravity ON / OFF), both modes",
-             "ON modes: mean = footprint_mean (default), column = per_column (sensitivity option)",
+    lines = [PROVISIONAL_CUBE_HEADER,
+             "Self-gravity effect: alpha ratio (self-gravity ON / OFF)",
+             f"ON modes swept: {', '.join(ON_MODES)} "
+             f"(mean = footprint_mean, the default; column = per_column, "
+             f"available but not swept in this run)",
              "Ratios computed per-cell (alpha_on/alpha_off), then reduced with 4 statistics.",
+             f"STATS_BOX: |x|,|y| <= {XY_HALF_RANGE_PC:.0f} pc, "
+             f"|z| <= {STATS_BOX_Z_HALF_RANGE_PC:.0f} pc. "
+             f"Slabs: |z - z_c| <= {SLAB_HALF_THICKNESS_PC:.0f} pc ("
+             f"{2 * SLAB_HALF_THICKNESS_PC:.0f} pc thick).",
              "=" * 100]
 
     for variant in VARIANTS:
         vg = g[variant]
-        phase_flag = np.asarray(vg["phase_flag"][:])
-        neutral = phase_flag != PHASE_HIM
-        n_model = np.asarray(vg["n_model"][:], dtype=np.float32)
+        # HIM flag is stored on its own (scheme-independent) since Step 1c
+        him = np.asarray(vg["him"][zsl]).astype(bool)
+        neutral = ~him
+        n_model = np.asarray(vg["n_model"][zsl], dtype=np.float32)
 
-        alpha_off = np.asarray(vg["self_gravity_off"]["alpha"][:], dtype=np.float64)
+        alpha_off = np.asarray(vg["self_gravity_off"]["alpha"][zsl], dtype=np.float64)
 
         lines.append(f"\nVariant {variant}:")
         for mode in ON_MODES:
-            alpha_on = np.asarray(vg[f"self_gravity_{mode}"]["alpha"][:], dtype=np.float64)
+            alpha_on = np.asarray(vg[f"self_gravity_{mode}"]["alpha"][zsl], dtype=np.float64)
             with np.errstate(divide="ignore", invalid="ignore"):
                 ratio = np.where(alpha_off > 0, alpha_on / alpha_off, np.nan)
 
@@ -109,14 +139,14 @@ def main():
                 for k, val in stats.items():
                     npz_out[f"{variant}__{mode}__z{int(zc)}__{k}"] = val
 
-            idxs_full = np.where(np.abs(z_pc) <= MAX_ABS_Z_PC)[0]
+            idxs_full = np.arange(len(z_pc))
             stats_full = _four_stats(ratio[idxs_full], neutral[idxs_full], n_model[idxs_full])
-            lines.append(f"    {'|z|<=500pc':>14}{stats_full['vol_median']:>14.4f}{stats_full['vol_mean']:>14.4f}"
+            lines.append(f"    {'STATS_BOX':>14}{stats_full['vol_median']:>14.4f}{stats_full['vol_mean']:>14.4f}"
                          f"{stats_full['mw_median']:>14.4f}{stats_full['mw_mean']:>14.4f}")
             for k, val in stats_full.items():
-                npz_out[f"{variant}__{mode}__absz500__{k}"] = val
+                npz_out[f"{variant}__{mode}__box__{k}"] = val
 
-        del phase_flag, neutral, n_model, alpha_off
+        del him, neutral, n_model, alpha_off
 
     report = "\n".join(lines)
     print(report)

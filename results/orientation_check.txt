@@ -1,0 +1,78 @@
+PROVISIONAL: f98 cube, n_H = 1653 A'; final cube pending
+Zarr cube orientation check -- REPORT ONLY (the loader is unchanged)
+====================================================================================================
+cube:            f98_sm_opt2_edendist.zarr (single config entry: local_config.yaml zarr_filename)
+grid:            x -1000..1000, y -1000..1000, z -750..750 pc, spacing 2 pc
+STATS_BOX:       |x|,|y| <= 500 pc, |z| <= 400 pc
+samples:         2000 for the 48-mapping scan, 20000 for the ratio fit and north/south means (seed 20261006)
+expected ratio:  n_H / A' = 1653
+
+dustmaps:        Edenhofer2023Query(integrated=False), distance bounds [68.6, 1248.1] pc
+                 NaN fraction in the sample 0.17% (samples inside the map's inner cutoff: 0.17%)
+
+48 axis mappings: Pearson r of log10(cube density) vs log10(A')
+  mapping M means the cube is read at M(p) while A' is queried at the true p;
+  (+x,+y,+z) is the identity -- what every script currently assumes.
+
+  rank  mapping               r   n_used
+     1  (-y,-x,+z)       0.9410     1994
+     2  (-y,-x,-z)       0.3347     1994
+     3  (+x,+y,+z)       0.2888     1994   <-- identity
+     4  (-y,+x,+z)       0.2849     1994
+     5  (-y,+x,-z)       0.2206     1994
+     6  (+z,+x,-y)       0.2052     1994
+     7  (+z,-x,-y)       0.1812     1994
+     8  (-z,-x,+y)       0.1805     1994
+     9  (-x,-y,+z)       0.1692     1994
+    10  (+x,-z,-y)       0.1637     1994
+  ... (38 further mappings omitted; worst r = -0.0742 for (+y,+z,+x))
+
+  identity (+x,+y,+z): r = 0.2888
+  best mapping (-y,-x,+z): r = 0.9410
+  VERDICT: the best mapping is (-y,-x,+z), NOT the identity -- the cube's axes do not match the assumed convention.
+
+Density ratio n_H / A' under the best mapping (-y,-x,+z) (19966 of 20000 samples usable)
+  r (log-log, full sample)         0.9441
+  median ratio                     1542.7
+  log-space ratio (slope fixed 1)  1542.7
+  free-slope log-log fit           slope 0.9860, ratio at A'=median 1554.8
+  ratio percentiles 15/50/85       986.4 / 1542.7 / 2401.2
+  expected                         1653
+
+North (z>0) vs south (z<0), identical sample points, best mapping (-y,-x,+z)
+  source                            z>0 mean      z<0 mean   N/S ratio
+  cube density [cm^-3]                0.2020        0.2476       0.816
+    +- standard error                 0.0079        0.0104            
+  dustmaps A' [E/pc]                0.000121      0.000146       0.828
+    +- standard error               0.000005      0.000005            
+  sample sizes: z>0 9997, z<0 9925
+
+  cube density, EXACT box mean over every voxel (no sampling):
+                                      0.2056        0.2408       0.854
+
+  Reading: the two sources' N/S ratios agreeing says the cube's z axis carries the
+  same vertical asymmetry as the map. They disagreeing points at a flipped, shifted
+  or permuted z axis -- which the 48-mapping scan above then localises.
+
+Implication for the provisional numbers
+----------------------------------------
+  The best mapping (-y,-x,+z) permutes and flips only x and y; the z axis is
+  correct (+z), which the matching north/south ratios above independently confirm.
+
+  That means the provisional statistics in results/numbers_table.csv are NOT
+  biased by this, for two reasons that both have to hold and both do:
+    1. the analysis footprint is a +-500 pc SQUARE, which any signed
+       permutation of x and y maps exactly onto itself -- the same set of voxels
+       is selected either way;
+    2. no quantity computed here depends on x or y individually. P_tot integrates
+       along z, the self-gravity footprint average collapses x and y away, and
+       every statistic, slab, profile and PDF is binned in z only.
+
+  What IS affected is anything that resolves the XY plane: the Sigma_gas(x, y)
+  map and the z-slice images in cache/core/summary.npz are reflected about the
+  x = -y diagonal. Their medians and means over the square are unchanged, but no
+  figure should be made from those maps until the re-oriented cube lands.
+
+  Concretely: the cube's x axis carries -y_true and its y axis carries -x_true.
+
+(runtime 35.8s)
