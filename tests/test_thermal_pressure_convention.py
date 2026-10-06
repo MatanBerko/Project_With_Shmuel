@@ -78,6 +78,15 @@ def old_sound_speed(T):
 
 
 def old_sigma_nt(alpha_val, T):
+    """Pre-Step-1d sigma_nt, with the pre-Step-1e clamp of alpha-1 at zero.
+
+    Step 1e changed that clamp to NaN (alpha < 1 means there is no
+    non-thermal support to measure), so comparisons against this helper
+    are restricted to alpha >= 1 -- the region where the clamp never
+    applied and the two agree exactly. The NaN behaviour itself is
+    covered in tests/test_alpha_estimators.py, not here: it is a Step 1e
+    change and nothing to do with the thermal-pressure convention.
+    """
     return np.sqrt(3.0 * np.maximum(alpha_val - 1.0, 0.0) * KB_OVER_14_MH * T) / KMS
 
 
@@ -291,8 +300,13 @@ def test_nt_convention_reproduces_pre_step1d_behaviour_elementwise():
         np.testing.assert_array_equal(a, Ptot / expected_p)
         np.testing.assert_allclose(derived.sound_speed_kmps(T, NT), old_sound_speed(T),
                                      rtol=1e-15, atol=0)
-        np.testing.assert_allclose(derived.sigma_nt_kmps(a, T, NT), old_sigma_nt(a, T),
-                                     rtol=1e-15, atol=0)
+        # restricted to alpha >= 1: below that the old code clamped and
+        # Step 1e returns NaN (see old_sigma_nt's docstring)
+        ok = a >= 1.0
+        assert ok.any() and not ok.all(), "sample must straddle alpha = 1"
+        np.testing.assert_allclose(derived.sigma_nt_kmps(a[ok], T[ok], NT),
+                                     old_sigma_nt(a[ok], T[ok]), rtol=1e-15, atol=0)
+        assert np.all(np.isnan(derived.sigma_nt_kmps(a[~ok], T[~ok], NT)))
 
 
 # ---------------------------------------------------------------------------
@@ -327,6 +341,44 @@ def current():
 # float32 epsilon, not float64.
 F32_RTOL = 2e-7
 
+# Step 1e renamed the reported alpha rows: with three estimators in play,
+# a bare "alpha" quantity with stat "z0_median" no longer identifies a
+# number. The Step 1c fixture predates that, so its keys are translated
+# here. Nothing about the VALUES being compared changed -- this is a
+# key mapping, and keeping it explicit is what documents the rename.
+STEP1C_ALPHA_STAT_TO_QUANTITY = {
+    "median": "alpha_median_of_ratios",
+    "mean": "alpha_mean_of_ratios",
+    "p15": "alpha_p15_of_ratios",
+    "p85": "alpha_p85_of_ratios",
+}
+# Step 1e also split Mach/sigma_nt per estimator. Step 1c/1d's midplane
+# Mach and sigma_nt were both built from the vol-weighted MEAN of the
+# ratios, so they map onto the _from_mean members.
+STEP1C_MIDPLANE_RENAME = {
+    "Mach": "Mach_from_mean",
+    "sigma_nt": "sigma_nt_from_mean",
+    "sigma_eff": "sigma_eff",
+    "c_s": "c_s",
+}
+
+
+def _translate_step1c_key(key):
+    """Step 1c key -> the current key for the same number, or None if the
+    row has no single current counterpart."""
+    variant, sg, scheme, qty, wt, stat = key
+    if qty == "Pth":
+        return (variant, sg, scheme, "Pth_phys", wt, stat)
+    if qty == "alpha":
+        where, _, estimator = stat.rpartition("_")
+        new_qty = STEP1C_ALPHA_STAT_TO_QUANTITY.get(estimator)
+        if new_qty is None:
+            return None
+        return (variant, sg, scheme, new_qty, wt, where)
+    if stat == "midplane" and qty in STEP1C_MIDPLANE_RENAME:
+        return (variant, sg, scheme, STEP1C_MIDPLANE_RENAME[qty], wt, stat)
+    return key
+
 
 def test_step1c_pth_rows_are_exactly_1_point_1_times_the_new_ones(step1c, current):
     """p_th_phys = 1.1 * p_nT in EVERY cell, HIM-substituted ones included,
@@ -338,7 +390,7 @@ def test_step1c_pth_rows_are_exactly_1_point_1_times_the_new_ones(step1c, curren
         variant, sg, scheme, qty, wt, stat = key
         if qty != "Pth":
             continue
-        new_val = current.get((variant, sg, scheme, "Pth_phys", wt, stat))
+        new_val = current.get(_translate_step1c_key(key))
         assert new_val is not None, f"no Pth_phys counterpart for {key}"
         assert new_val == pytest.approx(PARTICLES_PER_H_NEUTRAL * old_val, rel=F32_RTOL), key
         checked += 1
@@ -363,21 +415,24 @@ def test_raw_reproduces_step1c_exactly_under_the_known_conversion(step1c, curren
             assert current[key] == pytest.approx(old_val, rel=F32_RTOL), key
             unchanged += 1
         elif qty == "alpha":
-            assert current[key] == pytest.approx(old_val / PARTICLES_PER_H_NEUTRAL,
-                                                 rel=F32_RTOL), key
+            new_key = _translate_step1c_key(key)
+            assert new_key is not None, key
+            assert current[new_key] == pytest.approx(old_val / PARTICLES_PER_H_NEUTRAL,
+                                                      rel=F32_RTOL), key
             scaled += 1
     assert unchanged >= 40 and scaled >= 30, (unchanged, scaled)
 
     # Mach: rebuilt from Step 1c's alpha, pushed through the 1/1.1 scaling
     for sg in ("off", "mean"):
-        key = ("RAW", sg, "n/a", "Mach", "vol", "midplane")
-        # Step 1c's Mach came from its own alpha_vol_mean at the midplane;
-        # recover that alpha, scale it, and re-derive.
-        old_mach = step1c[key]
+        old_key = ("RAW", sg, "n/a", "Mach", "vol", "midplane")
+        new_key = _translate_step1c_key(old_key)
+        # Step 1c's Mach came from its own vol-weighted mean of the ratios
+        # at the midplane; recover that alpha, scale it, and re-derive.
+        old_mach = step1c[old_key]
         old_alpha_mean = 1.0 + old_mach ** 2 / 3.0
         expected = float(derived.mach_number(
             np.array([old_alpha_mean / PARTICLES_PER_H_NEUTRAL]))[0])
-        assert current[key] == pytest.approx(expected, rel=1e-5), key
+        assert current[new_key] == pytest.approx(expected, rel=1e-5), old_key
 
 
 def test_step1c_sigma_eff_row_is_reproduced_by_the_new_sigma_nt_row(step1c, current):
@@ -394,9 +449,9 @@ def test_step1c_sigma_eff_row_is_reproduced_by_the_new_sigma_nt_row(step1c, curr
             old_mach = step1c[(variant, sg, "n/a", "Mach", "vol", "midplane")]
             # Step 1c: sigma = Mach * c_s_nT  =>  c_s_nT = sigma / Mach
             c_s_nT = old_sigma / old_mach
-            new_mach = current[(variant, sg, "n/a", "Mach", "vol", "midplane")]
+            new_mach = current[(variant, sg, "n/a", "Mach_from_mean", "vol", "midplane")]
             new_c_s = current[(variant, sg, "n/a", "c_s", "vol", "midplane")]
-            new_sigma_nt = current[(variant, sg, "n/a", "sigma_nt", "vol", "midplane")]
+            new_sigma_nt = current[(variant, sg, "n/a", "sigma_nt_from_mean", "vol", "midplane")]
 
             # c_s only gained the sqrt(1.1) particle-count factor; the mean
             # neutral T it is built from did not change for RAW.

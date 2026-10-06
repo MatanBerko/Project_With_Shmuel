@@ -237,16 +237,117 @@ explicit. Hence one phase flag per scheme serves all three variants, and
 the **volume** phase fractions are identical across variants by
 construction (only the **mass** fractions differ, through the weight).
 
+## The three alpha estimators (Step 1e)
+
+alpha is reported **three ways side by side**, over exactly the same cell
+selection (non-HIM cells, in the STATS_BOX / slab / profile bin), under
+both weightings (w_i = 1 for `vol`, w_i = n_i for `mw`), for every
+variant and both self-gravity settings:
+
+| quantity | definition |
+|---|---|
+| `alpha_median_of_ratios` | weighted **median** of the per-cell alpha_i = P_tot,i / p_th_phys,i |
+| `alpha_mean_of_ratios` | weighted **mean** of the per-cell alpha_i |
+| `alpha_ratio_of_means` | **ratio of means**, sum(w_i P_tot,i) / sum(w_i p_th_phys,i) — NEW in Step 1e |
+| `alpha_p15_of_ratios`, `alpha_p85_of_ratios` | percentiles **of the ratios** |
+| `frac_alpha_lt1` | weighted fraction of cells with alpha_i < 1 |
+
+The third is the one that is easy to get wrong, because it looks like it
+should be recoverable from an alpha cube. It is not. The identity is
+
+```
+  sum(w P_tot) / sum(w P_th)  =  sum(w·P_th · alpha) / sum(w·P_th)
+```
+
+i.e. `ratio_of_means` is the **(w_i · p_th,i)-weighted** mean of alpha_i —
+a different weighting from w_i, which weights each cell by its own
+thermal pressure on top of w_i. `tests/test_alpha_estimators.py` pins
+that identity down on random data *and* checks it differs from the
+w-weighted mean, so the test is a constraint rather than an algebraic
+restatement.
+
+Why all three rather than a choice: that is a physics question, so the
+code reports all three and picks none.
+
+- `ratio_of_means` is the only one that **conserves pressure** — it is
+  the ratio of the volume's total P_tot to its total P_th — and is
+  dominated by the highest-pressure cells.
+- `median_of_ratios` describes a **typical cell** and ignores the tails.
+- `mean_of_ratios` sits between them and is pulled up by the low-p_th
+  (high-alpha) tail, which in this cube is large.
+
+They are not close together. On the three-cell case in the test suite
+(P_tot = 3000, 4000, 5000; P_th = 1000, 3000, 2000) they are 2.5 /
+2.2778 / 2.0 — a 25% spread on data that fits on one line. On the real
+cube, RAW over the box, vol-weighted: 2.62 / 3.67 / 2.83.
+
+A second identity worth knowing, also tested: if P_tot is constant across
+the selection, then alpha_i is a monotonically decreasing function of
+p_th,i, so a rank-based median commutes with it and
+`median_of_ratios == P_tot / median(p_th)` **exactly** (for an odd cell
+count; for an even count the nearest-rank estimator lands within one
+order statistic). The companion for the third estimator is
+`ratio_of_means == P_tot / weighted-mean(p_th)`.
+
+### Mach and sigma_nt per estimator; alpha < 1 is NaN
+
+`sqrt(3(alpha-1))` is non-linear and the three alphas differ by far more
+than its curvature forgives, so Mach and sigma_nt are derived
+**separately from each estimator**: `Mach_from_median`,
+`Mach_from_mean`, `Mach_from_ratio_of_means`, and likewise
+`sigma_nt_from_*`.
+
+`Mach_from_*` and `sigma_nt_from_*` are **NaN where their own alpha < 1**
+(they used to clamp alpha-1 at zero). alpha < 1 means P_tot < P_th: there
+is no non-thermal support to measure, so the quantity is undefined, not
+zero — and returning zero made "undefined" look like a measurement of
+"no turbulence" and let it be averaged in alongside real values. This is
+not a corner case here: HIM_A/HIM_B's volume-weighted
+`alpha_median_of_ratios` is below 1 over much of the box, which is why
+`frac_alpha_lt1` is reported next to them rather than leaving the NaNs as
+a silent gap.
+
+`sigma_eff = sqrt(alpha)·c_s = sqrt(P_tot/rho)` and `c_s` are **not**
+affected and are unchanged: sigma_eff is defined for any alpha >= 0,
+because it measures total support rather than the non-thermal excess.
+Both still come from `alpha_mean_of_ratios`.
+
 ### Slabs, profiles, percentiles
 
 - **Slabs** — single-height statistics use **|z − z_c| ≤ 30 pc** (60 pc
   thick) at z_c = 0, 150, 300 pc. Was ±25 pc (50 pc thick). Neither is
   what the four reference scripts did — they all used a single nearest
   2 pc z-plane via `nearest_idx()`.
-- **Vertical profiles** — one point **per grid plane** inside the box, no
-  z binning at all (401 signed-z points at 2 pc spacing; was 10 pc bins
-  over |z| ≤ 500 pc). Both a signed-z profile (shows north/south
-  asymmetry) and a folded |z| profile (higher S/N) are stored.
+- **Vertical profiles** — binned at **`PROFILE_BIN_PC` = 4 pc**
+  (Shelest+26 Fig. 2), a single constant in `src/conventions.py`. Edges
+  sit at exact multiples of 4 pc from −400 to +400 pc, bins are
+  left-closed/right-open **except the last, which is closed** so the
+  z = ±400 pc planes are not silently dropped, and cells are assigned by
+  their own z coordinate. On the cube's real 2 pc grid that gives:
+
+  | profile | bins | planes per bin |
+  |---|---|---|
+  | signed z | 200 | 2, except 3 in the last |
+  | folded \|z\| | 100 | 3 in the first (\|z\| = 0, 2), 4 in the middle, 6 in the last |
+
+  Both total 401 planes, i.e. every box plane used exactly once. This
+  supersedes Step 1c's one-point-per-grid-plane profiles (`PROFILE_BIN_PC
+  = 2` would reproduce them). A bin width that does not divide the box
+  half-range raises rather than silently producing a short final bin.
+  Applied to every profile quantity: all three alpha estimators and their
+  percentiles, `frac_alpha_lt1`, P_th, P_tot, the phase fractions, Mach
+  and sigma_nt from each estimator, sigma_eff and c_s — signed z and
+  folded |z|.
+
+  **This is statistics binning only.** P_tot, Sigma_gas and both
+  self-gravity integrals are computed in the build stage on the real 2 pc
+  grid and never see `PROFILE_BIN_PC`;
+  `tests/test_profile_bins.py::test_changing_profile_bin_pc_leaves_ptot_and_sigma_gas_byte_identical`
+  asserts that by actually changing the constant and requiring
+  byte-identical output. Measured effect of the rebinning on the
+  statistics themselves: the 4 pc `alpha_median_of_ratios` profile agrees
+  with the Step 1d per-plane one to a median ratio of 1.0000 (15/85
+  percentiles 0.9999/1.0001, worst bin 0.4% for RAW, 1.8% for HIM_A).
 - **Percentiles** — **15th/85th** (`PERCENTILE_SCHEME_15_85`, the
   default). `16_84` stays available behind the switch. 15/85 is also what
   this project's own `fig4_vertical_profiles/compute_data.py` used before
@@ -315,11 +416,13 @@ header row. **`phase_scheme` is new in Step 1c.**
 | `Sigma_gas` | **Full-column** (±750 pc) trapezoidal integral of that variant's density over the ±500 pc square, Msun/pc^2 — deliberately not box-clipped. |
 | `Pth_phys` | **Physical** thermal pressure / k_B = **1.1·n_H·T** [K cm^-3] (renamed from `Pth`, which held n_H·T — the rename is deliberate, so the change shows up in the data and not only in this prose). Identical across variants, because statistics exclude HIM cells, the HIM substitution only changes HIM cells, and the mass weights outside them are unchanged — a useful built-in consistency check. |
 | `Ptot` | Total (hydrostatic) pressure / k_B [K cm^-3], integrated over the full column per the chosen `self_gravity` setting. Unchanged in definition by Step 1d; its *value* moves for HIM_A/HIM_B because their HIM cells' mass changed. |
-| `alpha` | P_tot / `Pth_phys` (dimensionless). |
+| `alpha_median_of_ratios`, `alpha_mean_of_ratios`, `alpha_ratio_of_means` | The three alpha estimators — see the dedicated section above. The bare `alpha` quantity name is **retired**: with three estimators in play it no longer identifies a number. |
+| `alpha_p15_of_ratios`, `alpha_p85_of_ratios` | 15th/85th percentiles of the per-cell ratios (not of anything aggregated). |
+| `frac_alpha_lt1` | Weighted fraction of the selected cells with alpha_i < 1, i.e. exactly the fraction for which Mach and sigma_nt are undefined. |
 | `phase_fraction_{CNM,UNM,WNM,HIM}` | Fraction of cells (`vol`) or of gas mass (`mw`) in that phase, under the `phase_scheme` of that row. HIM is included here (unlike every other quantity, where HIM cells are excluded from statistics). The `vol` fractions are untouched by Step 1d; the `mw` ones move for HIM_A/HIM_B, by exactly the 0.478 density factor in the HIM bin. |
-| `Mach` | Turbulent Mach number = sqrt(3*(alpha-1)) = `sigma_nt`/`c_s`, from the volume-weighted mean alpha at the given location. |
-| `sigma_eff` | **Total** effective velocity dispersion [km/s] = sqrt(alpha)·c_s = sqrt(P_tot/rho). Convention-independent. **Not** the same quantity Step 1c reported under this name — see `sigma_nt`. |
-| `sigma_nt` | **Non-thermal** (turbulent) 3D velocity dispersion [km/s] = sqrt(3*(alpha-1))·c_s = Mach·c_s. **This is Step 1c's `sigma_eff`.** |
+| `Mach_from_median`, `Mach_from_mean`, `Mach_from_ratio_of_means` | Turbulent Mach number sqrt(3*(alpha-1)) = `sigma_nt`/`c_s`, from each alpha estimator separately. **NaN where that alpha < 1.** |
+| `sigma_nt_from_median`, `sigma_nt_from_mean`, `sigma_nt_from_ratio_of_means` | Non-thermal 3D dispersion sqrt(3*(alpha-1))·c_s, from each alpha estimator separately. **NaN where that alpha < 1.** |
+| `sigma_eff` | **Total** effective velocity dispersion [km/s] = sqrt(alpha)·c_s = sqrt(P_tot/rho), from `alpha_mean_of_ratios`. Convention-independent, and defined for any alpha ≥ 0. **Not** the same quantity Step 1c reported under this name — that was the non-thermal one, now `sigma_nt_from_*`. |
 | `c_s` | Isothermal sound speed [km/s] = sqrt(1.1·k_B·T/(1.4·m_H)) of neutral gas, from the mean temperature of neutral (non-HIM) cells at that location. |
 
 ### `stat` values
@@ -328,16 +431,19 @@ header row. **`phase_scheme` is new in Step 1c.**
 |---|---|
 | `median` / `mean` | Plain statistic (used only for `Sigma_gas`, which has no z-dependence). "mean" is always the plain arithmetic (or weighted-arithmetic) mean -- never a mean of log10. |
 | `z0_median`, `z0_mean`, `z0_p15`, `z0_p85` | Statistic within the z = 0 ± 30 pc slab (60 pc thick, centred on the midplane). |
-| `midplane` (Mach / dispersions / `c_s`) | Evaluated at the single z = 0 grid plane, from the volume-weighted mean alpha and the mean T of neutral cells there. |
 | `z150_*`, `z300_*` | Same, centred on z = 150 pc and z = 300 pc. |
 | `box_median`, `box_mean`, `box_p15`, `box_p85` | A **direct** statistic over every neutral cell in the STATS_BOX — one number, one population, no double reduction. |
-| `z0` / `z150` / `z300` / `box` (phase fractions) | The same four spatial selections, for the phase-fraction rows. |
-| `midplane` | Mach / sigma_eff only: evaluated at the z = 0 plane. |
+| `z0` / `z150` / `z300` / `box` / `midplane` | For every quantity whose NAME already says which statistic it is -- the three alpha estimators, their percentiles, `frac_alpha_lt1`, `Mach_from_*`, `sigma_nt_from_*`, `sigma_eff`, `c_s` and the phase fractions -- the `stat` column carries ONLY the spatial selection. `midplane` is the single z = 0 grid plane, as opposed to `z0`, the 60 pc slab centred on it. |
 
 **Retired:** `absz500_*`. Those rows were a bin-average over the 50
 10 pc-wide |z| bins of the old vertical profile — an average of an
 average, and over |z| ≤ 500 pc, which is outside the STATS_BOX. They are
 replaced by `box_*`, a single direct statistic over the box.
+
+Since Step 1e the slab, box and midplane numbers come out of the same
+two helpers (`alpha_estimates` / `derived_from_alpha`) as the
+vertical-profile bins, so a slab number and a profile number cannot be
+computed two different ways.
 
 All statistics (except the phase fractions themselves) exclude
 HIM-flagged cells — HIM enters the P_tot integral as defined per variant,

@@ -110,9 +110,23 @@ STATS_BOX_Z_HALF_RANGE_PC = 400.0
 SLAB_CENTERS_PC = (0.0, 150.0, 300.0)
 SLAB_HALF_THICKNESS_PC = 30.0
 
-# Vertical profiles (Shelest+26): one point PER GRID PLANE within the box
-# (no z binning at all), superseding the earlier 10 pc bins.
-VERTICAL_PROFILE_PER_PLANE = True
+# Vertical profiles (Shelest+26 Fig. 2): binned in z at PROFILE_BIN_PC.
+# Bin edges sit at exact multiples of PROFILE_BIN_PC spanning
+# -STATS_BOX_Z_HALF_RANGE_PC .. +STATS_BOX_Z_HALF_RANGE_PC; bins are
+# left-closed/right-open except the last, which is closed so the z = +400
+# pc plane is not silently dropped. Cells are assigned by their own z
+# coordinate. On the cube's real 2 pc grid that puts 2 planes in each bin
+# (3 in the last).
+#
+# This supersedes Step 1c's one-point-per-grid-plane profiles, which were
+# themselves a correction of 10 pc bins. PROFILE_BIN_PC = 2 would
+# reproduce the per-plane behaviour exactly.
+#
+# STATISTICS BINNING ONLY. Nothing physical is binned: P_tot, Sigma_gas
+# and both self-gravity integrals are computed in the build stage on the
+# real 2 pc grid and never see this constant. tests/test_profile_bins.py
+# asserts byte-identical P_tot and Sigma_gas across two values of it.
+PROFILE_BIN_PC = 4.0
 
 # ---------------------------------------------------------------------------
 # Percentile convention (Shelest+26 switch)

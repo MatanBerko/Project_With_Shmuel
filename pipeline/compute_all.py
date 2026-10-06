@@ -78,6 +78,51 @@ reported the second under the first one's name:
     sigma_nt  = sqrt(3(alpha-1)) * c_s -- NON-THERMAL, = Mach * c_s.
                 This is Step 1c's "sigma_eff".
 
+Step 1e: three alpha estimators, and 4 pc profile bins
+------------------------------------------------------
+(A) alpha is reported THREE ways side by side, over exactly the same cell
+    selection (non-HIM cells in the STATS_BOX), under both weightings
+    (w_i = 1 and w_i = n_i), for every variant, both self-gravity
+    settings, every slab, every profile bin and the whole box:
+
+      alpha_median_of_ratios = weighted median of per-cell alpha_i
+      alpha_mean_of_ratios   = weighted mean   of per-cell alpha_i
+      alpha_ratio_of_means   = sum(w_i P_tot,i) / sum(w_i p_th_phys,i)
+
+    The third is NEW. It is not a statistic of alpha_i at all but the
+    ratio of the selection's total P_tot to its total P_th -- equivalently
+    the (w_i p_th,i)-weighted mean of alpha_i, so it cannot be recovered
+    from an alpha cube with w_i alone. It is the only one of the three
+    that conserves pressure over the volume. See src/physics/stats.py for
+    why all three are reported rather than one being chosen.
+
+    The percentiles are percentiles OF THE RATIOS, so they are named
+    alpha_p15_of_ratios / alpha_p85_of_ratios. The old bare `alpha`
+    quantity name is gone: with three estimators in play it no longer
+    identifies a number.
+
+    Mach and sigma_nt are derived SEPARATELY from each estimator
+    (Mach_from_median / _from_mean / _from_ratio_of_means, likewise
+    sigma_nt_from_*), since sqrt(3(alpha-1)) is non-linear and the three
+    alphas differ by much more than its curvature is forgiving of. They
+    are NaN wherever their alpha < 1, and the weighted fraction of cells
+    with alpha_i < 1 is reported as frac_alpha_lt1 so those NaNs are a
+    number rather than a gap. sigma_eff and c_s are unchanged.
+
+(B) Vertical profiles are binned at PROFILE_BIN_PC = 4 pc
+    (src.conventions), replacing Step 1c's one-point-per-grid-plane
+    profiles. Edges sit at exact multiples of 4 pc from -400 to +400,
+    left-closed with the last bin closed, and cells are assigned by their
+    own z coordinate -- so on the real 2 pc grid each bin holds 2 planes
+    and the last holds 3. Applied to every profile quantity, signed z and
+    folded |z|. The +-30 pc slabs are unchanged.
+
+    This is STATISTICS BINNING ONLY. P_tot, Sigma_gas and both
+    self-gravity integrals live in the build stage, are computed on the
+    real 2 pc grid, and never see PROFILE_BIN_PC -- which
+    tests/test_profile_bins.py asserts by changing the constant and
+    requiring byte-identical output.
+
 PROVISIONAL: the cube in use is the f98 cube (n_H = 1653 A'), which is
 known to need re-orienting; a re-oriented version and later a final
 Porter-FUV cube (n_H = 1727 A') will replace it via the single
@@ -107,6 +152,7 @@ from src.conventions import (
     MU,
     PERCENTILE_SCHEME_DEFAULT,
     PHASE_SCHEME_DEFAULT,
+    PROFILE_BIN_PC,
     PHASE_SCHEME_DPDN,
     PHASE_SCHEME_TEMPERATURE,
     PARTICLES_PER_H_NEUTRAL,
@@ -141,7 +187,13 @@ from src.physics.loading import (
     slab_z_indices,
     stats_box_z_indices,
 )
-from src.physics.stats import mass_weighted_stats, percentile_levels, volume_weighted_stats
+from src.physics.stats import (
+    mass_weighted_ratio_of_means,
+    mass_weighted_stats,
+    percentile_levels,
+    volume_weighted_ratio_of_means,
+    volume_weighted_stats,
+)
 
 # ============================================================================
 # Control block
@@ -288,12 +340,98 @@ STAT_NAMES = ("median", "mean", f"p{PCT_LO:g}", f"p{PCT_HI:g}")
 QUANTITY_NOTE = {
     "Pth_phys": "P_th physical (1.1 n_H k T -- particle count incl. He)",
     "Ptot": "P_tot hydrostatic (full-column integral)",
-    "alpha": "alpha = P_tot / P_th,physical",
-    "Mach": "Turbulent Mach number sqrt(3(alpha-1)) = sigma_nt/c_s",
-    "sigma_eff": "Total effective dispersion sqrt(alpha)*c_s = sqrt(P_tot/rho)",
-    "sigma_nt": "Non-thermal (turbulent) 3D dispersion sqrt(3(alpha-1))*c_s",
+    "alpha_median_of_ratios": "alpha estimator 1/3: weighted MEDIAN of per-cell P_tot,i/P_th,i",
+    "alpha_mean_of_ratios": "alpha estimator 2/3: weighted MEAN of per-cell P_tot,i/P_th,i",
+    "alpha_ratio_of_means": "alpha estimator 3/3: RATIO OF MEANS, sum(w P_tot)/sum(w P_th)",
+    "alpha_p15_of_ratios": f"{PCT_LO:g}th percentile of the per-cell ratios P_tot,i/P_th,i",
+    "alpha_p85_of_ratios": f"{PCT_HI:g}th percentile of the per-cell ratios P_tot,i/P_th,i",
+    "frac_alpha_lt1": "Weighted fraction of cells with alpha_i < 1 (Mach/sigma_nt undefined there)",
+    "Mach_from_median": "Mach sqrt(3(alpha-1)) from alpha_median_of_ratios; NaN if that alpha < 1",
+    "Mach_from_mean": "Mach sqrt(3(alpha-1)) from alpha_mean_of_ratios; NaN if that alpha < 1",
+    "Mach_from_ratio_of_means": "Mach sqrt(3(alpha-1)) from alpha_ratio_of_means; NaN if that alpha < 1",
+    "sigma_nt_from_median": "Non-thermal 3D dispersion sqrt(3(alpha-1))*c_s from alpha_median_of_ratios",
+    "sigma_nt_from_mean": "Non-thermal 3D dispersion sqrt(3(alpha-1))*c_s from alpha_mean_of_ratios",
+    "sigma_nt_from_ratio_of_means": "Non-thermal 3D dispersion sqrt(3(alpha-1))*c_s from alpha_ratio_of_means",
+    "sigma_eff": "Total effective dispersion sqrt(alpha)*c_s = sqrt(P_tot/rho), from alpha_mean_of_ratios",
     "c_s": "Isothermal sound speed sqrt(1.1 k T/(1.4 m_H)) of neutral gas",
 }
+
+# The three estimators, in the order they are reported everywhere, as
+# (short tag used in derived quantity names, alpha quantity name).
+ALPHA_ESTIMATORS = (
+    ("median", "alpha_median_of_ratios"),
+    ("mean", "alpha_mean_of_ratios"),
+    ("ratio_of_means", "alpha_ratio_of_means"),
+)
+
+
+def alpha_estimates(alpha_sub, p_tot_sub, p_th_sub, neutral, n_sub):
+    """All three alpha estimators plus the percentiles and the alpha<1
+    fraction, for ONE cell selection, under both weightings.
+
+    Returns {weighting: {name: value}} with weighting in ("vol", "mw").
+    Every estimator sees the same `neutral` selection and the same
+    weights, which is the whole point of reporting them together.
+    """
+    out = {}
+    for wt in ("vol", "mw"):
+        if wt == "vol":
+            st = volume_weighted_stats(alpha_sub, neutral, PERCENTILE_SCHEME)
+            rom = volume_weighted_ratio_of_means(p_tot_sub, p_th_sub, neutral)
+            w = np.where(np.asarray(neutral).ravel(), 1.0, 0.0)
+        else:
+            st = mass_weighted_stats(alpha_sub, neutral, n_sub, PERCENTILE_SCHEME)
+            rom = mass_weighted_ratio_of_means(p_tot_sub, p_th_sub, neutral, n_sub)
+            n_flat = np.asarray(n_sub, dtype=float).ravel()
+            w = np.where(np.asarray(neutral).ravel() & np.isfinite(n_flat), n_flat, 0.0)
+        out[wt] = {
+            "alpha_median_of_ratios": st.median,
+            "alpha_mean_of_ratios": st.arithmetic_mean,
+            "alpha_ratio_of_means": rom,
+            "alpha_p15_of_ratios": st.p_lo,
+            "alpha_p85_of_ratios": st.p_hi,
+            "frac_alpha_lt1": derived.alpha_below_one_fraction(alpha_sub, w),
+        }
+    return out
+
+
+def derived_from_alpha(alpha_by_wt, T_mean):
+    """Mach and sigma_nt from EACH alpha estimator, plus sigma_eff and c_s.
+
+    alpha_by_wt is one weighting's dict from alpha_estimates(); T_mean is
+    the mean temperature of the neutral cells in the same selection.
+    Mach/sigma_nt are NaN wherever their own alpha < 1 (see
+    src.physics.derived) -- which is why they are derived per estimator
+    rather than once: the three alphas can sit either side of 1.
+
+    sigma_eff and c_s are unchanged from Step 1d: sigma_eff comes from
+    alpha_mean_of_ratios and is defined for any alpha >= 0.
+    """
+    T_arr = np.array([T_mean], dtype=float)
+    out = {}
+    for tag, alpha_name in ALPHA_ESTIMATORS:
+        A = np.array([alpha_by_wt[alpha_name]], dtype=float)
+        out[f"Mach_from_{tag}"] = float(derived.mach_number(A)[0])
+        out[f"sigma_nt_from_{tag}"] = float(
+            derived.sigma_nt_kmps(A, T_arr, THERMAL_PRESSURE_CONVENTION)[0])
+    A_mean = np.array([alpha_by_wt["alpha_mean_of_ratios"]], dtype=float)
+    out["sigma_eff"] = float(derived.sigma_eff_kmps(A_mean, T_arr, THERMAL_PRESSURE_CONVENTION)[0])
+    out["c_s"] = float(derived.sound_speed_kmps(T_arr, THERMAL_PRESSURE_CONVENTION)[0])
+    return out
+
+
+DIMENSIONLESS = ("dimensionless",)
+UNITS_BY_QUANTITY = {
+    "Pth_phys": "K cm^-3",
+    "Ptot": "K cm^-3",
+    "sigma_eff": "km/s",
+    "c_s": "km/s",
+    **{f"sigma_nt_from_{tag}": "km/s" for tag, _ in ALPHA_ESTIMATORS},
+}
+
+
+def _units(qty):
+    return UNITS_BY_QUANTITY.get(qty, "dimensionless")
 
 
 def _stat_pairs(s):
@@ -305,68 +443,119 @@ def _stat_pairs(s):
 
 
 # ============================================================================
-# Vertical profiles: ONE POINT PER GRID PLANE inside the STATS_BOX
-# (Shelest+26 -- no z binning). `use_abs` folds the +z and -z planes of the
-# same |z| together into a single sample; the signed version keeps them
-# separate. Both are produced: signed shows north/south asymmetry, folded
-# is the higher-S/N profile.
+# Vertical profiles: binned at PROFILE_BIN_PC (Shelest+26 Fig. 2), inside
+# the STATS_BOX. `use_abs` folds the +z and -z sides together into one
+# |z| profile; the signed version keeps them separate. Both are produced:
+# signed shows north/south asymmetry, folded is the higher-S/N profile.
+#
+# STATISTICS BINNING ONLY -- see the module docstring. Nothing physical is
+# binned here.
 # ============================================================================
-def _profile_plane_groups(z_pc, use_abs: bool):
-    """[(z_value, plane_indices), ...] -- one entry per profile point.
+def profile_bin_edges(use_abs: bool, bin_pc: float = PROFILE_BIN_PC,
+                        half_range_pc: float = None) -> np.ndarray:
+    """Bin edges at exact multiples of bin_pc.
 
-    Signed: one plane per entry, ascending z, |z| <= STATS_BOX_Z_HALF_PC.
-    Folded: one entry per distinct |z|, pairing the +z and -z planes.
+    Signed: -half_range .. +half_range. Folded: 0 .. +half_range. The
+    half range must be a whole number of bins, which is checked rather
+    than assumed -- a PROFILE_BIN_PC that does not divide the box would
+    otherwise silently produce a short final bin.
+    """
+    if half_range_pc is None:
+        half_range_pc = STATS_BOX_Z_HALF_PC
+    n_bins_half = half_range_pc / bin_pc
+    if abs(n_bins_half - round(n_bins_half)) > 1e-9:
+        raise ValueError(
+            f"PROFILE_BIN_PC={bin_pc} does not divide the STATS_BOX half-range "
+            f"{half_range_pc} pc into a whole number of bins.")
+    n_bins_half = int(round(n_bins_half))
+    if use_abs:
+        return np.arange(n_bins_half + 1, dtype=float) * bin_pc
+    return (np.arange(2 * n_bins_half + 1, dtype=float) - n_bins_half) * bin_pc
+
+
+def profile_bin_groups(z_pc, use_abs: bool, bin_pc: float = PROFILE_BIN_PC):
+    """[(bin_center, plane_indices), ...] -- one entry per profile bin.
+
+    Bins are left-closed / right-open, EXCEPT the last, which is closed so
+    the z = +400 pc plane (and, folded, |z| = 400) lands in a bin instead
+    of being dropped. Planes are assigned by their own z coordinate, so
+    with the cube's 2 pc grid a 4 pc bin holds 2 planes and the last holds
+    3 (signed) / 6 (folded: |z| = 396, 398, 400 at both signs).
+
+    Only planes inside the STATS_BOX are considered. Empty bins are kept
+    (as empty index arrays) so the profile arrays stay on a fixed, regular
+    z axis regardless of the grid -- a caller plotting them does not have
+    to guess whether a bin was dropped.
     """
     box_idx = stats_box_z_indices(z_pc, STATS_BOX_Z_HALF_PC)
-    if not use_abs:
-        order = box_idx[np.argsort(z_pc[box_idx])]
-        return [(float(z_pc[i]), np.array([i])) for i in order]
+    z_box = z_pc[box_idx]
+    coord = np.abs(z_box) if use_abs else z_box
+    edges = profile_bin_edges(use_abs, bin_pc)
+    centers = 0.5 * (edges[:-1] + edges[1:])
 
-    abs_z = np.abs(z_pc[box_idx])
-    out = []
-    for z_val in np.unique(np.round(abs_z, 6)):
-        sel = box_idx[np.isclose(abs_z, z_val, atol=1e-6)]
-        out.append((float(z_val), sel))
-    return out
+    groups = []
+    n_bins = len(edges) - 1
+    for b in range(n_bins):
+        lo, hi = edges[b], edges[b + 1]
+        if b < n_bins - 1:
+            sel = (coord >= lo) & (coord < hi)
+        else:
+            sel = (coord >= lo) & (coord <= hi)  # last bin closed
+        groups.append((float(centers[b]), box_idx[sel]))
+    return groups
 
 
 def compute_vertical_profile(z_pc, Pth_phys, Ptot, alpha_arr, him_cube, phase_cubes, T_cube,
                                n_model, footprint, use_abs: bool):
-    """Per-plane vertical profiles of Pth_phys/Ptot/alpha stats, phase
-    fractions (one set per PHASE_SCHEME), Mach and both dispersions,
-    inside the STATS_BOX.
+    """PROFILE_BIN_PC-binned vertical profiles, inside the STATS_BOX, of:
+
+      * Pth_phys and Ptot: median / mean / p15 / p85, vol and mw;
+      * all three alpha estimators plus the two ratio percentiles and
+        frac_alpha_lt1, vol and mw;
+      * Mach and sigma_nt derived from EACH alpha estimator, vol and mw;
+      * sigma_eff (total) and c_s, and the phase-resolved sigma_eff /
+        sigma_nt, all from alpha_mean_of_ratios vol-weighted as before;
+      * phase fractions, one set per PHASE_SCHEME.
 
     Pth_phys is the PHYSICAL thermal pressure (1.1 n_H T); p_nT never
-    appears here. sigma_eff is the total sqrt(alpha)*c_s and sigma_nt the
-    non-thermal sqrt(3(alpha-1))*c_s -- see src.physics.derived.
-
-    phase_cubes: {scheme_name: int8 phase flag cube}. All arrays are
-    already restricted to the STATS_BOX in z by the caller, and indices
-    here are into that restricted array.
+    appears here. phase_cubes: {scheme_name: int8 phase flag cube}. All
+    arrays are already restricted to the STATS_BOX in z by the caller,
+    and indices here are into that restricted array.
     """
-    groups = _profile_plane_groups(z_pc, use_abs)
+    groups = profile_bin_groups(z_pc, use_abs)
     n_pts = len(groups)
     centers = np.array([g[0] for g in groups], dtype=float)
 
     out = {}
-    for qty in ("Pth_phys", "Ptot", "alpha"):
+    for qty in ("Pth_phys", "Ptot"):
         for wt in ("vol", "mw"):
-            for s in STAT_NAMES:
-                out[f"{qty}_{wt}_{s}"] = np.full(n_pts, np.nan)
+            for st in STAT_NAMES:
+                out[f"{qty}_{wt}_{st}"] = np.full(n_pts, np.nan)
+    alpha_names = [n for _, n in ALPHA_ESTIMATORS] + [
+        "alpha_p15_of_ratios", "alpha_p85_of_ratios", "frac_alpha_lt1"]
+    derived_names = [f"Mach_from_{t}" for t, _ in ALPHA_ESTIMATORS] + \
+                    [f"sigma_nt_from_{t}" for t, _ in ALPHA_ESTIMATORS] + ["sigma_eff", "c_s"]
+    for name in alpha_names + derived_names:
+        for wt in ("vol", "mw"):
+            out[f"{name}_{wt}"] = np.full(n_pts, np.nan)
     for scheme in phase_cubes:
         for _, ph in PHASE_CODES_ALL:
             out[f"f_{ph}_vol__{scheme}"] = np.full(n_pts, np.nan)
             out[f"f_{ph}_mw__{scheme}"] = np.full(n_pts, np.nan)
-    for ph in ("CNM", "UNM", "WNM", "total"):
+    # Phase-resolved dispersions, from alpha_mean_of_ratios vol-weighted
+    # (the fig4b-style quantity, unchanged).
+    for ph in ("CNM", "UNM", "WNM"):
         out[f"sigma_eff_{ph}"] = np.full(n_pts, np.nan)
         out[f"sigma_nt_{ph}"] = np.full(n_pts, np.nan)
-    out["mach"] = np.full(n_pts, np.nan)
-    out["c_s_total"] = np.full(n_pts, np.nan)
     out["n_cells"] = np.zeros(n_pts, dtype=np.int64)
+    out["n_planes"] = np.zeros(n_pts, dtype=np.int64)
 
     headline_phase = phase_cubes[PHASE_SCHEME_HEADLINE]
 
     for b, (_, idxs) in enumerate(groups):
+        out["n_planes"][b] = len(idxs)
+        if len(idxs) == 0:
+            continue
         him_sub = him_cube[idxs][:, footprint]
         n_sub = n_model[idxs][:, footprint].astype(np.float64)
         T_sub = T_cube[idxs][:, footprint].astype(np.float64)
@@ -376,12 +565,20 @@ def compute_vertical_profile(z_pc, Pth_phys, Ptot, alpha_arr, him_cube, phase_cu
         neutral = ~him_sub
         out["n_cells"][b] = him_sub.size
 
-        for qty, arr_sub in (("Pth_phys", Pth_sub), ("Ptot", Ptot_sub), ("alpha", alpha_sub)):
+        for qty, arr_sub in (("Pth_phys", Pth_sub), ("Ptot", Ptot_sub)):
             s_vol = volume_weighted_stats(arr_sub, neutral, PERCENTILE_SCHEME)
             s_mw = mass_weighted_stats(arr_sub, neutral, n_sub, PERCENTILE_SCHEME)
-            for wt, s in (("vol", s_vol), ("mw", s_mw)):
-                for stat_name, val in _stat_pairs(s):
+            for wt, st in (("vol", s_vol), ("mw", s_mw)):
+                for stat_name, val in _stat_pairs(st):
                     out[f"{qty}_{wt}_{stat_name}"][b] = val
+
+        alpha_by_wt = alpha_estimates(alpha_sub, Ptot_sub, Pth_sub, neutral, n_sub)
+        T_tot_mean = float(T_sub[neutral].mean()) if neutral.any() else np.nan
+        for wt, est in alpha_by_wt.items():
+            for name, val in est.items():
+                out[f"{name}_{wt}"][b] = val
+            for name, val in derived_from_alpha(est, T_tot_mean).items():
+                out[f"{name}_{wt}"][b] = val
 
         n_weight_sub = np.where(np.isfinite(n_sub), n_sub, 0.0)
         W = n_weight_sub.sum()
@@ -393,26 +590,19 @@ def compute_vertical_profile(z_pc, Pth_phys, Ptot, alpha_arr, him_cube, phase_cu
                 out[f"f_{ph}_vol__{scheme}"][b] = m.sum() / total_cells if total_cells > 0 else np.nan
                 out[f"f_{ph}_mw__{scheme}"][b] = n_weight_sub[m].sum() / W if W > 0 else np.nan
 
-        alpha_plane_mean = out["alpha_vol_mean"][b]
-        out["mach"][b] = float(derived.mach_number(np.array([alpha_plane_mean]))[0])
+        A_mean_vol = np.array([alpha_by_wt["vol"]["alpha_mean_of_ratios"]], dtype=float)
         phase_sub_headline = headline_phase[idxs][:, footprint]
-        A = np.array([alpha_plane_mean])
-
-        def _disp(T_mean):
-            T_arr = np.array([T_mean])
-            return (float(derived.sigma_eff_kmps(A, T_arr, THERMAL_PRESSURE_CONVENTION)[0]),
-                    float(derived.sigma_nt_kmps(A, T_arr, THERMAL_PRESSURE_CONVENTION)[0]))
-
         for code, ph in PHASE_CODES_NEUTRAL:
             m = neutral & (phase_sub_headline == code)
-            T_ph_mean = float(T_sub[m].mean()) if m.any() else np.nan
-            out[f"sigma_eff_{ph}"][b], out[f"sigma_nt_{ph}"][b] = _disp(T_ph_mean)
-        T_tot_mean = float(T_sub[neutral].mean()) if neutral.any() else np.nan
-        out["sigma_eff_total"][b], out["sigma_nt_total"][b] = _disp(T_tot_mean)
-        out["c_s_total"][b] = float(
-            derived.sound_speed_kmps(np.array([T_tot_mean]), THERMAL_PRESSURE_CONVENTION)[0])
+            T_ph = np.array([float(T_sub[m].mean()) if m.any() else np.nan])
+            out[f"sigma_eff_{ph}"][b] = float(
+                derived.sigma_eff_kmps(A_mean_vol, T_ph, THERMAL_PRESSURE_CONVENTION)[0])
+            out[f"sigma_nt_{ph}"][b] = float(
+                derived.sigma_nt_kmps(A_mean_vol, T_ph, THERMAL_PRESSURE_CONVENTION)[0])
 
     out["z_pc"] = centers
+    out["bin_edges"] = profile_bin_edges(use_abs)
+    out["bin_width_pc"] = np.array([PROFILE_BIN_PC], dtype=float)
     return out
 
 
@@ -968,7 +1158,7 @@ def _finalize_one_variant(variant, core_store, footprint, z_pc_full, Iuv_box):
                 summary[f"{variant}__sg{sg_key}__pdf1d__{qty}__z{int(zc)}__centers"] = centers
                 summary[f"{variant}__sg{sg_key}__pdf1d__{qty}__z{int(zc)}__counts"] = counts
 
-        print(f"  self_gravity={sg_key}: per-plane vertical profiles (signed z and |z|)...")
+        print(f"  self_gravity={sg_key}: {PROFILE_BIN_PC:g}pc-binned vertical profiles (signed z and |z|)...")
         prof_signed = compute_vertical_profile(z_pc, p_th_phys, Ptot_kB, alpha_arr, him_cube, phase_cubes,
                                                   T, n_model, footprint, use_abs=False)
         prof_abs = compute_vertical_profile(z_pc, p_th_phys, Ptot_kB, alpha_arr, him_cube, phase_cubes,
@@ -978,49 +1168,53 @@ def _finalize_one_variant(variant, core_store, footprint, z_pc_full, Iuv_box):
         for k, v in prof_abs.items():
             summary[f"{variant}__sg{sg_key}__profile_absz__{k}"] = v
 
-        # ---- Slab statistics (60 pc-thick slabs) and the whole-box statistic.
+        # ---- Slab statistics (60 pc-thick slabs), the whole-box statistic,
+        # and the single z=0 grid plane.
         # "box" is a DIRECT statistic over every neutral cell in the
         # STATS_BOX -- not an average of the vertical profile (which is
         # what the retired absz500_* rows were). One number, one
         # population, no double reduction.
+        #
+        # All three alpha estimators, both percentiles, frac_alpha_lt1,
+        # and the per-estimator Mach / sigma_nt are emitted for every one
+        # of these selections, under both weightings -- the same code path
+        # as the vertical profiles, so a slab number and a profile bin
+        # number can never be computed two different ways.
+        iz_mid = int(np.argmin(np.abs(z_pc)))
         for label, idxs, where in (
             *[(f"z{int(zc)}", slab_plane_indices(z_pc, zc),
                f"{zc:.0f}+-{SLAB_HALF_THICKNESS_PC:.0f}pc slab, +-500pc square") for zc in SLAB_CENTERS_PC],
             ("box", np.arange(len(z_pc)), "STATS_BOX (|x|,|y|<=500, |z|<=400pc)"),
+            ("midplane", np.array([iz_mid]), "the single z=0 grid plane, +-500pc square"),
         ):
             neutral = ~him_cube[idxs][:, footprint]
             n_sub = n_model[idxs][:, footprint].astype(np.float64)
-            for qty, arr in (("Pth_phys", p_th_phys), ("Ptot", Ptot_kB), ("alpha", alpha_arr)):
-                sub = arr[idxs][:, footprint].astype(np.float64)
+            Pth_sub = p_th_phys[idxs][:, footprint].astype(np.float64)
+            Ptot_sub = Ptot_kB[idxs][:, footprint].astype(np.float64)
+            alpha_sub = alpha_arr[idxs][:, footprint].astype(np.float64)
+            T_sub = T[idxs][:, footprint].astype(np.float64)
+            T_tot_mean = float(T_sub[neutral].mean()) if neutral.any() else float("nan")
+
+            for qty, sub in (("Pth_phys", Pth_sub), ("Ptot", Ptot_sub)):
                 for wt, st in (("vol", volume_weighted_stats(sub, neutral, PERCENTILE_SCHEME)),
                                  ("mw", mass_weighted_stats(sub, neutral, n_sub, PERCENTILE_SCHEME))):
                     for stat_name, val in _stat_pairs(st):
                         numbers_rows.append((
                             variant, sg_key, "n/a", qty, wt, f"{label}_{stat_name}", val,
-                            "K cm^-3" if qty in ("Pth_phys", "Ptot") else "dimensionless",
+                            _units(qty),
                             f"{QUANTITY_NOTE[qty]} {stat_name}, {wt}-weighted, {where}, "
                             f"neutral (non-HIM) cells"
                         ))
 
-        iz_mid = int(np.argmin(np.abs(z_pc)))
-        alpha_mid_vol = volume_weighted_stats(alpha_arr[iz_mid], footprint & ~him_cube[iz_mid],
-                                                PERCENTILE_SCHEME)
-        A_mid = np.array([alpha_mid_vol.arithmetic_mean])
-        T_neutral_mid = T[iz_mid][footprint & ~him_cube[iz_mid]].astype(np.float64)
-        T_mid = np.array([T_neutral_mid.mean() if T_neutral_mid.size else np.nan])
-        mach_mid = float(derived.mach_number(A_mid)[0])
-        sigma_eff_mid = float(derived.sigma_eff_kmps(A_mid, T_mid, THERMAL_PRESSURE_CONVENTION)[0])
-        sigma_nt_mid = float(derived.sigma_nt_kmps(A_mid, T_mid, THERMAL_PRESSURE_CONVENTION)[0])
-        c_s_mid = float(derived.sound_speed_kmps(T_mid, THERMAL_PRESSURE_CONVENTION)[0])
-        for qty, val, units in (
-            ("Mach", mach_mid, "dimensionless"),
-            ("sigma_eff", sigma_eff_mid, "km/s"),
-            ("sigma_nt", sigma_nt_mid, "km/s"),
-            ("c_s", c_s_mid, "km/s"),
-        ):
-            numbers_rows.append((variant, sg_key, "n/a", qty, "vol", "midplane", val, units,
-                                   f"{QUANTITY_NOTE[qty]}, at the z=0 plane, from the "
-                                   f"volume-weighted mean alpha and the mean T of neutral cells"))
+            alpha_by_wt = alpha_estimates(alpha_sub, Ptot_sub, Pth_sub, neutral, n_sub)
+            for wt, est in alpha_by_wt.items():
+                rows = dict(est)
+                rows.update(derived_from_alpha(est, T_tot_mean))
+                for qty, val in rows.items():
+                    numbers_rows.append((
+                        variant, sg_key, "n/a", qty, wt, label, val, _units(qty),
+                        f"{QUANTITY_NOTE[qty]}, {wt}-weighted, {where}, neutral (non-HIM) cells"
+                    ))
 
         del Ptot_kB, alpha_arr
     del n_model, p_th_phys, T, phase_cubes, him_cube
@@ -1167,6 +1361,16 @@ def finalize_merge():
                 f"  p_th_phys = {PARTICLES_PER_H_NEUTRAL:g} n_H T.\n")
         f.write("sigma_eff = sqrt(alpha)*c_s (TOTAL, = sqrt(P_tot/rho)); sigma_nt = sqrt(3(alpha-1))*c_s\n"
                 "  (NON-THERMAL -- this is what Step 1c reported under the name \"sigma_eff\").\n")
+        f.write("alpha has THREE estimators, all over the same cells and weights:\n"
+                "  alpha_median_of_ratios = weighted median of per-cell P_tot,i/P_th,i\n"
+                "  alpha_mean_of_ratios   = weighted mean   of per-cell P_tot,i/P_th,i\n"
+                "  alpha_ratio_of_means   = sum(w P_tot)/sum(w P_th)  (NEW; conserves pressure)\n"
+                "  alpha_p15/p85_of_ratios = percentiles OF THE RATIOS.\n"
+                "Mach_from_* and sigma_nt_from_* are derived from each estimator separately and\n"
+                "  are NaN where that alpha < 1; frac_alpha_lt1 reports how many cells sit there.\n")
+        f.write(f"Vertical profiles (summary.npz only) are binned at {PROFILE_BIN_PC:g} pc; the slabs are\n"
+                f"  +-{SLAB_HALF_THICKNESS_PC:.0f} pc. Binning is statistics only -- P_tot, Sigma_gas and the\n"
+                f"  self-gravity integrals use the real 2 pc grid.\n")
         f.write("  -- see results/README.md for full column definitions.\n")
         f.write("=" * 132 + "\n")
         f.write(f"{'variant':<8}{'self_grav':<10}{'phase_sch':<13}{'quantity':<22}{'weight':<7}"

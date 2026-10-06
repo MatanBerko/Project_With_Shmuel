@@ -45,8 +45,23 @@ the pre-Step-1d code reported the second one under the first one's name:
         reproducible. Unlike sigma_eff this is convention-DEPENDENT: the
         "- 1" breaks the cancellation.
 
-Mach = sqrt(3 (alpha - 1)) is unchanged, and remains the turbulent Mach
-number sigma_nt / c_s (not sigma_eff / c_s, which is sqrt(alpha)).
+Mach = sqrt(3 (alpha - 1)) remains the turbulent Mach number
+sigma_nt / c_s (not sigma_eff / c_s, which is sqrt(alpha)).
+
+Step 1e: alpha < 1 is NaN, not zero
+-----------------------------------
+mach_number() and sigma_nt_kmps() now return NaN where alpha < 1, where
+they previously clamped alpha - 1 at zero. alpha < 1 means P_tot <
+P_th: there is no non-thermal support to measure, so the turbulent
+quantities are undefined, not zero. Returning 0 made "undefined" look
+like a measurement of "no turbulence" and, worse, let it be averaged in
+alongside real values. This matters in practice -- HIM_A/HIM_B's
+volume-weighted alpha drops below 1 over much of the box -- so the
+affected fraction is now reported rather than hidden.
+
+sigma_eff (sqrt(alpha) * c_s) is NOT affected: it is defined for any
+alpha >= 0, since it measures total support rather than the non-thermal
+excess.
 """
 
 import numpy as np
@@ -122,6 +137,10 @@ def sigma_nt_kmps(alpha_val: np.ndarray, T_K: np.ndarray,
     """NON-THERMAL (turbulent) 3D velocity dispersion [km/s]:
     sigma_nt = sqrt(3*(alpha-1)) * c_s = Mach * c_s.
 
+    NaN where alpha < 1 (no non-thermal support to measure -- see the
+    module docstring), where T is not positive, or where either input is
+    not finite.
+
     This is what fig4b_velocity_dispertion_Mach_number/compute_data.py
     computed and what Step 1c reported as "sigma_eff". Convention-
     dependent, because the "- 1" stops the particle-count factor
@@ -130,20 +149,40 @@ def sigma_nt_kmps(alpha_val: np.ndarray, T_K: np.ndarray,
     f_neutral, _ = particles_per_h(convention)
     alpha_val = np.asarray(alpha_val, dtype=float)
     T_K = np.asarray(T_K, dtype=float)
-    dA = np.maximum(alpha_val - 1.0, 0.0)
-    return np.where(
-        np.isfinite(alpha_val) & np.isfinite(T_K) & (T_K > 0),
-        np.sqrt(3.0 * dA * f_neutral * KB_OVER_MU_MH * T_K) / KMS,
-        np.nan,
-    )
+    with np.errstate(invalid="ignore"):
+        defined = (np.isfinite(alpha_val) & (alpha_val >= 1.0)
+                   & np.isfinite(T_K) & (T_K > 0))
+        dA = np.where(defined, alpha_val - 1.0, 0.0)
+        return np.where(defined,
+                        np.sqrt(3.0 * dA * f_neutral * KB_OVER_MU_MH * T_K) / KMS,
+                        np.nan)
 
 
 def mach_number(alpha_val: np.ndarray) -> np.ndarray:
     """Turbulent Mach number M = sigma_nt/c_s = sqrt(3*(alpha-1)).
 
-    Unchanged by Step 1d as a formula, but its INPUT alpha is now built
-    on p_th_phys, so the number it returns does change.
+    NaN where alpha < 1 or alpha is not finite. The formula is the one
+    the reference scripts used; Step 1d changed its INPUT (alpha is now
+    built on p_th_phys) and Step 1e changed the alpha < 1 handling from
+    clamping to zero to NaN -- see the module docstring.
     """
     alpha_val = np.asarray(alpha_val, dtype=float)
-    dA = np.maximum(alpha_val - 1.0, 0.0)
-    return np.where(np.isfinite(alpha_val), np.sqrt(3.0 * dA), np.nan)
+    with np.errstate(invalid="ignore"):
+        defined = np.isfinite(alpha_val) & (alpha_val >= 1.0)
+        dA = np.where(defined, alpha_val - 1.0, 0.0)
+        return np.where(defined, np.sqrt(3.0 * dA), np.nan)
+
+
+def alpha_below_one_fraction(alpha_val: np.ndarray, weights: np.ndarray) -> float:
+    """Weighted fraction of the selected cells with alpha < 1, i.e. the
+    fraction for which Mach and sigma_nt are undefined.
+
+    Reported alongside them so the NaNs are a number rather than a gap.
+    Selection matches the estimators': finite alpha, positive weight.
+    """
+    a = np.asarray(alpha_val, dtype=float).ravel()
+    w = np.asarray(weights, dtype=float).ravel()
+    m = np.isfinite(a) & np.isfinite(w) & (w > 0)
+    if not m.any():
+        return float("nan")
+    return float(np.sum(w[m] * (a[m] < 1.0)) / np.sum(w[m]))

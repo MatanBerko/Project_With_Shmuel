@@ -37,6 +37,33 @@ be mistaken for the other convention.
 
 Every "mean" returned here is the plain arithmetic (weighted) mean -- never
 a mean of log10(quantity). Label accordingly wherever displayed.
+
+Three alpha estimators (Step 1e)
+--------------------------------
+The paper reports alpha three ways side by side, because they answer
+different questions and differ substantially in a medium this
+inhomogeneous:
+
+    alpha_median_of_ratios = weighted median of the per-cell alpha_i
+    alpha_mean_of_ratios   = weighted mean   of the per-cell alpha_i
+    alpha_ratio_of_means   = sum(w_i P_tot,i) / sum(w_i p_th_phys,i)
+
+The first two come from weighted_stats() applied to a precomputed alpha
+cube; the third is ratio_of_means() below and canNOT be recovered from
+alpha_i alone with w_i -- it is the w_i*p_th-weighted mean of alpha_i, a
+different weighting (see that function's docstring). All three are
+computed over exactly the same cell selection.
+
+Which one to prefer is a physics question, not a statistics one, so all
+three are reported rather than one being chosen here:
+  * ratio_of_means is the only one that answers "what is the total
+    non-thermal support of this volume" -- it is the ratio of the
+    volume's total P_tot to its total P_th, so it conserves pressure.
+    It is dominated by the highest-pressure cells.
+  * median_of_ratios describes a typical cell and is insensitive to the
+    tails.
+  * mean_of_ratios sits between them and is pulled up by the low-p_th
+    (high-alpha) tail, which in this cube is large.
 """
 
 from dataclasses import dataclass
@@ -101,6 +128,60 @@ def weighted_mean(values: np.ndarray, weights: np.ndarray) -> float:
     if not m.any():
         return float("nan")
     return float(np.average(v[m], weights=w[m]))
+
+
+def ratio_of_means(p_tot: np.ndarray, p_th: np.ndarray, weights: np.ndarray) -> float:
+    """alpha_ratio_of_means = sum(w_i * P_tot,i) / sum(w_i * p_th,i).
+
+    The third alpha estimator. Unlike the other two it is NOT a statistic
+    of the per-cell alpha_i at all -- it is the ratio of two weighted
+    sums, i.e. the ratio of the selection's total P_tot to its total
+    P_th. Equivalently (and this is the identity the tests pin down) it
+    is the (w_i * p_th,i)-weighted mean of alpha_i:
+
+        sum(w p_tot) / sum(w p_th) = sum(w p_th * alpha) / sum(w p_th)
+
+    so it weights each cell by its own thermal pressure on top of w_i.
+    That is why it cannot be reproduced by calling weighted_mean() on an
+    alpha cube with w_i, and why it is the estimator that conserves
+    pressure over the volume.
+
+    Cell selection: a cell contributes only if p_tot, p_th and w are all
+    finite, w > 0 and p_th > 0. Cells are selected on the SAME criteria
+    the other two estimators use (finite value, positive weight), with
+    the extra p_th > 0 guard that the alpha cube already has baked in via
+    src.physics.derived.alpha's P_FLOOR -- so all three estimators see
+    the same population.
+
+    Returns NaN if nothing is selected. Both pressures must be in the
+    same units (this project: P/k_B in K cm^-3).
+    """
+    pt = np.asarray(p_tot, dtype=float).ravel()
+    pth = np.asarray(p_th, dtype=float).ravel()
+    w = np.asarray(weights, dtype=float).ravel()
+    m = (np.isfinite(pt) & np.isfinite(pth) & np.isfinite(w)
+         & (w > 0) & (pth > 0))
+    if not m.any():
+        return float("nan")
+    denom = float(np.sum(w[m] * pth[m]))
+    if denom <= 0:
+        return float("nan")
+    return float(np.sum(w[m] * pt[m]) / denom)
+
+
+def volume_weighted_ratio_of_means(p_tot: np.ndarray, p_th: np.ndarray,
+                                     mask: np.ndarray) -> float:
+    """ratio_of_means with w_i = 1 on the masked-in cells."""
+    m = np.asarray(mask, dtype=bool).ravel()
+    return ratio_of_means(p_tot, p_th, np.where(m, 1.0, 0.0))
+
+
+def mass_weighted_ratio_of_means(p_tot: np.ndarray, p_th: np.ndarray,
+                                   mask: np.ndarray, n_model: np.ndarray) -> float:
+    """ratio_of_means with w_i = n_model on the masked-in cells."""
+    m = np.asarray(mask, dtype=bool).ravel()
+    n = np.asarray(n_model, dtype=float).ravel()
+    return ratio_of_means(p_tot, p_th, np.where(m & np.isfinite(n), n, 0.0))
 
 
 def weighted_stats(values: np.ndarray, weights: np.ndarray,
