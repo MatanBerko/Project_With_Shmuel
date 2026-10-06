@@ -15,6 +15,15 @@ than against the code's own output:
 2. The display re-orientation. A marked cell in a cube-indexed array
    must land at the true-Galactic position the mapping implies, and the
    transform must be an involution for this mapping.
+
+Step 1h adds the allowed-HIM-fraction grid. Its kept fractions are hand
+counted on a toy whose four columns cover every edge case, and the two
+monotonicity properties are separated: monotonic in f_max is GUARANTEED
+and asserted everywhere; monotonic in Z holds only at f_max = 0 and is
+asserted to FAIL above it, because f_HIM(Z) is a running mean that
+dilutes. Recording the non-monotonicity as a property beats discovering
+it later as a surprise in the real grid -- where it does happen, at
+f_max = 0.7.
 """
 
 import importlib.util
@@ -230,3 +239,129 @@ def test_real_cache_is_internally_consistent():
     # clean columns are a subset of all columns, so their count never exceeds it
     assert np.all(d["n_columns__clean"] <= d["n_columns__all"])
     assert np.all(d["n_cells__clean"] <= d["n_cells__all"])
+
+# ---------------------------------------------------------------------------
+# Step 1h: the allowed-HIM-fraction grid
+# ---------------------------------------------------------------------------
+def _toy_him_grid():
+    """Four columns chosen so the grid's edge cases are all present.
+
+    On the TOY_Z grid the planes with |z| <= Z number 1, 3, 5, 7, 9 for
+    Z = 0, 2, 4, 6, 8.
+
+      col (0,0) "A": flagged at z = 0 only
+                     f_HIM = 1, 1/3, 1/5, 1/7, 1/9  -- DECREASING with Z
+      col (0,1) "B": flagged everywhere          -> f_HIM = 1 at every Z
+      col (1,0) "C": never flagged               -> f_HIM = 0 at every Z
+      col (1,1) "D": flagged at |z| = 8 only (both signs)
+                     f_HIM = 0, 0, 0, 0, 2/9     -- INCREASING with Z
+    """
+    him = np.zeros((len(TOY_Z), 2, 2), dtype=bool)
+    him[np.argmin(np.abs(TOY_Z - 0.0)), 0, 0] = True
+    him[:, 0, 1] = True
+    him[np.argmin(np.abs(TOY_Z - 8.0)), 1, 1] = True
+    him[np.argmin(np.abs(TOY_Z + 8.0)), 1, 1] = True
+    return him
+
+
+def test_grid_fractions_match_hand_counts():
+    him = _toy_him_grid()
+    z_grid = (0.0, 2.0, 4.0, 6.0, 8.0)
+    f_max_grid = (0.0, 0.25, 0.5, 1.0)
+
+    f_him, survive = ccc.survival_grid(him, TOY_ABS_Z, f_max_grid, z_grid)
+
+    # the per-column fractions themselves, by hand
+    np.testing.assert_allclose(f_him[0.0], [[1.0, 1.0], [0.0, 0.0]])
+    np.testing.assert_allclose(f_him[2.0], [[1 / 3, 1.0], [0.0, 0.0]])
+    np.testing.assert_allclose(f_him[4.0], [[1 / 5, 1.0], [0.0, 0.0]])
+    np.testing.assert_allclose(f_him[8.0], [[1 / 9, 1.0], [0.0, 2 / 9]])
+
+    # kept fractions, counted by hand from those four columns
+    expected = {
+        #            Z=0    Z=2    Z=4    Z=6    Z=8
+        0.00:      [2 / 4, 2 / 4, 2 / 4, 2 / 4, 1 / 4],
+        0.25:      [2 / 4, 2 / 4, 3 / 4, 3 / 4, 3 / 4],
+        0.50:      [2 / 4, 3 / 4, 3 / 4, 3 / 4, 3 / 4],
+        1.00:      [4 / 4, 4 / 4, 4 / 4, 4 / 4, 4 / 4],
+    }
+    for i, f_max in enumerate(f_max_grid):
+        np.testing.assert_allclose(survive[i], expected[f_max],
+                                     err_msg=f"f_max={f_max}")
+
+
+def test_grid_is_monotonic_in_f_max_always():
+    """Guaranteed: a larger allowance can only keep more columns."""
+    rng = np.random.default_rng(1108)
+    him = rng.random((len(TOY_Z), 6, 7)) < 0.4
+    f_max_grid = (0.0, 0.05, 0.1, 0.2, 0.3, 0.5, 0.7, 1.0)
+    z_grid = (0.0, 2.0, 4.0, 6.0, 8.0)
+    _, survive = ccc.survival_grid(him, TOY_ABS_Z, f_max_grid, z_grid)
+
+    for j in range(survive.shape[1]):
+        col = survive[:, j]
+        assert np.all(np.diff(col) >= -1e-12), (j, col)
+    assert np.all((survive >= 0.0) & (survive <= 1.0))
+    # f_max = 1 keeps everything, since a fraction cannot exceed 1
+    np.testing.assert_allclose(survive[-1], 1.0)
+
+
+def test_grid_is_monotonic_in_Z_at_f_max_zero_but_not_in_general():
+    """At f_max = 0 the cut is "no HIM at all", which IS nested in Z: a
+    column clean to a larger Z is clean to every smaller one. Above zero
+    it is not, because f_HIM(Z) is a running mean that dilutes -- the toy
+    column flagged only at the midplane re-enters the selection as Z
+    grows. Both halves are asserted, so the non-monotonicity is recorded
+    as a known property rather than discovered later as a surprise.
+    """
+    him = _toy_him_grid()
+    z_grid = (0.0, 2.0, 4.0, 6.0, 8.0)
+    _, survive = ccc.survival_grid(him, TOY_ABS_Z, (0.0, 0.25), z_grid)
+
+    strict = survive[0]
+    assert np.all(np.diff(strict) <= 1e-12), strict
+
+    loose = survive[1]
+    assert np.any(np.diff(loose) > 1e-12), (
+        "the toy must contain a column whose fraction dilutes with Z, "
+        "otherwise this test does not demonstrate anything")
+
+
+def test_real_grid_cache_is_consistent():
+    path = Path("cache/core/clean_columns_grid.npz")
+    if not path.exists():
+        pytest.skip("run scripts/compute/compute_clean_columns.py first")
+    d = np.load(path, allow_pickle=False)
+
+    survive = d["survive_fraction"]
+    f_max = d["f_max_grid"]
+    Z = d["Z_grid_pc"]
+    assert survive.shape == (len(f_max), len(Z))
+    assert np.all((survive >= 0) & (survive <= 1))
+    # monotonic in f_max, for every Z
+    for j in range(survive.shape[1]):
+        assert np.all(np.diff(survive[:, j]) >= -1e-12), j
+
+    # the f_max = 0 row must equal the strict fractions from the main
+    # cache at the Z values the two grids share
+    main = np.load("cache/core/clean_columns.npz", allow_pickle=False)
+    Z_main = list(main["Z_clean_grid_pc"])
+    for j, zz in enumerate(Z):
+        if zz in Z_main:
+            k = Z_main.index(zz)
+            assert survive[0, j] == pytest.approx(main["frac_clean_strict"][k], abs=1e-12), zz
+
+    # only pairs above the keep threshold carry alpha, and exactly those
+    keep = d["n_columns_kept"] / int(d["n_columns_total"][0])
+    expected_reported = keep >= float(d["min_keep_fraction"][0])
+    np.testing.assert_array_equal(d["reported"], expected_reported)
+    reported = d["reported"]
+    for wt in ("vol", "mw"):
+        a = d[f"alpha_median_of_ratios__{wt}"]
+        assert np.all(np.isfinite(a[reported]))
+        assert np.all(np.isnan(a[~reported]))
+
+    # the percentiles bracket the median, and the histogram counts every column
+    p15, med, p85 = d["f_him_at_box_edge_percentiles"]
+    assert p15 <= med <= p85
+    assert d["f_him_at_box_edge_hist"].sum() == int(d["n_columns_total"][0])

@@ -31,6 +31,19 @@ What it computes, RAW only (observed density, no substitution):
   (d) a selection-bias check: are the surviving columns typical? Sigma_gas
       (full column), midplane n_H and midplane P_th, clean vs all.
 
+  (e) Step 1h: the same questions on a GRID of allowed HIM fractions
+      rather than a single "no HIM at all" cut -- f_HIM(Z) <= f_max for
+      f_max in {0, 0.05, 0.1, 0.2, 0.3, 0.5, 0.7} and Z out to 400 pc,
+      with alpha and the bias check for every pair that keeps at least 1%
+      of the columns. The grid goes to its own cache
+      (cache/core/clean_columns_grid.npz) and its own section of the same
+      report.
+
+      The grid lives in THIS script rather than a separate one that
+      appends to the report. A separate appender would mean re-running
+      this script silently deletes the grid section, and the report's
+      contents would depend on the order the two were last run.
+
 P_tot is read from the cache unchanged. Nothing here recomputes physics;
 this step only SELECTS cells.
 
@@ -75,6 +88,7 @@ from src.physics.stats import (  # noqa: E402
 ALPHA_CORE_ZARR_PATH = Path("cache/core/alpha_core.zarr")
 ORIENTATION_TXT = Path("results/orientation_check.txt")
 OUT_NPZ_PATH = Path("cache/core/clean_columns.npz")
+OUT_GRID_NPZ_PATH = Path("cache/core/clean_columns_grid.npz")
 OUT_TXT_PATH = Path("results/clean_columns.txt")
 
 VARIANT = "RAW"
@@ -82,6 +96,12 @@ SELF_GRAVITY = "mean"
 Z_CLEAN_GRID_PC = (0.0, 25.0, 50.0, 75.0, 100.0, 150.0, 200.0, 300.0, 400.0)
 Z_CLEAN_ALPHA_PC = (50.0, 100.0, 150.0, 200.0)
 LOOSE_THRESHOLDS = (0.05, 0.10)
+
+# Step 1h: the allowed-HIM-fraction grid.
+F_MAX_GRID = (0.0, 0.05, 0.10, 0.20, 0.30, 0.50, 0.70)
+Z_GRID_PC = (50.0, 100.0, 150.0, 200.0, 300.0, 400.0)
+MIN_KEEP_FRACTION = 0.01   # alpha is only reported for selections this big
+F_HIM_HIST_EDGES = np.linspace(0.0, 1.0, 51)
 AXIS_NAMES = ("x", "y", "z")
 
 
@@ -198,6 +218,198 @@ def him_column_fraction(him, abs_z, Z):
     """Per-column HIM volume fraction within |z| <= Z."""
     planes = np.where(np.asarray(abs_z, dtype=float) <= Z)[0]
     return np.asarray(him, dtype=bool)[planes].mean(axis=0)
+
+
+def contiguous_plane_slice(abs_z, Z):
+    """slice of the planes with |z| <= Z.
+
+    On a z grid running -Zbox..+Zbox the set is contiguous, so a slice
+    gives VIEWS instead of the copies fancy indexing would make -- which
+    matters at Z = 400 pc, where each copied float32 array is 0.4 GB.
+    Contiguity is asserted rather than assumed.
+    """
+    idx = np.where(np.asarray(abs_z, dtype=float) <= Z)[0]
+    lo, hi = int(idx.min()), int(idx.max()) + 1
+    if hi - lo != idx.size:
+        raise ValueError(f"planes with |z| <= {Z} are not contiguous in this z ordering")
+    return slice(lo, hi)
+
+
+def survival_grid(him, abs_z, f_max_grid, z_grid):
+    """(f_him_by_Z, survive) for a grid of allowed HIM fractions.
+
+    survive[i, j] is the fraction of columns whose HIM volume fraction
+    within |z| <= z_grid[j] is at most f_max_grid[i].
+
+    Monotonic in f_max by construction. NOT monotonic in Z in general:
+    f_HIM(Z) is a running mean, so a column flagged only near the
+    midplane has its fraction diluted as Z grows and can re-enter a
+    selection it had fallen out of. The real cube does this at
+    f_max = 0.7, where the kept fraction rises from 0.636 at Z = 50 pc to
+    0.678 at Z = 100 pc.
+    """
+    f_him = {Z: him_column_fraction(him, abs_z, Z) for Z in z_grid}
+    survive = np.full((len(f_max_grid), len(z_grid)), np.nan)
+    for i, f_max in enumerate(f_max_grid):
+        for j, Z in enumerate(z_grid):
+            survive[i, j] = float((f_him[Z] <= f_max).mean())
+    return f_him, survive
+
+
+def compute_fhim_grid(him, abs_z, alpha, p_tot, p_th, n_H, sigma_gas, iz_mid,
+                        pct_lo, pct_hi):
+    """Step 1h: survival, alpha and selection bias on the (Z, f_max) grid.
+
+    A column is kept at (Z, f_max) when its HIM VOLUME FRACTION within
+    |z| <= Z is at most f_max. Unlike the strict Step 1g cut, kept columns
+    generally DO contain HIM cells, so the statistics are taken over the
+    NON-HIM cells inside them -- the same exclusion every other RAW number
+    in this project uses.
+
+    Returns (grid dict for the cache, report lines).
+    """
+    ny, nx = him.shape[1:]
+    n_cols = ny * nx
+
+    f_him, survive = survival_grid(him, abs_z, F_MAX_GRID, Z_GRID_PC)
+
+    # distribution of f_HIM at the box edge
+    f400 = f_him[max(Z_GRID_PC)].ravel()
+    q = np.percentile(f400, [pct_lo, 50.0, pct_hi])
+    hist, _ = np.histogram(f400, bins=F_HIM_HIST_EDGES)
+
+    est_names = ("alpha_median_of_ratios", "alpha_mean_of_ratios",
+                 "alpha_ratio_of_means", "alpha_p15_of_ratios", "alpha_p85_of_ratios")
+    shape = (len(F_MAX_GRID), len(Z_GRID_PC))
+    grid = {f"{e}__{wt}": np.full(shape, np.nan)
+            for e in est_names for wt in ("vol", "mw")}
+    for k in ("bias_Sigma_gas_median", "bias_n_mid_median", "bias_Pth_mid_median"):
+        grid[k] = np.full(shape, np.nan)
+    grid["n_columns_kept"] = np.zeros(shape, dtype=np.int64)
+    grid["n_cells_used"] = np.zeros(shape, dtype=np.int64)
+    grid["reported"] = np.zeros(shape, dtype=bool)
+
+    n_mid = n_H[iz_mid].astype(np.float64)
+    pth_mid = p_th[iz_mid].astype(np.float64)
+    sg = sigma_gas.astype(np.float64)
+
+    for j, Z in enumerate(Z_GRID_PC):
+        zsl_Z = contiguous_plane_slice(abs_z, Z)
+        him_s = him[zsl_Z]
+        a_s, pt_s, pth_s, n_s = alpha[zsl_Z], p_tot[zsl_Z], p_th[zsl_Z], n_H[zsl_Z]
+        neutral_s = ~him_s
+        for i, f_max in enumerate(F_MAX_GRID):
+            col_mask = f_him[Z] <= f_max
+            kept = int(col_mask.sum())
+            grid["n_columns_kept"][i, j] = kept
+            keep_frac = kept / n_cols
+            if keep_frac < MIN_KEEP_FRACTION:
+                continue
+            grid["reported"][i, j] = True
+
+            sel = col_mask[None, :, :] & neutral_s
+            grid["n_cells_used"][i, j] = int(sel.sum())
+            a_v = a_s[sel].astype(np.float64)
+            pt_v = pt_s[sel].astype(np.float64)
+            pth_v = pth_s[sel].astype(np.float64)
+            n_v = n_s[sel].astype(np.float64)
+            del sel
+
+            for wt in ("vol", "mw"):
+                w = np.ones_like(a_v) if wt == "vol" else np.where(np.isfinite(n_v), n_v, 0.0)
+                st = weighted_stats(a_v, w, PERCENTILE_SCHEME_DEFAULT)
+                grid[f"alpha_median_of_ratios__{wt}"][i, j] = st.median
+                grid[f"alpha_mean_of_ratios__{wt}"][i, j] = st.arithmetic_mean
+                grid[f"alpha_p15_of_ratios__{wt}"][i, j] = st.p_lo
+                grid[f"alpha_p85_of_ratios__{wt}"][i, j] = st.p_hi
+                grid[f"alpha_ratio_of_means__{wt}"][i, j] = ratio_of_means(pt_v, pth_v, w)
+            del a_v, pt_v, pth_v, n_v
+
+            for name, arr in (("Sigma_gas", sg), ("n_mid", n_mid), ("Pth_mid", pth_mid)):
+                vals = arr[col_mask]
+                vals = vals[np.isfinite(vals)]
+                grid[f"bias_{name}_median"][i, j] = float(np.median(vals)) if vals.size else np.nan
+            print(f"    Z={Z:>5.0f} f_max={f_max:<5.2f} kept {kept:>7d} columns "
+                  f"({keep_frac:.4%}), {grid['n_cells_used'][i, j]:>10d} cells")
+
+    grid.update({
+        "f_max_grid": np.array(F_MAX_GRID, dtype=float),
+        "Z_grid_pc": np.array(Z_GRID_PC, dtype=float),
+        "survive_fraction": survive,
+        "min_keep_fraction": np.array([MIN_KEEP_FRACTION]),
+        "f_him_at_box_edge_percentiles": q,
+        "f_him_at_box_edge_hist": hist,
+        "f_him_hist_edges": F_HIM_HIST_EDGES,
+        "f_him_at_box_edge_mean": np.array([float(f400.mean())]),
+        "n_columns_total": np.array([n_cols]),
+        "percentile_levels": np.array([pct_lo, pct_hi], dtype=float),
+    })
+    for Z in Z_GRID_PC:
+        grid[f"f_him_map_Z{int(Z)}"] = f_him[Z].astype(np.float32)
+
+    # ---- report lines
+    L = [
+        "",
+        "=" * 100,
+        "(d) Step 1h: survival on a grid of ALLOWED HIM fractions",
+        "=" * 100,
+        "A column is kept at (Z, f_max) when its HIM VOLUME FRACTION within |z| <= Z is at",
+        "most f_max. f_max = 0 is the strict cut of section (a). Kept columns generally DO",
+        "contain HIM cells once f_max > 0, so the alpha statistics below are taken over the",
+        "NON-HIM cells inside them -- the same exclusion every other RAW number here uses.",
+        "",
+        "Fraction of columns kept:",
+        f"{'f_max':>8}" + "".join(f"{'Z=' + format(Z, '.0f'):>12}" for Z in Z_GRID_PC),
+        "-" * (8 + 12 * len(Z_GRID_PC)),
+    ]
+    for i, f_max in enumerate(F_MAX_GRID):
+        L.append(f"{f_max:>8.2f}" + "".join(f"{survive[i, j]:>12.5f}"
+                                            for j in range(len(Z_GRID_PC))))
+    L += [
+        "-" * (8 + 12 * len(Z_GRID_PC)),
+        "  Monotonic in f_max by construction. NOT guaranteed monotonic in Z: f_HIM(Z) is a",
+        "  running mean, so a column flagged only near the midplane has its fraction DILUTED",
+        "  as Z grows and can re-enter the selection.",
+        "",
+        f"Distribution of f_HIM at |z| <= {max(Z_GRID_PC):.0f} pc over all {n_cols} columns:",
+        f"  median {q[1]:.4f}, {pct_lo:g}/{pct_hi:g} percentiles {q[0]:.4f} / {q[2]:.4f}, "
+        f"mean {float(f400.mean()):.4f}",
+        f"  (full histogram, {len(F_HIM_HIST_EDGES) - 1} bins over [0, 1], is in the cache)",
+        "",
+        f"alpha and selection bias, for every pair keeping >= {MIN_KEEP_FRACTION:.0%} of columns",
+        f"{'Z':>5}{'f_max':>7}{'columns':>9}{'kept':>8}{'cells':>11}{'wt':>5}"
+        f"{'median':>9}{'mean':>9}{'rat.mns':>9}{'p' + format(pct_lo, 'g'):>8}"
+        f"{'p' + format(pct_hi, 'g'):>8}{'Sig_gas':>9}{'n_H(0)':>9}{'Pth(0)':>9}",
+        "-" * 114,
+    ]
+    for j, Z in enumerate(Z_GRID_PC):
+        any_row = False
+        for i, f_max in enumerate(F_MAX_GRID):
+            if not grid["reported"][i, j]:
+                continue
+            any_row = True
+            for wt in ("vol", "mw"):
+                L.append(
+                    f"{Z:>5.0f}{f_max:>7.2f}{grid['n_columns_kept'][i, j]:>9d}"
+                    f"{grid['n_columns_kept'][i, j] / n_cols:>8.4f}"
+                    f"{grid['n_cells_used'][i, j]:>11d}{wt:>5}"
+                    f"{grid[f'alpha_median_of_ratios__{wt}'][i, j]:>9.4f}"
+                    f"{grid[f'alpha_mean_of_ratios__{wt}'][i, j]:>9.4f}"
+                    f"{grid[f'alpha_ratio_of_means__{wt}'][i, j]:>9.4f}"
+                    f"{grid[f'alpha_p15_of_ratios__{wt}'][i, j]:>8.4f}"
+                    f"{grid[f'alpha_p85_of_ratios__{wt}'][i, j]:>8.4f}"
+                    f"{grid['bias_Sigma_gas_median'][i, j]:>9.3f}"
+                    f"{grid['bias_n_mid_median'][i, j]:>9.4f}"
+                    f"{grid['bias_Pth_mid_median'][i, j]:>9.0f}")
+        if any_row:
+            L.append("-" * 114)
+    L += [
+        "  Sig_gas / n_H(0) / Pth(0) are MEDIANS over the kept columns, for comparison with",
+        "  the all-column values in section (c): 4.806 Msun/pc^2, 0.1675 cm^-3, 1316 K cm^-3.",
+        "  Pairs keeping less than the threshold are left out of this table; their survival",
+        "  fractions are still in the grid above.",
+    ]
+    return grid, L
 
 
 # ---------------------------------------------------------------------------
@@ -359,6 +571,16 @@ def main():
     print(f"  orientation transform verified: cube (200, 100) -> true "
           f"({got[0]:.0f}, {got[1]:.0f}) pc; involution holds")
 
+    # ---- (e) Step 1h: the allowed-HIM-fraction grid ----------------------
+    print("Allowed-HIM-fraction grid...")
+    grid, grid_lines = compute_fhim_grid(
+        him, abs_z, alpha, p_tot, p_th, n_H, sigma_gas, iz_mid, pct_lo, pct_hi)
+    grid["provisional"] = np.array([PROVISIONAL_CUBE_HEADER])
+    grid["variant"] = np.array([VARIANT])
+    grid["self_gravity"] = np.array([SELF_GRAVITY])
+    np.savez_compressed(OUT_GRID_NPZ_PATH, **grid)
+    print(f"Saved {OUT_GRID_NPZ_PATH}")
+
     # ---- save ------------------------------------------------------------
     out = dict(res)
     out.update(bias)
@@ -452,6 +674,9 @@ def main():
         "",
         f"Map orientation: {label}, read from {ORIENTATION_TXT}. The cache carries both the",
         "  cube-indexed z_clean map and a copy re-indexed onto true Galactic axes for display.",
+    ]
+    L += grid_lines
+    L += [
         "",
         f"(runtime {time.time() - t0:.1f}s)",
     ]
