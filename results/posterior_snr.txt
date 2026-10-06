@@ -1,0 +1,62 @@
+PROVISIONAL: f98 cube, n_H = 1653 A'; final cube pending
+Posterior signal-to-noise of the Edenhofer+23 density, per |z| bin
+========================================================================================================
+Map:        Edenhofer2023Query(integrated=False, flavor='main'), modes 'mean' and 'std'.
+
+            SNR = posterior mean / posterior standard deviation, per voxel, where the
+            STD IS THE PUBLISHED PER-VOXEL POSTERIOR STANDARD DEVIATION FROM THE MAP
+            ITSELF -- it is NOT computed from posterior samples. load_samples=True is
+            not used: samples_healpix.fits is not downloaded, and fetching it is a 19 GB
+            download. mean and std are the published first two moments of exactly the
+            posterior those samples would come from, so the SNR below is the same
+            quantity; what the samples would add is the SHAPE of each voxel's posterior
+            beyond its first two moments.
+
+            'detected' = (mean - 2*std) > 0: a hard detection test phrased without
+            dividing, so it assumes nothing about that shape. Wherever std > 0 it is
+            algebraically the same cut as SNR > 2 -- i.e. detected = 1 - f(SNR<2) -- and
+            it is reported separately because it is also defined on voxels with std = 0,
+            where the SNR is not.
+Orientation: (-y,-x,+z), read from results\orientation_check.txt and re-checked here --
+            r(mapped) = 0.9395 vs r(identity) = 0.2003 on 1996 cells.
+Sample:     20000 cells, stratified: 20 |z| bins x {flagged, non-flagged} x up to 500.
+            Box-wide numbers use stratum weights (population/sampled), so they estimate
+            the population and not the sample.
+Sanity:     n_H(cube) / A'(map) median 1594.7 (expected 1653), log-log r = 0.9397.
+
+     |z| bin |                          HIM-FLAGGED                          |                          NON-FLAGGED                         
+        [pc] |  med SNR         15-85  f<1 vol   f<1 mw  det vol   det mw |  med SNR         15-85  f<1 vol   f<1 mw  det vol   det mw
+--------------------------------------------------------------------------------------------------------------------------------------------
+    0-20     |     1.89   1.57-2.30      0.002    0.003    0.385    0.497 |     2.08   1.71-2.52      0.000    0.000    0.586    0.642
+   20-40     |     1.93   1.58-2.37      0.000    0.000    0.437    0.561 |     2.07   1.70-2.52      0.000    0.000    0.561    0.676
+   40-60     |     1.93   1.58-2.32      0.000    0.000    0.430    0.521 |     2.07   1.66-2.44      0.002    0.002    0.584    0.691
+   60-80     |     1.88   1.56-2.40      0.002    0.000    0.383    0.450 |     2.03   1.69-2.49      0.000    0.000    0.527    0.573
+   80-100    |     1.88   1.57-2.28      0.000    0.000    0.394    0.433 |     2.04   1.71-2.49      0.000    0.000    0.544    0.661
+  100-120    |     1.90   1.56-2.32      0.000    0.000    0.374    0.420 |     2.04   1.69-2.43      0.000    0.000    0.540    0.642
+  120-140    |     1.89   1.56-2.27      0.000    0.000    0.386    0.429 |     2.03   1.67-2.43      0.000    0.000    0.538    0.598
+  140-160    |     1.90   1.56-2.34      0.006    0.004    0.386    0.417 |     2.01   1.68-2.46      0.002    0.000    0.518    0.659
+  160-180    |     1.88   1.56-2.30      0.000    0.000    0.364    0.367 |     2.00   1.64-2.41      0.000    0.000    0.490    0.567
+  180-200    |     1.88   1.53-2.26      0.000    0.000    0.378    0.390 |     2.02   1.66-2.41      0.002    0.000    0.516    0.628
+  200-220    |     1.90   1.55-2.33      0.000    0.000    0.388    0.396 |     1.98   1.61-2.39      0.000    0.000    0.464    0.593
+  220-240    |     1.89   1.55-2.27      0.004    0.004    0.398    0.421 |     1.95   1.64-2.36      0.000    0.000    0.434    0.476
+  240-260    |     1.87   1.56-2.32      0.000    0.000    0.372    0.386 |     1.99   1.65-2.40      0.002    0.000    0.490    0.550
+  260-280    |     1.89   1.52-2.26      0.000    0.000    0.358    0.370 |     1.99   1.60-2.41      0.000    0.000    0.488    0.565
+  280-300    |     1.86   1.54-2.23      0.002    0.002    0.366    0.407 |     1.97   1.59-2.40      0.000    0.000    0.474    0.535
+  300-320    |     1.85   1.51-2.24      0.002    0.001    0.320    0.339 |     1.96   1.61-2.36      0.002    0.001    0.454    0.477
+  320-340    |     1.86   1.51-2.24      0.002    0.001    0.338    0.357 |     1.95   1.58-2.38      0.000    0.000    0.428    0.497
+  340-360    |     1.84   1.55-2.24      0.000    0.000    0.316    0.331 |     1.91   1.58-2.31      0.000    0.000    0.398    0.441
+  360-380    |     1.85   1.49-2.24      0.000    0.000    0.346    0.358 |     1.90   1.57-2.26      0.002    0.010    0.364    0.400
+  380-400    |     1.83   1.48-2.28      0.004    0.002    0.342    0.360 |     1.87   1.55-2.25      0.002    0.001    0.370    0.418
+--------------------------------------------------------------------------------------------------------------------------------------------
+  f<1 = fraction with SNR < 1.  det = fraction with mean - 2*std > 0 (= 1 - fraction with SNR < 2).
+
+Box-wide (stratum-weighted, STATS_BOX |x|,|y| <= 500, |z| <= 400 pc):
+  median SNR                     volume-weighted 1.92, mass-weighted 2.11
+  fraction with SNR < 1            volume 0.0011, MASS 0.0004
+  fraction with SNR < 2            volume 0.5887, MASS 0.3928
+  fraction clearly detected      volume 0.4113, MASS 0.6072   (mean - 2*std > 0)
+
+  The MASS fractions are the headline: they are the share of the observed column mass
+  in the box whose density is not individually constrained by the data at that level.
+
+(runtime 7.9s)

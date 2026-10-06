@@ -109,6 +109,23 @@ Step 1e: three alpha estimators, and 4 pc profile bins
     with alpha_i < 1 is reported as frac_alpha_lt1 so those NaNs are a
     number rather than a gap. sigma_eff and c_s are unchanged.
 
+(A2) Step 1f: STATS_CELL_SELECTION. Statistics have always been taken
+    over NON-HIM-FLAGGED cells only. On this cube the flag selects
+    low-density warm gas at large |z| rather than hot gas (see
+    results/README.md), so excluding it throws away most of the box's
+    volume on a criterion that is not selecting what its name says. RAW
+    is therefore computed under BOTH selections and both are reported,
+    with a cell_selection column saying which:
+        "exclude_him_flag" -- the unchanged default, every earlier number
+        "all_cells"        -- flagged cells included
+    RAW only: HIM_A/HIM_B exist to REPLACE the flagged cells' density, so
+    an "all_cells" statistic for them would mix substituted model values
+    into the observations. Their behaviour is untouched.
+
+    The P_tot integral, the self-gravity source and Sigma_gas are
+    unaffected by the switch -- flagged cells always carried their mass
+    there, under every selection.
+
 (B) Vertical profiles are binned at PROFILE_BIN_PC = 4 pc
     (src.conventions), replacing Step 1c's one-point-per-grid-plane
     profiles. Edges sit at exact multiples of 4 pc from -400 to +400,
@@ -163,6 +180,10 @@ from src.conventions import (
     SLAB_CENTERS_PC,
     SLAB_HALF_THICKNESS_PC,
     STATS_BOX_XY_HALF_RANGE_PC,
+    STATS_CELL_SELECTIONS_BY_VARIANT,
+    STATS_CELL_SELECTION_ALL,
+    STATS_CELL_SELECTION_DEFAULT,
+    STATS_CELL_SELECTION_EXCLUDE_HIM,
     STATS_BOX_Z_HALF_RANGE_PC,
     THERMAL_PRESSURE_CONVENTION_DEFAULT,
     THERMAL_PRESSURE_HEADER_BY_CONVENTION,
@@ -365,6 +386,32 @@ ALPHA_ESTIMATORS = (
 )
 
 
+def selection_mask(selection, him_sub):
+    """The boolean cell mask for a STATS_CELL_SELECTION.
+
+    "exclude_him_flag" -> non-flagged cells only (the historical and
+    still-default behaviour). "all_cells" -> every cell, flagged
+    included. Both are shaped like him_sub, so every downstream estimator
+    takes the same `mask` argument and cannot accidentally apply a
+    different selection to one quantity than to another.
+    """
+    him_sub = np.asarray(him_sub, dtype=bool)
+    if selection == STATS_CELL_SELECTION_EXCLUDE_HIM:
+        return ~him_sub
+    if selection == STATS_CELL_SELECTION_ALL:
+        return np.ones_like(him_sub, dtype=bool)
+    raise ValueError(
+        f"Unknown cell selection: {selection!r}. Expected one of "
+        f"{(STATS_CELL_SELECTION_EXCLUDE_HIM, STATS_CELL_SELECTION_ALL)}.")
+
+
+def selection_note(selection):
+    """Plain-language tail for the numbers table's definition column."""
+    return ("neutral (non-HIM-flagged) cells only"
+            if selection == STATS_CELL_SELECTION_EXCLUDE_HIM
+            else "ALL cells, HIM-flagged included")
+
+
 def alpha_estimates(alpha_sub, p_tot_sub, p_th_sub, neutral, n_sub):
     """All three alpha estimators plus the percentiles and the alpha<1
     fraction, for ONE cell selection, under both weightings.
@@ -506,7 +553,8 @@ def profile_bin_groups(z_pc, use_abs: bool, bin_pc: float = PROFILE_BIN_PC):
 
 
 def compute_vertical_profile(z_pc, Pth_phys, Ptot, alpha_arr, him_cube, phase_cubes, T_cube,
-                               n_model, footprint, use_abs: bool):
+                               n_model, footprint, use_abs: bool,
+                               selection=STATS_CELL_SELECTION_DEFAULT):
     """PROFILE_BIN_PC-binned vertical profiles, inside the STATS_BOX, of:
 
       * Pth_phys and Ptot: median / mean / p15 / p85, vol and mw;
@@ -518,9 +566,17 @@ def compute_vertical_profile(z_pc, Pth_phys, Ptot, alpha_arr, him_cube, phase_cu
       * phase fractions, one set per PHASE_SCHEME.
 
     Pth_phys is the PHYSICAL thermal pressure (1.1 n_H T); p_nT never
-    appears here. phase_cubes: {scheme_name: int8 phase flag cube}. All
-    arrays are already restricted to the STATS_BOX in z by the caller,
-    and indices here are into that restricted array.
+    appears here.
+
+    `selection` is the STATS_CELL_SELECTION applied to every statistic
+    here (Step 1f). The PHASE FRACTIONS are the one exception: they are
+    deliberately computed over every cell under both selections, because
+    a phase fraction that excluded one of the phases it reports would be
+    meaningless -- so they come out identical and are emitted once.
+
+    phase_cubes: {scheme_name: int8 phase flag cube}. All arrays are
+    already restricted to the STATS_BOX in z by the caller, and indices
+    here are into that restricted array.
     """
     groups = profile_bin_groups(z_pc, use_abs)
     n_pts = len(groups)
@@ -548,6 +604,7 @@ def compute_vertical_profile(z_pc, Pth_phys, Ptot, alpha_arr, him_cube, phase_cu
         out[f"sigma_eff_{ph}"] = np.full(n_pts, np.nan)
         out[f"sigma_nt_{ph}"] = np.full(n_pts, np.nan)
     out["n_cells"] = np.zeros(n_pts, dtype=np.int64)
+    out["n_selected"] = np.zeros(n_pts, dtype=np.int64)
     out["n_planes"] = np.zeros(n_pts, dtype=np.int64)
 
     headline_phase = phase_cubes[PHASE_SCHEME_HEADLINE]
@@ -562,8 +619,9 @@ def compute_vertical_profile(z_pc, Pth_phys, Ptot, alpha_arr, him_cube, phase_cu
         Pth_sub = Pth_phys[idxs][:, footprint].astype(np.float64)
         Ptot_sub = Ptot[idxs][:, footprint].astype(np.float64)
         alpha_sub = alpha_arr[idxs][:, footprint].astype(np.float64)
-        neutral = ~him_sub
+        neutral = selection_mask(selection, him_sub)
         out["n_cells"][b] = him_sub.size
+        out["n_selected"][b] = int(neutral.sum())
 
         for qty, arr_sub in (("Pth_phys", Pth_sub), ("Ptot", Ptot_sub)):
             s_vol = volume_weighted_stats(arr_sub, neutral, PERCENTILE_SCHEME)
@@ -1074,42 +1132,21 @@ def _finalize_one_variant(variant, core_store, footprint, z_pc_full, Iuv_box):
           f"{footprint.sum()} XY cells per plane")
 
     # Sigma_gas: FULL-column integral over the +-500 pc square -- the
-    # STATS_BOX z bound deliberately does not apply (see module docstring).
+    # STATS_BOX z bound deliberately does not apply (see module docstring),
+    # and neither does the cell selection: it is an integral of the density
+    # field, not a statistic over selected cells.
     summary[f"{variant}__Sigma_gas_map"] = sigma_gas_variant
     s_sigma = volume_weighted_stats(sigma_gas_variant, footprint, PERCENTILE_SCHEME)
     for stat_name, val in _stat_pairs(s_sigma):
-        numbers_rows.append((variant, "n/a", "n/a", "Sigma_gas", "vol", stat_name, val,
+        numbers_rows.append((variant, "n/a", "n/a", "n/a", "Sigma_gas", "vol", stat_name, val,
                                "Msun/pc^2",
                                f"Full-column (+-750pc) trapezoid of variant density, +-500pc square "
                                f"footprint, unweighted {stat_name}"))
 
-    # 1D PDFs (self-gravity independent: n, T, Iuv, Pth)
-    for qty, arr in (("n", n_model), ("T", T), ("Iuv", Iuv_box), ("Pth_phys", p_th_phys)):
-        for zc in SLAB_CENTERS_PC:
-            idxs = slab_plane_indices(z_pc, zc)
-            sub = arr[idxs][:, footprint]
-            neutral = ~him_cube[idxs][:, footprint]
-            centers, counts = log_pdf_1d(sub[neutral].ravel(), None)
-            summary[f"{variant}__pdf1d__{qty}__z{int(zc)}__centers"] = centers
-            summary[f"{variant}__pdf1d__{qty}__z{int(zc)}__counts"] = counts
-
-    # 2D mass-weighted PDFs (n,Pth) and (Iuv,n) -- self-gravity independent
-    for (qx, xarr, qy, yarr) in (("n", n_model, "Pth_phys", p_th_phys), ("Iuv", Iuv_box, "n", n_model)):
-        for zc in SLAB_CENTERS_PC:
-            idxs = slab_plane_indices(z_pc, zc)
-            neutral = ~him_cube[idxs][:, footprint]
-            xv = xarr[idxs][:, footprint][neutral]
-            yv = yarr[idxs][:, footprint][neutral]
-            wv = n_model[idxs][:, footprint][neutral]
-            xedges, yedges, H = log_pdf_2d(xv.astype(np.float64), yv.astype(np.float64), wv.astype(np.float64))
-            summary[f"{variant}__pdf2d__{qx}_{qy}__z{int(zc)}__xedges"] = xedges
-            summary[f"{variant}__pdf2d__{qx}_{qy}__z{int(zc)}__yedges"] = yedges
-            summary[f"{variant}__pdf2d__{qx}_{qy}__z{int(zc)}__H"] = H
-
-    # ---- Phase fractions: self-gravity independent, emitted ONCE (not per
-    # self-gravity setting) under both PHASE_SCHEMEs, at each slab and over
-    # the whole STATS_BOX. HIM is included here; everywhere else HIM cells
-    # are excluded from statistics.
+    # ---- Phase fractions: independent of BOTH self-gravity and the cell
+    # selection (they are computed over every cell by construction -- a
+    # phase fraction that excluded one of the phases it reports would be
+    # meaningless), so they are emitted once with "n/a" for both.
     n_weight = np.where(np.isfinite(n_model), n_model, 0.0).astype(np.float64)
     for scheme, phase_cube in phase_cubes.items():
         for label, idxs, where in (
@@ -1124,13 +1161,47 @@ def _finalize_one_variant(variant, core_store, footprint, z_pc_full, Iuv_box):
             for code, ph in PHASE_CODES_ALL:
                 m = phase_sub == code
                 numbers_rows.append((
-                    variant, "n/a", scheme, f"phase_fraction_{ph}", "vol", label,
+                    variant, "n/a", "n/a", scheme, f"phase_fraction_{ph}", "vol", label,
                     float(m.sum() / total_cells) if total_cells else float("nan"),
-                    "dimensionless", f"Volume fraction of {ph}, {where}, {scheme} scheme"))
+                    "dimensionless", f"Volume fraction of {ph}, {where}, {scheme} scheme, all cells"))
                 numbers_rows.append((
-                    variant, "n/a", scheme, f"phase_fraction_{ph}", "mw", label,
+                    variant, "n/a", "n/a", scheme, f"phase_fraction_{ph}", "mw", label,
                     float(w_sub[m].sum() / W) if W > 0 else float("nan"),
-                    "dimensionless", f"Mass fraction of {ph}, {where}, {scheme} scheme"))
+                    "dimensionless", f"Mass fraction of {ph}, {where}, {scheme} scheme, all cells"))
+
+    # ---- Everything below is selection-dependent. RAW gets both
+    # selections, HIM_A/HIM_B only the default (see STATS_CELL_SELECTIONS_
+    # BY_VARIANT in src.conventions for why).
+    selections = STATS_CELL_SELECTIONS_BY_VARIANT[variant]
+    print(f"  cell selections for {variant}: {list(selections)}")
+
+    for selection in selections:
+        # 1D PDFs (self-gravity independent: n, T, Iuv, Pth_phys)
+        for qty, arr in (("n", n_model), ("T", T), ("Iuv", Iuv_box), ("Pth_phys", p_th_phys)):
+            for zc in SLAB_CENTERS_PC:
+                idxs = slab_plane_indices(z_pc, zc)
+                sub = arr[idxs][:, footprint]
+                sel = selection_mask(selection, him_cube[idxs][:, footprint])
+                centers, counts = log_pdf_1d(sub[sel].ravel(), None)
+                base = f"{variant}__sel{selection}__pdf1d__{qty}__z{int(zc)}"
+                summary[f"{base}__centers"] = centers
+                summary[f"{base}__counts"] = counts
+
+        # 2D mass-weighted PDFs (n,Pth_phys) and (Iuv,n) -- sg independent
+        for (qx, xarr, qy, yarr) in (("n", n_model, "Pth_phys", p_th_phys),
+                                       ("Iuv", Iuv_box, "n", n_model)):
+            for zc in SLAB_CENTERS_PC:
+                idxs = slab_plane_indices(z_pc, zc)
+                sel = selection_mask(selection, him_cube[idxs][:, footprint])
+                xv = xarr[idxs][:, footprint][sel]
+                yv = yarr[idxs][:, footprint][sel]
+                wv = n_model[idxs][:, footprint][sel]
+                xedges, yedges, H = log_pdf_2d(xv.astype(np.float64), yv.astype(np.float64),
+                                                 wv.astype(np.float64))
+                base = f"{variant}__sel{selection}__pdf2d__{qx}_{qy}__z{int(zc)}"
+                summary[f"{base}__xedges"] = xedges
+                summary[f"{base}__yedges"] = yedges
+                summary[f"{base}__H"] = H
 
     for sg_key in SELF_GRAVITY_SETTINGS:
         sgg = vg[f"self_gravity_{sg_key}"]
@@ -1141,6 +1212,8 @@ def _finalize_one_variant(variant, core_store, footprint, z_pc_full, Iuv_box):
             summary[f"{variant}__sg{sg_key}__footprint_nan_fraction"] = np.asarray(
                 sgg["footprint_nan_fraction"][:], dtype=np.float32)
 
+        # Raw z-plane slices: no cell selection applies -- these are the
+        # cube's own values, not statistics.
         for zc in SLAB_CENTERS_PC:
             iz = int(np.argmin(np.abs(z_pc - zc)))
             summary[f"{variant}__sg{sg_key}__slice__n__z{int(zc)}"] = n_model[iz]
@@ -1149,72 +1222,83 @@ def _finalize_one_variant(variant, core_store, footprint, z_pc_full, Iuv_box):
             summary[f"{variant}__sg{sg_key}__slice__Ptot__z{int(zc)}"] = Ptot_kB[iz]
             summary[f"{variant}__sg{sg_key}__slice__alpha__z{int(zc)}"] = alpha_arr[iz]
 
-        for qty, arr in (("Ptot", Ptot_kB), ("alpha", alpha_arr)):
-            for zc in SLAB_CENTERS_PC:
-                idxs = slab_plane_indices(z_pc, zc)
-                sub = arr[idxs][:, footprint]
-                neutral = ~him_cube[idxs][:, footprint]
-                centers, counts = log_pdf_1d(sub[neutral].ravel(), None)
-                summary[f"{variant}__sg{sg_key}__pdf1d__{qty}__z{int(zc)}__centers"] = centers
-                summary[f"{variant}__sg{sg_key}__pdf1d__{qty}__z{int(zc)}__counts"] = counts
+        for selection in STATS_CELL_SELECTIONS_BY_VARIANT[variant]:
+            sel_note = selection_note(selection)
 
-        print(f"  self_gravity={sg_key}: {PROFILE_BIN_PC:g}pc-binned vertical profiles (signed z and |z|)...")
-        prof_signed = compute_vertical_profile(z_pc, p_th_phys, Ptot_kB, alpha_arr, him_cube, phase_cubes,
-                                                  T, n_model, footprint, use_abs=False)
-        prof_abs = compute_vertical_profile(z_pc, p_th_phys, Ptot_kB, alpha_arr, him_cube, phase_cubes,
-                                               T, n_model, footprint, use_abs=True)
-        for k, v in prof_signed.items():
-            summary[f"{variant}__sg{sg_key}__profile_signedz__{k}"] = v
-        for k, v in prof_abs.items():
-            summary[f"{variant}__sg{sg_key}__profile_absz__{k}"] = v
+            for qty, arr in (("Ptot", Ptot_kB), ("alpha", alpha_arr)):
+                for zc in SLAB_CENTERS_PC:
+                    idxs = slab_plane_indices(z_pc, zc)
+                    sub = arr[idxs][:, footprint]
+                    sel = selection_mask(selection, him_cube[idxs][:, footprint])
+                    centers, counts = log_pdf_1d(sub[sel].ravel(), None)
+                    base = (f"{variant}__sg{sg_key}__sel{selection}__pdf1d__"
+                            f"{qty}__z{int(zc)}")
+                    summary[f"{base}__centers"] = centers
+                    summary[f"{base}__counts"] = counts
 
-        # ---- Slab statistics (60 pc-thick slabs), the whole-box statistic,
-        # and the single z=0 grid plane.
-        # "box" is a DIRECT statistic over every neutral cell in the
-        # STATS_BOX -- not an average of the vertical profile (which is
-        # what the retired absz500_* rows were). One number, one
-        # population, no double reduction.
-        #
-        # All three alpha estimators, both percentiles, frac_alpha_lt1,
-        # and the per-estimator Mach / sigma_nt are emitted for every one
-        # of these selections, under both weightings -- the same code path
-        # as the vertical profiles, so a slab number and a profile bin
-        # number can never be computed two different ways.
-        iz_mid = int(np.argmin(np.abs(z_pc)))
-        for label, idxs, where in (
-            *[(f"z{int(zc)}", slab_plane_indices(z_pc, zc),
-               f"{zc:.0f}+-{SLAB_HALF_THICKNESS_PC:.0f}pc slab, +-500pc square") for zc in SLAB_CENTERS_PC],
-            ("box", np.arange(len(z_pc)), "STATS_BOX (|x|,|y|<=500, |z|<=400pc)"),
-            ("midplane", np.array([iz_mid]), "the single z=0 grid plane, +-500pc square"),
-        ):
-            neutral = ~him_cube[idxs][:, footprint]
-            n_sub = n_model[idxs][:, footprint].astype(np.float64)
-            Pth_sub = p_th_phys[idxs][:, footprint].astype(np.float64)
-            Ptot_sub = Ptot_kB[idxs][:, footprint].astype(np.float64)
-            alpha_sub = alpha_arr[idxs][:, footprint].astype(np.float64)
-            T_sub = T[idxs][:, footprint].astype(np.float64)
-            T_tot_mean = float(T_sub[neutral].mean()) if neutral.any() else float("nan")
+            print(f"  self_gravity={sg_key}, cells={selection}: "
+                  f"{PROFILE_BIN_PC:g}pc-binned vertical profiles (signed z and |z|)...")
+            prof_signed = compute_vertical_profile(
+                z_pc, p_th_phys, Ptot_kB, alpha_arr, him_cube, phase_cubes,
+                T, n_model, footprint, use_abs=False, selection=selection)
+            prof_abs = compute_vertical_profile(
+                z_pc, p_th_phys, Ptot_kB, alpha_arr, him_cube, phase_cubes,
+                T, n_model, footprint, use_abs=True, selection=selection)
+            for k, v in prof_signed.items():
+                summary[f"{variant}__sg{sg_key}__sel{selection}__profile_signedz__{k}"] = v
+            for k, v in prof_abs.items():
+                summary[f"{variant}__sg{sg_key}__sel{selection}__profile_absz__{k}"] = v
 
-            for qty, sub in (("Pth_phys", Pth_sub), ("Ptot", Ptot_sub)):
-                for wt, st in (("vol", volume_weighted_stats(sub, neutral, PERCENTILE_SCHEME)),
-                                 ("mw", mass_weighted_stats(sub, neutral, n_sub, PERCENTILE_SCHEME))):
-                    for stat_name, val in _stat_pairs(st):
+            # ---- Slab statistics (60 pc-thick slabs), the whole-box
+            # statistic, and the single z=0 grid plane.
+            # "box" is a DIRECT statistic over every selected cell in the
+            # STATS_BOX -- not an average of the vertical profile (which
+            # is what the retired absz500_* rows were). One number, one
+            # population, no double reduction.
+            #
+            # All three alpha estimators, both percentiles,
+            # frac_alpha_lt1, and the per-estimator Mach / sigma_nt are
+            # emitted for every one of these selections, under both
+            # weightings -- the same code path as the vertical profiles,
+            # so a slab number and a profile bin number can never be
+            # computed two different ways.
+            iz_mid = int(np.argmin(np.abs(z_pc)))
+            for label, idxs, where in (
+                *[(f"z{int(zc)}", slab_plane_indices(z_pc, zc),
+                   f"{zc:.0f}+-{SLAB_HALF_THICKNESS_PC:.0f}pc slab, +-500pc square")
+                  for zc in SLAB_CENTERS_PC],
+                ("box", np.arange(len(z_pc)), "STATS_BOX (|x|,|y|<=500, |z|<=400pc)"),
+                ("midplane", np.array([iz_mid]), "the single z=0 grid plane, +-500pc square"),
+            ):
+                sel = selection_mask(selection, him_cube[idxs][:, footprint])
+                n_sub = n_model[idxs][:, footprint].astype(np.float64)
+                Pth_sub = p_th_phys[idxs][:, footprint].astype(np.float64)
+                Ptot_sub = Ptot_kB[idxs][:, footprint].astype(np.float64)
+                alpha_sub = alpha_arr[idxs][:, footprint].astype(np.float64)
+                T_sub = T[idxs][:, footprint].astype(np.float64)
+                T_tot_mean = float(T_sub[sel].mean()) if sel.any() else float("nan")
+
+                for qty, sub in (("Pth_phys", Pth_sub), ("Ptot", Ptot_sub)):
+                    for wt, st in (("vol", volume_weighted_stats(sub, sel, PERCENTILE_SCHEME)),
+                                     ("mw", mass_weighted_stats(sub, sel, n_sub, PERCENTILE_SCHEME))):
+                        for stat_name, val in _stat_pairs(st):
+                            numbers_rows.append((
+                                variant, sg_key, selection, "n/a", qty, wt,
+                                f"{label}_{stat_name}", val, _units(qty),
+                                f"{QUANTITY_NOTE[qty]} {stat_name}, {wt}-weighted, {where}, "
+                                f"{sel_note}"
+                            ))
+
+                alpha_by_wt = alpha_estimates(alpha_sub, Ptot_sub, Pth_sub, sel, n_sub)
+                for wt, est in alpha_by_wt.items():
+                    rows = dict(est)
+                    rows.update(derived_from_alpha(est, T_tot_mean))
+                    for qty, val in rows.items():
                         numbers_rows.append((
-                            variant, sg_key, "n/a", qty, wt, f"{label}_{stat_name}", val,
+                            variant, sg_key, selection, "n/a", qty, wt, label, val,
                             _units(qty),
-                            f"{QUANTITY_NOTE[qty]} {stat_name}, {wt}-weighted, {where}, "
-                            f"neutral (non-HIM) cells"
+                            f"{QUANTITY_NOTE[qty]}, {wt}-weighted, {where}, {sel_note}"
                         ))
-
-            alpha_by_wt = alpha_estimates(alpha_sub, Ptot_sub, Pth_sub, neutral, n_sub)
-            for wt, est in alpha_by_wt.items():
-                rows = dict(est)
-                rows.update(derived_from_alpha(est, T_tot_mean))
-                for qty, val in rows.items():
-                    numbers_rows.append((
-                        variant, sg_key, "n/a", qty, wt, label, val, _units(qty),
-                        f"{QUANTITY_NOTE[qty]}, {wt}-weighted, {where}, neutral (non-HIM) cells"
-                    ))
 
         del Ptot_kB, alpha_arr
     del n_model, p_th_phys, T, phase_cubes, him_cube
@@ -1299,8 +1383,8 @@ def finalize_stage(variants):
     finalize_merge()
 
 
-NUMBERS_TABLE_COLUMNS = ["variant", "self_gravity", "phase_scheme", "quantity",
-                         "weighting", "stat", "value", "units", "definition"]
+NUMBERS_TABLE_COLUMNS = ["variant", "self_gravity", "cell_selection", "phase_scheme",
+                         "quantity", "weighting", "stat", "value", "units", "definition"]
 
 
 def finalize_merge():
@@ -1356,6 +1440,12 @@ def finalize_merge():
         f.write("MASKED variant: not implemented -- no MASKED definition exists in any reference script.\n")
         f.write("self_gravity column: off | mean (footprint_mean, DEFAULT); column (per_column) not run "
                 "in this sweep -- code retained.\n")
+        f.write("cell_selection column (RAW only has both): exclude_him_flag = statistics over non-flagged\n"
+                "  cells -- the default, and every pre-Step-1f number; all_cells = flagged cells included.\n"
+                "  HIM_A/HIM_B keep exclude_him_flag only: they SUBSTITUTE the flagged cells'"
+                " density, so an all_cells\n"
+                "  statistic would mix model values into the observations. n/a where the quantity does not\n"
+                "  depend on a cell selection (Sigma_gas, the phase fractions).\n")
         f.write(f"Thermal pressure: p_nT = n_H T is used ONLY for classification (the HIM flag\n"
                 f"  and the phase scheme) and is never reported; every number below uses\n"
                 f"  p_th_phys = {PARTICLES_PER_H_NEUTRAL:g} n_H T.\n")
@@ -1372,14 +1462,14 @@ def finalize_merge():
                 f"  +-{SLAB_HALF_THICKNESS_PC:.0f} pc. Binning is statistics only -- P_tot, Sigma_gas and the\n"
                 f"  self-gravity integrals use the real 2 pc grid.\n")
         f.write("  -- see results/README.md for full column definitions.\n")
-        f.write("=" * 132 + "\n")
-        f.write(f"{'variant':<8}{'self_grav':<10}{'phase_sch':<13}{'quantity':<22}{'weight':<7}"
-                f"{'stat':<16}{'value':>12} {'units':<16} definition\n")
-        f.write("-" * 132 + "\n")
+        f.write("=" * 152 + "\n")
+        f.write(f"{'variant':<8}{'sg':<6}{'cell_selection':<18}{'phase_sch':<13}"
+                f"{'quantity':<28}{'weight':<6}{'stat':<16}{'value':>12} {'units':<12} definition\n")
+        f.write("-" * 152 + "\n")
         for row in numbers_rows:
-            variant, sg_key, scheme, qty, wt, stat, val, units, definition = row
-            f.write(f"{variant:<8}{sg_key:<10}{scheme:<13}{qty:<22}{wt:<7}{stat:<16}"
-                    f"{val: .6g} {units:<16} {definition}\n")
+            variant, sg_key, sel, scheme, qty, wt, stat, val, units, definition = row
+            f.write(f"{variant:<8}{sg_key:<6}{sel:<18}{scheme:<13}{qty:<28}{wt:<6}{stat:<16}"
+                    f"{val: .6g} {units:<12} {definition}\n")
 
     elapsed = time.time() - t_start
     peak_mb = peak_working_set_mb()

@@ -313,12 +313,25 @@ def test_nt_convention_reproduces_pre_step1d_behaviour_elementwise():
 # 5b. "nT" reproduces the real Step 1c-prep numbers table
 # ---------------------------------------------------------------------------
 def _load_table(path, skip_comments=True):
+    """Six-key -> value map for a numbers table.
+
+    Step 1f added a cell_selection column, and RAW now has two rows for
+    every key below (one per selection). The Step 1c fixture predates
+    that, so rows are filtered to the DEFAULT selection before the map is
+    built -- otherwise the two RAW rows would collide and silently leave
+    whichever came last. "n/a" is kept because that is what the
+    selection-independent quantities (Sigma_gas, the phase fractions)
+    carry.
+    """
     with open(path, newline="") as f:
         lines = [ln for ln in f if not (skip_comments and ln.startswith("#"))]
     out = {}
     for d in csv.DictReader(lines):
+        if d.get("cell_selection", "exclude_him_flag") not in ("exclude_him_flag", "n/a"):
+            continue
         key = (d["variant"], d["self_gravity"], d["phase_scheme"],
                d["quantity"], d["weighting"], d["stat"])
+        assert key not in out, f"duplicate key after selection filter: {key}"
         out[key] = float(d["value"])
     return out
 

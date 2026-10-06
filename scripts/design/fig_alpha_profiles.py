@@ -56,6 +56,11 @@ NAME = "fig_alpha_profiles"
 VARIANTS = ("RAW", "HIM_A", "HIM_B")
 WEIGHTINGS = (("vol", "volume-weighted"), ("mw", "mass-weighted"))
 SELF_GRAVITY = "mean"
+# Step 1f put the cell selection into the cache keys. This figure shows the
+# DEFAULT selection (HIM-flagged cells excluded), which is what every
+# pre-Step-1f number was; fig_cell_selection.py is the one that compares
+# the two.
+CELL_SELECTION = "exclude_him_flag"
 PROFILE = "signedz"
 Z_RANGE = (-400.0, 400.0)
 Z_TICKS = (-400, -200, 0, 200, 400)
@@ -63,7 +68,8 @@ PANEL_LETTERS = (("a", "b", "c"), ("d", "e", "f"))
 
 
 def key(variant, field):
-    return f"{variant}__sg{SELF_GRAVITY}__profile_{PROFILE}__{field}"
+    return (f"{variant}__sg{SELF_GRAVITY}__sel{CELL_SELECTION}"
+            f"__profile_{PROFILE}__{field}")
 
 
 def main():
@@ -127,8 +133,8 @@ def main():
     labels.append("15–85% of per-cell ratios")
     fig.legend(handles, labels, loc="outside upper center", ncols=4)
 
-    annotate(axes[0, -1], f"self-gravity: {SELF_GRAVITY}", xy=(0.97, 0.055),
-             size=6.5, color="0.35")
+    annotate(axes[0, -1], f"self-gravity: {SELF_GRAVITY}\ncells: {CELL_SELECTION}",
+             xy=(0.97, 0.055), size=6.5, color="0.35")
 
     # Lower LEFT here: with three columns the right-hand panel's x-label
     # reaches the figure's bottom-right corner, where the default sits.

@@ -237,6 +237,42 @@ explicit. Hence one phase flag per scheme serves all three variants, and
 the **volume** phase fractions are identical across variants by
 construction (only the **mass** fractions differ, through the weight).
 
+## Which cells enter a statistic (Step 1f)
+
+`STATS_CELL_SELECTION` in `src/conventions.py`, reported in the
+`cell_selection` column of the numbers table:
+
+| value | meaning |
+|---|---|
+| `exclude_him_flag` | statistics over **non-HIM-flagged cells only**. The default, and what every pre-Step-1f number in this project was. |
+| `all_cells` | flagged cells **included**. |
+| `n/a` | the quantity does not depend on a cell selection — `Sigma_gas` and the phase fractions. |
+
+**Only RAW is reported both ways.** HIM_A and HIM_B exist precisely to
+*replace* the flagged cells' density and pressure with a model value, so
+an `all_cells` statistic for them would average that substituted model in
+with the observations and mean neither one thing nor the other. Their
+behaviour is unchanged.
+
+Why this switch exists: the exclusion was inherited from the reference
+scripts, where "HIM" meant hot ionised gas that genuinely should not be
+averaged in with the neutral medium. `fig_raw_diagnostics` shows the flag
+is not doing that job on this cube. `p_nT < 0.5 P_min` selects
+**low-density warm gas** — n_H ≈ 0.03 cm⁻³, T ≈ 9000 K, i.e. warm, not
+hot — and it takes **47% of the volume at the midplane, rising to ~97% by
+|z| = 400 pc**, while holding only ~3% of the midplane mass. Excluding it
+therefore removes most of the volume of the box from every RAW statistic,
+on a criterion that is not selecting what its name says. Reporting RAW
+both ways makes the size of that choice visible instead of implicit.
+
+**What the switch does NOT touch.** Flagged cells always carried their
+mass into the P_tot integral, the self-gravity source and `Sigma_gas`,
+and they still do — those are integrals of the density field, not
+statistics over selected cells.
+`tests/test_cell_selection.py::test_ptot_sigma_gas_and_self_gravity_never_see_the_selection`
+pins that down, including that none of those functions' signatures can
+even accept a selection.
+
 ## The three alpha estimators (Step 1e)
 
 alpha is reported **three ways side by side**, over exactly the same cell
@@ -395,12 +431,17 @@ but was not swept.
 
 The file starts with two `#`-prefixed header lines — the `PROVISIONAL:`
 cube caveat and the `P_th = 1.1 n_H k T (physical)` convention — then the
-header row. **`phase_scheme` is new in Step 1c.**
+header row. **`phase_scheme` is new in Step 1c; `cell_selection` is new
+in Step 1f.** A row is identified by
+(`variant`, `self_gravity`, `cell_selection`, `phase_scheme`, `quantity`,
+`weighting`, `stat`) — dropping `cell_selection` now collides RAW's two
+selections onto one key.
 
 | Column | Meaning |
 |---|---|
 | `variant` | `RAW` (unmodified), `HIM_A` (HIM cells -> P_th=P_min, n=P_min/T_HIM), `HIM_B` (HIM cells -> P_th=P_max, n=P_max/T_HIM). No `MASKED` row exists -- no MASKED definition is present in any of the four reference scripts this project was ported from (see the Phase A report); this is a deliberate, documented omission, not an oversight. |
 | `self_gravity` | `off` / `mean` (see above), or `n/a` for quantities that don't depend on self-gravity at all (`Sigma_gas`, the phase fractions). |
+| `cell_selection` | `exclude_him_flag` (default) / `all_cells` / `n/a` — see "Which cells enter a statistic" above. **RAW has both; HIM_A/HIM_B have only the default.** |
 | `phase_scheme` | `dPdn` (headline) / `temperature`, for the phase-fraction rows only; `n/a` for every quantity that does not depend on the scheme. |
 | `quantity` | See table below. |
 | `weighting` | `vol` = volume-weighted (every in-mask voxel counted equally); `mw` = mass-weighted (voxel weighted by that variant's `n_model`). |
@@ -445,9 +486,18 @@ two helpers (`alpha_estimates` / `derived_from_alpha`) as the
 vertical-profile bins, so a slab number and a profile number cannot be
 computed two different ways.
 
-All statistics (except the phase fractions themselves) exclude
-HIM-flagged cells — HIM enters the P_tot integral as defined per variant,
-but never enters a median/mean/percentile.
+Whether a statistic excludes HIM-flagged cells is now the
+`cell_selection` column, not a fixed rule — see the Step 1f section
+above. Under either selection HIM cells enter the P_tot integral as
+defined per variant; that is unchanged.
+
+**`summary.npz` key layout.** Profiles and PDFs carry the selection in
+the key:
+`{variant}__sg{off|mean}__sel{exclude_him_flag|all_cells}__profile_{signedz|absz}__{field}`
+and `{variant}__sel{selection}__pdf1d__…` / `__pdf2d__…`. The raw z-plane
+`__slice__` keys do not, because a slice is the cube's own values and no
+selection applies to it. Pre-Step-1f keys without the `sel…` component
+are gone rather than left to be guessed at.
 
 ## Other files
 
@@ -467,6 +517,22 @@ but never enters a median/mean/percentile.
   both sides of alpha_on/alpha_off and cancels); HIM_A/HIM_B's move by
   ~0.5–1% because their HIM density change alters the self-gravity
   source.
+- **`posterior_snr.txt`** — is the density in HIM-flagged cells actually
+  measured? Per 20 pc |z| bin, for flagged and non-flagged cells
+  separately: the median and 15–85 range of the Edenhofer+23 posterior
+  SNR (= posterior mean / posterior standard deviation of the
+  differential extinction), and the fraction below SNR 1 and 2 by volume
+  and by mass; plus the box-wide mass fraction below each threshold.
+  Written by `scripts/validation/posterior_snr.py`, which reads the XY
+  mapping from `orientation_check.txt` and **re-verifies it** (the mapped
+  correlation must beat the identity) before querying, rather than
+  hardcoding it. The map flavour is
+  `Edenhofer2023Query(integrated=False, flavor="main")` with
+  `mode="mean"` and `mode="std"` — the same posterior the cube was built
+  from. `load_samples=True` is not used because `samples_healpix.fits` is
+  not downloaded (a 19 GB fetch); mean/std are the published first two
+  moments of that same posterior, so the SNR is the same quantity, and
+  only the posterior's *shape* would be added by the samples.
 - **`him_mass_fraction.txt`** — fraction of total gas mass
   (observed/RAW density, no HIM substitution) in HIM-flagged cells, at
   the three slabs, over the STATS_BOX, and over the full ±750 pc column.

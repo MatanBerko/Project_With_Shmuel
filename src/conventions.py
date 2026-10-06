@@ -129,6 +129,49 @@ SLAB_HALF_THICKNESS_PC = 30.0
 PROFILE_BIN_PC = 4.0
 
 # ---------------------------------------------------------------------------
+# Cell selection for statistics (Step 1f switch) -- RAW ONLY
+# ---------------------------------------------------------------------------
+# Which cells enter a median/mean/percentile. HIM-flagged cells have
+# always been EXCLUDED from every statistic (they still carry their mass
+# into the P_tot integral, which is unchanged by this switch and by
+# anything here).
+#
+# That exclusion was inherited from the reference scripts, where "HIM"
+# meant hot ionised gas that genuinely should not be averaged in with the
+# neutral medium. The Step 2a diagnostics figure showed the flag is not
+# doing that job on this cube: p_nT < 0.5 P_min selects LOW-DENSITY WARM
+# gas (n_H ~ 0.03 cm^-3, T ~ 9000 K) at large |z|, not hot gas, and it
+# takes roughly half the volume at the midplane and ~97% by |z| = 400 pc.
+# Excluding it therefore removes most of the volume of the box from every
+# RAW statistic, on a criterion that is not selecting what its name says.
+#
+# So RAW is now computed BOTH ways and both are reported, with the
+# cell_selection column of the numbers table saying which:
+#
+#   "exclude_him_flag" (DEFAULT, unchanged) -- statistics over non-flagged
+#       cells only. Every pre-Step-1f number is this one.
+#   "all_cells" -- statistics over every cell in the selection, flagged
+#       included. For RAW this is the honest "what does the whole box
+#       look like" number, because RAW applies no density substitution:
+#       its flagged cells carry their observed n_H and T.
+#
+# RAW ONLY, deliberately. HIM_A/HIM_B exist precisely to REPLACE the
+# flagged cells' density and pressure with a model value, so an
+# "all_cells" statistic for them would average that substituted model in
+# with the observations and mean neither one thing nor the other. Their
+# behaviour is unchanged.
+STATS_CELL_SELECTION_EXCLUDE_HIM = "exclude_him_flag"
+STATS_CELL_SELECTION_ALL = "all_cells"
+STATS_CELL_SELECTION_DEFAULT = STATS_CELL_SELECTION_EXCLUDE_HIM
+STATS_CELL_SELECTIONS = (STATS_CELL_SELECTION_EXCLUDE_HIM, STATS_CELL_SELECTION_ALL)
+# Which selections each variant is reported under.
+STATS_CELL_SELECTIONS_BY_VARIANT = {
+    "RAW": STATS_CELL_SELECTIONS,
+    "HIM_A": (STATS_CELL_SELECTION_EXCLUDE_HIM,),
+    "HIM_B": (STATS_CELL_SELECTION_EXCLUDE_HIM,),
+}
+
+# ---------------------------------------------------------------------------
 # Percentile convention (Shelest+26 switch)
 # ---------------------------------------------------------------------------
 # Shelest et al. 2026 report 15th/85th percentiles; "16_84" (the nominal

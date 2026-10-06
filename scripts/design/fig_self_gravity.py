@@ -52,6 +52,9 @@ NAME = "fig_self_gravity"
 
 VARIANT = "RAW"
 WEIGHTING = "vol"
+# Step 1f put the cell selection into the cache keys; this figure uses the
+# default (HIM-flagged cells excluded).
+CELL_SELECTION = "exclude_him_flag"
 PROFILE = "signedz"
 ESTIMATORS = ("alpha_median_of_ratios", "alpha_ratio_of_means")
 # linestyle encodes the self-gravity setting
@@ -64,7 +67,7 @@ Z_TICKS = (-400, -200, 0, 200, 400)
 
 
 def key(sg, field):
-    return f"{VARIANT}__sg{sg}__profile_{PROFILE}__{field}"
+    return f"{VARIANT}__sg{sg}__sel{CELL_SELECTION}__profile_{PROFILE}__{field}"
 
 
 def main():
@@ -102,8 +105,8 @@ def main():
     # Headroom at the top for the two-block legend.
     ax_a.set_ylim(y_lo, y_hi * 2.4)
     panel_label(ax_a, "a")
-    annotate(ax_a, f"{VARIANT}, volume-weighted\nband: 15–85% of ratios, "
-                   f"self-gravity mean",
+    annotate(ax_a, f"{VARIANT}, volume-weighted, cells: {CELL_SELECTION}\n"
+                   f"band: 15–85% of ratios, self-gravity mean",
              xy=(0.97, 0.10), size=6.5, color="0.35")
 
     # Two legend blocks: colour = estimator, linestyle = self-gravity.
