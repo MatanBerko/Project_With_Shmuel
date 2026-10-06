@@ -26,11 +26,40 @@ is used here only to build the P_min/P_max(I_UV) interpolators used for
 HIM classification and the HIM_A/HIM_B substitution, matching that source
 usage exactly.
 
-P_th formula (Eq. 1 of the paper draft, also pipeline/compute_fig1.py:14):
-    P_th / k_B = n * T   [K cm^-3]
-"Pth" as stored/returned throughout the reference scripts and here is
-already P_th/k_B (n*T with n in cm^-3, T in K) -- k_B is only used
-separately to convert the hydrostatic integral's cgs pressure into P/k_B.
+Two thermal pressures (Step 1d) -- NEVER interchange them
+---------------------------------------------------------
+Both are stored and returned as P/k_B in K cm^-3 (k_B is only used
+separately, to convert the hydrostatic integral's cgs pressure into
+P/k_B).
+
+    p_nT(n_H, T)      = n_H * T
+        The BS19 / Shelest convention. The BS19 table's P grid -- and
+        therefore P_min(I_UV), P_max(I_UV) and the n_W,max/n_C,min
+        turning points above -- is tabulated in THIS convention, so this
+        is the only pressure that may be compared against them. Used
+        ONLY for classification: the phase scheme and the HIM flag
+        (p_nT < HIM_THRESHOLD_FACTOR * P_min). Never reported as a
+        pressure, never used in alpha.
+
+    p_th_phys_over_kb(n_H, T) = PARTICLES_PER_H_NEUTRAL * n_H * T
+        The physical thermal pressure of neutral gas. Thermal pressure
+        counts PARTICLES, and with n_He = 0.1 n_H there are 1.1
+        particles (H + He) per hydrogen nucleus, so P_th = 1.1 n_H k_B T
+        (cf. Wolfire et al. 2003, Eq. 36). This is what goes into alpha,
+        c_s, sigma_eff and Mach, and what every reported "P_th" number
+        means. Eq. 1 of the paper draft (and pipeline/compute_fig1.py:14)
+        wrote P_th/k_B = n*T; that is the p_nT convention and
+        overestimates alpha by exactly 1.1 wherever it was used as the
+        alpha denominator.
+
+The MASS factor is separate and unchanged: rho = MU * m_H * n_H with
+MU = 1.4. 1.4 is a mass per H nucleus, 1.1 is a particle count per H
+nucleus; their ratio, 1.273, is the mean mass per particle of neutral
+gas. Confusing the two is exactly the bug this split exists to prevent.
+
+THERMAL_PRESSURE_CONVENTION = "nT" sets both particle counts to 1, which
+makes p_th_phys collapse onto p_nT and reproduces the pre-Step-1d
+behaviour element for element.
 
 Shelest+26 phase boundaries (build_phase_density_bounds)
 --------------------------------------------------------
@@ -88,7 +117,11 @@ import numpy as np
 import scipy.io
 from scipy.interpolate import interp1d
 
-from src.conventions import IUV_FLOOR
+from src.conventions import (
+    IUV_FLOOR,
+    PARTICLES_PER_H_BY_CONVENTION,
+    THERMAL_PRESSURE_CONVENTION_DEFAULT,
+)
 
 
 @dataclass
@@ -97,9 +130,45 @@ class PminPmaxFunctions:
     p_max: Callable[[np.ndarray], np.ndarray]
 
 
-def p_th_over_kb(n_cm3: np.ndarray, T_K: np.ndarray) -> np.ndarray:
-    """P_th / k_B [K cm^-3] = n * T."""
+def particles_per_h(convention: str = THERMAL_PRESSURE_CONVENTION_DEFAULT) -> tuple[float, float]:
+    """(neutral, ionized) particles per hydrogen nucleus for a convention.
+
+    "physical" -> (1.1, 2.3). "nT" -> (1.0, 1.0), which collapses every
+    particle-count factor to unity and so reproduces the pre-Step-1d
+    numbers exactly.
+    """
+    try:
+        return PARTICLES_PER_H_BY_CONVENTION[convention]
+    except KeyError:
+        raise ValueError(
+            f"Unknown thermal pressure convention: {convention!r}. Expected one of "
+            f"{tuple(PARTICLES_PER_H_BY_CONVENTION)}."
+        ) from None
+
+
+def p_nT(n_cm3: np.ndarray, T_K: np.ndarray) -> np.ndarray:
+    """n_H * T [K cm^-3] -- the BS19/Shelest convention.
+
+    CLASSIFICATION ONLY: the HIM flag and anything compared against
+    P_min/P_max, which are tabulated in this convention. Not a reportable
+    pressure and not the alpha denominator -- use p_th_phys_over_kb() for
+    those. Deliberately takes no convention argument: this quantity is
+    defined by the BS19 table and never varies.
+    """
     return n_cm3 * T_K
+
+
+def p_th_phys_over_kb(n_cm3: np.ndarray, T_K: np.ndarray,
+                        convention: str = THERMAL_PRESSURE_CONVENTION_DEFAULT) -> np.ndarray:
+    """Physical thermal pressure / k_B [K cm^-3] of NEUTRAL gas:
+    PARTICLES_PER_H_NEUTRAL * n_H * T.
+
+    This is the alpha denominator and the meaning of every reported
+    "P_th". HIM cells get their p_th_phys from
+    src.physics.him.apply_variant() instead, since they are ionized.
+    """
+    f_neutral, _ = particles_per_h(convention)
+    return f_neutral * n_cm3 * T_K
 
 
 def _lin_root(P_grid: np.ndarray, dndP: np.ndarray, j: int) -> float:

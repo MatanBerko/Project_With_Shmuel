@@ -21,6 +21,19 @@ come from src.conventions, matching fig4_vertical_profiles/compute_data.py
 and fig4b_velocity_dispertion_Mach_number/compute_data.py exactly (fig2 and
 fig3 don't classify phases at all, only the HIM flag).
 
+Step 1d -- which pressure goes where
+------------------------------------
+CLASSIFICATION stays entirely in the BS19 n_H*T convention and is
+unchanged: him_flag() compares p_nT against P_min, and the phase schemes
+compare either T or n_H against BS19 boundaries. Nothing in this module's
+classification path knows about helium.
+
+CONSTRUCTION is where the particle counts enter: apply_variant() returns
+the PHYSICAL thermal pressure p_th_phys (= 1.1 n_H T for neutral gas) and,
+for HIM cells, a substituted density that balances that physical pressure
+with FULLY IONIZED gas (2.3 particles per H nucleus) at T_HIM. See
+apply_variant's docstring for the algebra.
+
 PHASE_SCHEME (Shelest+26) -- two neutral-phase classifications
 --------------------------------------------------------------
 classify_phases() dispatches on PHASE_SCHEME (src.conventions):
@@ -64,9 +77,11 @@ from src.conventions import (
     PHASE_SCHEME_DEFAULT,
     PHASE_SCHEME_DPDN,
     PHASE_SCHEME_TEMPERATURE,
+    THERMAL_PRESSURE_CONVENTION_DEFAULT,
     T_HIM_K,
     WNM_TEMP_MIN_K,
 )
+from src.physics.thermal import particles_per_h
 
 VARIANTS = ("RAW", "HIM_A", "HIM_B")
 
@@ -78,9 +93,16 @@ PHASE_WNM = 2
 PHASE_HIM = 3
 
 
-def him_flag(Pth_raw: np.ndarray, Pmin: np.ndarray) -> np.ndarray:
-    """HIM: P_th < HIM_THRESHOLD_FACTOR * P_min (strict), and P_min finite."""
-    return (Pth_raw < HIM_THRESHOLD_FACTOR * Pmin) & np.isfinite(Pmin)
+def him_flag(p_nT_raw: np.ndarray, Pmin: np.ndarray) -> np.ndarray:
+    """HIM: p_nT < HIM_THRESHOLD_FACTOR * P_min (strict), and P_min finite.
+
+    The first argument MUST be p_nT = n_H * T (src.physics.thermal.p_nT),
+    not p_th_phys: P_min is tabulated in the BS19 n_H*T convention, so
+    comparing the 1.1x physical pressure against it would silently shift
+    the HIM threshold by 10%. Unchanged by Step 1d -- classification is
+    deliberately left in the BS19 convention.
+    """
+    return (p_nT_raw < HIM_THRESHOLD_FACTOR * Pmin) & np.isfinite(Pmin)
 
 
 def phase_flag_temperature(T_K: np.ndarray, him: np.ndarray) -> np.ndarray:
@@ -173,33 +195,59 @@ def classify_phases(him: np.ndarray, scheme: str = PHASE_SCHEME_DEFAULT, *,
 @dataclass
 class Variant:
     n_model: np.ndarray
-    Pth_model: np.ndarray
+    p_th_phys: np.ndarray
 
 
-def apply_variant(variant: str, n_raw: np.ndarray, Pth_raw: np.ndarray,
-                    him: np.ndarray, Pmin: np.ndarray, Pmax: np.ndarray) -> Variant:
-    """Build the model-corrected density and P_th for one variant.
+def apply_variant(variant: str, n_raw: np.ndarray, p_nT_raw: np.ndarray,
+                    him: np.ndarray, Pmin: np.ndarray, Pmax: np.ndarray,
+                    convention: str = THERMAL_PRESSURE_CONVENTION_DEFAULT) -> Variant:
+    """Build the model density and the PHYSICAL thermal pressure for one variant.
 
-    RAW:   unchanged.
-    HIM_A: HIM cells -> P_th = P_min, n = P_min / (k_B-free "T_HIM" convention:
-           n = P_min / T_HIM, matching the reference scripts' n=P/T_HIM
-           shorthand where "P" there is already P_th/k_B in K cm^-3).
-    HIM_B: HIM cells -> P_th = P_max, n = P_max / T_HIM.
+    Inputs are all in the BS19 n_H*T convention: p_nT_raw = n_H * T, and
+    Pmin/Pmax come straight off the BS19 table. The output p_th_phys is
+    the physical thermal pressure, so the particle-count factors are
+    applied here, once, at the only place that knows which cells are
+    ionized.
+
+    Returns (n_model, p_th_phys):
+
+      RAW:   n_model = n_raw;  p_th_phys = f_neutral * p_nT_raw.
+      HIM_A: HIM cells -> p_th_phys = f_neutral * P_min
+                          n_H       = f_neutral * P_min / (f_ionized * T_HIM)
+      HIM_B: the same with P_max.
+
+    The HIM density follows from pressure balance (Step 1d). The cell is
+    forced to the physical neutral pressure at the phase boundary,
+    f_neutral * P, but the gas there is FULLY IONIZED at T_HIM = 1e6 K,
+    so it has f_ionized = 2.3 particles per hydrogen nucleus rather than
+    1.1:
+
+        f_ionized * n_H * T_HIM = f_neutral * P
+            =>  n_H = f_neutral * P / (f_ionized * T_HIM)
+
+    which is 1.1/2.3 = 0.478 times the pre-Step-1d n_H = P / T_HIM. Note
+    this is a real change to the HIM cells' MASS, so it feeds rho, the
+    self-gravity source, Sigma_gas and the mass weighting -- HIM_A/HIM_B
+    P_tot therefore shifts slightly, while RAW's does not change at all.
+
+    With convention = "nT" both factors are 1 and this collapses exactly
+    to the pre-Step-1d behaviour (p_th_phys = p_nT, n_H = P / T_HIM),
+    element for element.
+
+    HIM_A/HIM_B are otherwise unchanged: which cells are HIM, and which
+    boundary (P_min vs P_max) each variant uses, are untouched.
     """
+    f_neutral, f_ionized = particles_per_h(convention)
+
     if variant == "RAW":
-        return Variant(n_model=n_raw.copy(), Pth_model=Pth_raw.copy())
-    if variant == "HIM_A":
+        return Variant(n_model=n_raw.copy(), p_th_phys=f_neutral * p_nT_raw)
+    if variant in ("HIM_A", "HIM_B"):
+        P_boundary = Pmin if variant == "HIM_A" else Pmax
         n_model = n_raw.copy()
-        Pth_model = Pth_raw.copy()
-        n_model[him] = Pmin[him] / T_HIM_K
-        Pth_model[him] = Pmin[him]
-        return Variant(n_model=n_model, Pth_model=Pth_model)
-    if variant == "HIM_B":
-        n_model = n_raw.copy()
-        Pth_model = Pth_raw.copy()
-        n_model[him] = Pmax[him] / T_HIM_K
-        Pth_model[him] = Pmax[him]
-        return Variant(n_model=n_model, Pth_model=Pth_model)
+        p_th_phys = f_neutral * p_nT_raw
+        n_model[him] = f_neutral * P_boundary[him] / (f_ionized * T_HIM_K)
+        p_th_phys[him] = f_neutral * P_boundary[him]
+        return Variant(n_model=n_model, p_th_phys=p_th_phys)
     raise ValueError(
         f"Unknown variant: {variant!r}. Only {VARIANTS} are implemented "
         "-- no MASKED definition exists in any reference script (see module "

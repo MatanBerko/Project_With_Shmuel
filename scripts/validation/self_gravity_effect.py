@@ -24,6 +24,12 @@ pipeline/compute_all.py cannot drift apart:
 Note that the ratio itself is unaffected by the STATS_BOX change: alpha
 on both sides comes from the unchanged full-column P_tot integral, and
 the box only decides which cells enter the four statistics.
+
+Step 1d likewise leaves the RAW ratio untouched -- the helium/particle-
+count factor is the same on both sides of alpha_on/alpha_off and cancels
+exactly. HIM_A/HIM_B ratios DO move slightly, because their HIM cells'
+substituted density changed, which changes the self-gravity source and so
+alpha_on and alpha_off by different amounts.
 """
 
 import sys
@@ -39,8 +45,13 @@ from src.conventions import (  # noqa: E402
     SLAB_CENTERS_PC,
     SLAB_HALF_THICKNESS_PC,
     STATS_BOX_Z_HALF_RANGE_PC,
+    THERMAL_PRESSURE_CONVENTION_DEFAULT,
+    THERMAL_PRESSURE_HEADER_BY_CONVENTION,
     XY_HALF_RANGE_PC,
 )
+
+THERMAL_PRESSURE_HEADER = THERMAL_PRESSURE_HEADER_BY_CONVENTION[
+    THERMAL_PRESSURE_CONVENTION_DEFAULT]
 
 VARIANTS = ("RAW", "HIM_A", "HIM_B")
 ON_MODES_AVAILABLE = ("mean", "column")
@@ -100,6 +111,7 @@ def main():
 
     npz_out = {"z_pc": z_pc}
     lines = [PROVISIONAL_CUBE_HEADER,
+             THERMAL_PRESSURE_HEADER,
              "Self-gravity effect: alpha ratio (self-gravity ON / OFF)",
              f"ON modes swept: {', '.join(ON_MODES)} "
              f"(mean = footprint_mean, the default; column = per_column, "

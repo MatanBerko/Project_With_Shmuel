@@ -1,6 +1,7 @@
 # results/
 
 **PROVISIONAL: f98 cube, n_H = 1653 A'; final cube pending.**
+**P_th = 1.1 n_H k T (physical).**
 
 Everything here is produced by `pipeline/compute_all.py` and
 `scripts/validation/{self_gravity_effect,him_mass_fraction,check_orientation}.py`,
@@ -8,8 +9,8 @@ reading only `src/physics/` and `cache/core/alpha_core.zarr`. No figures, no
 paper content. To regenerate:
 
 ```
-python pipeline/compute_all.py build [VARIANT ...]     # resumable, per-variant
-python pipeline/compute_all.py finalize [VARIANT ...]  # resumable, per-variant (~8 min each)
+python pipeline/compute_all.py build [VARIANT ...]     # resumable, per-variant (~2 min each)
+python pipeline/compute_all.py finalize [VARIANT ...]  # resumable, per-variant (~5 min each)
 python pipeline/compute_all.py merge                   # or let finalize auto-merge
 python scripts/validation/self_gravity_effect.py
 python scripts/validation/him_mass_fraction.py
@@ -53,6 +54,103 @@ Swapping cubes is a one-line change: the cube path is the single
 `zarr_filename` entry in `config/local_config.yaml`, read only through
 `src/config_loader.py` and opened only by
 `src.physics.loading.open_zarr()`.
+
+## The two thermal pressures (Step 1d) — never interchange them
+
+The dust map gives **n_H**: hydrogen *nuclei* per cm³. Helium is present
+at n_He = 0.1 n_H, and it enters mass and particle count by **different**
+factors:
+
+| | per H nucleus | used for |
+|---|---|---|
+| **mass** | 1.4 m_H (`MU`) | `rho = 1.4 m_H n_H` — unchanged, still correct |
+| **particles, neutral** | 1.1 (`PARTICLES_PER_H_NEUTRAL`) | thermal pressure of neutral gas, c_s |
+| **particles, ionized** | 2.3 (`PARTICLES_PER_H_IONIZED`) | the HIM cells' pressure balance |
+
+Thermal pressure counts *particles*, so two distinct pressures exist and
+the code names them separately (`src/physics/thermal.py`):
+
+| | definition | used for |
+|---|---|---|
+| **`p_nT`** | n_H · T | **Classification only.** The HIM flag (`p_nT < 0.5 P_min`) and the phase scheme (dPdn or temperature). The BS19 table — and therefore `P_min`, `P_max` and the `n_W,max`/`n_C,min` turning points — is tabulated in *this* convention, so this is the only pressure that may be compared against it. **Never reported.** |
+| **`p_th_phys`** | 1.1 · n_H · T | **Everything physical.** alpha, c_s, sigma_eff, sigma_nt, Mach, and every reported "P_th" (`Pth_phys` in the numbers table). cf. Wolfire et al. 2003 Eq. 36. |
+
+Before Step 1d, `p_nT` was used as the alpha denominator, which
+**overestimated alpha by exactly 1.1** in every non-HIM cell. The mass
+density was always right; only the particle count was missing.
+
+A useful consequence: the mean mass per particle of neutral gas is
+1.4/1.1 = **1.273 m_H**, the familiar ~1.27 for neutral atomic gas with
+helium. It lives in the code as that *ratio*, never as a third constant,
+so the three numbers cannot drift apart.
+
+### HIM cells: pressure balance with ionized gas
+
+HIM gas is *fully ionized* at T_HIM = 10⁶ K, so HIM_A/HIM_B's substituted
+density follows from balancing the physical boundary pressure with 2.3
+particles per H nucleus rather than 1.1:
+
+```
+  2.3 · n_H · T_HIM = 1.1 · P        =>   n_H = 1.1 P / (2.3 T_HIM)
+  p_th_phys = 1.1 · P                     (P = P_min for HIM_A, P_max for HIM_B)
+```
+
+That is **0.478×** the pre-Step-1d `n_H = P / T_HIM`. It is a real change
+to those cells' *mass*, so it propagates into rho, the self-gravity
+source, Sigma_gas and the mass weighting — which is why **HIM_A/HIM_B
+P_tot shifts** while **RAW's does not change at all** (RAW has no
+substitution, so its density is identical under both conventions).
+Which cells are HIM, and which boundary each variant uses, are unchanged.
+
+### alpha, c_s and the two dispersions
+
+```
+  alpha      = P_tot / p_th_phys
+  c_s²       = 1.1 k_B T / (1.4 m_H)   = k_B T / (1.273 m_H)
+  sigma_eff² = alpha · c_s²            = P_tot / rho
+  sigma_nt²  = 3 (alpha − 1) · c_s²
+  Mach       = sqrt(3 (alpha − 1))     = sigma_nt / c_s
+```
+
+**Two** dispersions are reported, because the pre-Step-1d code reported
+the second under the first one's name:
+
+- **`sigma_eff`** (new definition) — the **total** effective dispersion,
+  `sqrt(alpha)·c_s = sqrt(P_tot/rho)`. Every particle-count factor
+  cancels out of it (alpha carries 1/f, c_s² carries f), so **sigma_eff
+  is identical under both conventions** — as it should be, since it is a
+  statement about P_tot and rho, neither of which this step changed.
+  Note `sigma_eff/c_s = sqrt(alpha)`, *not* Mach.
+- **`sigma_nt`** — the **non-thermal** (turbulent) 3D dispersion,
+  `sqrt(3(alpha−1))·c_s = Mach·c_s`. This is what
+  `fig4b_velocity_dispertion_Mach_number/compute_data.py` computed and
+  what **Step 1c reported as `sigma_eff`**. Kept under its own accurate
+  name rather than dropped. Unlike `sigma_eff` it *is* convention-
+  dependent: the "− 1" breaks the cancellation.
+
+`c_s` itself is now reported too, so the three can be checked against
+each other without re-deriving anything.
+
+### The `nT` switch
+
+`THERMAL_PRESSURE_CONVENTION = "physical"` (default) | `"nT"`. Setting
+`"nT"` makes both particle counts 1, which collapses `p_th_phys` onto
+`p_nT` and the HIM substitution onto `n = P / T_HIM`, reproducing the
+pre-Step-1d behaviour **element for element**. It is not physically
+correct and exists only so the old numbers stay auditable.
+
+`tests/test_thermal_pressure_convention.py` pins this down from both
+ends: elementwise against the pre-Step-1d formulas written out longhand
+(independent of `src/`, so it cannot drift with the code it tests), and
+against the real Step 1c numbers table, committed as
+`tests/reference/step1c_numbers_table.csv`. The measured relationships:
+every `Pth` row is exactly 1.1× Step 1c's; RAW's `Ptot`, `Sigma_gas` and
+phase fractions are bit-identical and its alpha is exactly Step 1c's ÷
+1.1; HIM_A/HIM_B `Ptot` moved (median −1.8% / −5.8%, up to −20% / −36% in
+the 15th-percentile tail at z = 300 pc, where HIM dominates the column).
+
+Classification is untouched: the HIM fraction, the volume phase
+fractions and both phase schemes are identical to Step 1c.
 
 ## Conventions (Shelest et al. 2026, arXiv:2607.15352)
 
@@ -194,8 +292,9 @@ but was not swept.
 
 ## numbers_table.csv columns
 
-The file starts with a `#`-prefixed `PROVISIONAL:` line, then the header
-row. **`phase_scheme` is new in Step 1c.**
+The file starts with two `#`-prefixed header lines — the `PROVISIONAL:`
+cube caveat and the `P_th = 1.1 n_H k T (physical)` convention — then the
+header row. **`phase_scheme` is new in Step 1c.**
 
 | Column | Meaning |
 |---|---|
@@ -214,12 +313,14 @@ row. **`phase_scheme` is new in Step 1c.**
 | Quantity | Meaning |
 |---|---|
 | `Sigma_gas` | **Full-column** (±750 pc) trapezoidal integral of that variant's density over the ±500 pc square, Msun/pc^2 — deliberately not box-clipped. |
-| `Pth` | Thermal pressure / k_B = n*T [K cm^-3]. Identical across variants, because statistics exclude HIM cells and the HIM substitution only changes HIM cells — a useful built-in consistency check. |
-| `Ptot` | Total (hydrostatic) pressure / k_B [K cm^-3], integrated over the full column per the chosen `self_gravity` setting. |
-| `alpha` | P_tot / P_th (dimensionless). |
-| `phase_fraction_{CNM,UNM,WNM,HIM}` | Fraction of cells (`vol`) or of gas mass (`mw`) in that phase, under the `phase_scheme` of that row. HIM is included here (unlike every other quantity, where HIM cells are excluded from statistics). |
-| `Mach` | Turbulent Mach number = sqrt(3*(alpha-1)), from the volume-weighted mean alpha at the given location. |
-| `sigma_eff` | Effective non-thermal velocity dispersion [km/s], from the same volume-weighted mean alpha and the mean temperature of neutral (non-HIM) cells at that location. |
+| `Pth_phys` | **Physical** thermal pressure / k_B = **1.1·n_H·T** [K cm^-3] (renamed from `Pth`, which held n_H·T — the rename is deliberate, so the change shows up in the data and not only in this prose). Identical across variants, because statistics exclude HIM cells, the HIM substitution only changes HIM cells, and the mass weights outside them are unchanged — a useful built-in consistency check. |
+| `Ptot` | Total (hydrostatic) pressure / k_B [K cm^-3], integrated over the full column per the chosen `self_gravity` setting. Unchanged in definition by Step 1d; its *value* moves for HIM_A/HIM_B because their HIM cells' mass changed. |
+| `alpha` | P_tot / `Pth_phys` (dimensionless). |
+| `phase_fraction_{CNM,UNM,WNM,HIM}` | Fraction of cells (`vol`) or of gas mass (`mw`) in that phase, under the `phase_scheme` of that row. HIM is included here (unlike every other quantity, where HIM cells are excluded from statistics). The `vol` fractions are untouched by Step 1d; the `mw` ones move for HIM_A/HIM_B, by exactly the 0.478 density factor in the HIM bin. |
+| `Mach` | Turbulent Mach number = sqrt(3*(alpha-1)) = `sigma_nt`/`c_s`, from the volume-weighted mean alpha at the given location. |
+| `sigma_eff` | **Total** effective velocity dispersion [km/s] = sqrt(alpha)·c_s = sqrt(P_tot/rho). Convention-independent. **Not** the same quantity Step 1c reported under this name — see `sigma_nt`. |
+| `sigma_nt` | **Non-thermal** (turbulent) 3D velocity dispersion [km/s] = sqrt(3*(alpha-1))·c_s = Mach·c_s. **This is Step 1c's `sigma_eff`.** |
+| `c_s` | Isothermal sound speed [km/s] = sqrt(1.1·k_B·T/(1.4·m_H)) of neutral gas, from the mean temperature of neutral (non-HIM) cells at that location. |
 
 ### `stat` values
 
@@ -227,6 +328,7 @@ row. **`phase_scheme` is new in Step 1c.**
 |---|---|
 | `median` / `mean` | Plain statistic (used only for `Sigma_gas`, which has no z-dependence). "mean" is always the plain arithmetic (or weighted-arithmetic) mean -- never a mean of log10. |
 | `z0_median`, `z0_mean`, `z0_p15`, `z0_p85` | Statistic within the z = 0 ± 30 pc slab (60 pc thick, centred on the midplane). |
+| `midplane` (Mach / dispersions / `c_s`) | Evaluated at the single z = 0 grid plane, from the volume-weighted mean alpha and the mean T of neutral cells there. |
 | `z150_*`, `z300_*` | Same, centred on z = 150 pc and z = 300 pc. |
 | `box_median`, `box_mean`, `box_p15`, `box_p85` | A **direct** statistic over every neutral cell in the STATS_BOX — one number, one population, no double reduction. |
 | `z0` / `z150` / `z300` / `box` (phase fractions) | The same four spatial selections, for the phase-fraction rows. |
@@ -243,6 +345,8 @@ but never enters a median/mean/percentile.
 
 ## Other files
 
+- **`numbers_table.txt`** — the same rows as the `.csv`, human-formatted,
+  with the conventions restated in the header block.
 - **`orientation_check.txt`** — the 48-axis-mapping scan, the fitted
   n_H / A' ratio and the north/south comparison described under "Why
   PROVISIONAL" above. Report only: `scripts/validation/check_orientation.py`
@@ -252,10 +356,17 @@ but never enters a median/mean/percentile.
   median, mw mean) at the three 60 pc slabs and over the whole
   STATS_BOX. The ratio itself is unaffected by the STATS_BOX change —
   alpha on both sides comes from the unchanged full-column P_tot integral
-  and the box only decides which cells enter the four statistics.
+  and the box only decides which cells enter the four statistics. Step 1d
+  likewise leaves **RAW's** ratios bit-identical (the 1.1 factor is on
+  both sides of alpha_on/alpha_off and cancels); HIM_A/HIM_B's move by
+  ~0.5–1% because their HIM density change alters the self-gravity
+  source.
 - **`him_mass_fraction.txt`** — fraction of total gas mass
   (observed/RAW density, no HIM substitution) in HIM-flagged cells, at
   the three slabs, over the STATS_BOX, and over the full ±750 pc column.
+  Unchanged by Step 1d, since it reports the *observed* density; note
+  that the HIM_A/HIM_B *models* now place only 0.478× as much mass in
+  those cells as these fractions imply.
   The full-column number is kept alongside the box number because that is
   the column the P_tot integral actually uses. HIM's mass share grows
   sharply with height (3% at the midplane, 46% by z = 300 pc, 10% over

@@ -150,7 +150,9 @@ PROVISIONAL_CUBE_HEADER = (
 # ---------------------------------------------------------------------------
 K_B = 1.380649e-16  # erg / K
 M_H = 1.6735575e-24  # g
-MU = 1.4  # mean molecular weight per H (helium included), rho = MU * M_H * n_H
+MU = 1.4  # MASS per H nucleus in m_H (helium included), rho = MU * M_H * n_H.
+# NOT a particle count -- see PARTICLES_PER_H_NEUTRAL/_IONIZED below, which
+# are 1.1 / 2.3. Thermal pressure uses those; only rho uses MU.
 PC_CM = 3.085677581491367e18  # cm per pc
 M_SUN_G = 1.989e33  # g per solar mass
 
@@ -159,9 +161,84 @@ P_FLOOR = 1e-30
 N_FLOOR = 1e-12
 
 # ---------------------------------------------------------------------------
+# Helium / particle count (Step 1d)
+# ---------------------------------------------------------------------------
+# The dust map gives n_H: HYDROGEN NUCLEI per cm^3. Helium is present at
+# n_He = 0.1 n_H, which affects mass and particle count by DIFFERENT
+# factors, and the two must not be conflated:
+#
+#   MASS per H nucleus      = 1.4 m_H          -> MU above, used for rho.
+#                             (1 * 1 + 0.1 * 4 = 1.4)
+#   PARTICLES per H nucleus = 1.1 if neutral   -> H + He
+#                             2.3 if ionized   -> H+ + He(+2 e-) + e-
+#                             (1 + 0.1 = 1.1;  1 + 0.1 + 1 + 0.2 = 2.3)
+#
+# Thermal pressure counts PARTICLES, so the physical thermal pressure of
+# neutral gas is P_th = 1.1 n_H k_B T (cf. Wolfire et al. 2003, Eq. 36),
+# not n_H k_B T. The mass density rho = 1.4 m_H n_H is unchanged and
+# remains correct -- MU is a mass factor and is not touched here.
+#
+# Consequence for the mean mass per particle of neutral gas:
+#   mu_particle = 1.4 / 1.1 = 1.273 m_H, the familiar ~1.27 for neutral
+#   atomic gas with helium. It appears here as the ratio
+#   PARTICLES_PER_H_NEUTRAL / MU rather than as a third constant, so the
+#   three numbers can never drift out of agreement.
+PARTICLES_PER_H_NEUTRAL = 1.1
+PARTICLES_PER_H_IONIZED = 2.3
+
+# ---------------------------------------------------------------------------
+# Thermal pressure convention (Step 1d switch)
+# ---------------------------------------------------------------------------
+# Two DIFFERENT thermal pressures exist in this project and are kept
+# strictly apart (see src.physics.thermal):
+#
+#   p_nT      = n_H * T          [K cm^-3]
+#       The BS19 / Shelest convention. The BS19 table's P grid, and
+#       therefore P_min(I_UV) and P_max(I_UV), are tabulated in THIS
+#       convention. Used ONLY for classification -- the phase scheme
+#       (dPdn or temperature), the HIM flag (p_nT < 0.5 P_min), and any
+#       other comparison against P_min/P_max. Never reported as a
+#       pressure, never used in alpha. Unaffected by this switch.
+#
+#   p_th_phys = PARTICLES_PER_H_NEUTRAL * n_H * T   [K cm^-3]
+#       The physical thermal pressure. Used for alpha, c_s, sigma_eff,
+#       Mach, and every reported "P_th" number.
+#
+# THERMAL_PRESSURE_CONVENTION selects the particle-count factors:
+#   "physical" (NEW DEFAULT) -- (1.1, 2.3) as above.
+#   "nT"                     -- (1.0, 1.0), i.e. p_th_phys collapses to
+#       n_H * T and the HIM substitution collapses to n = P / T_HIM. This
+#       reproduces the pre-Step-1d behaviour EXACTLY, element for element,
+#       which is what makes the old numbers auditable rather than merely
+#       approximately recoverable. It is not physically correct and is
+#       kept only for that purpose.
+#
+# Under "nT" the old code overestimated alpha by exactly 1.1 for every
+# non-HIM cell (alpha = P_tot / p_th, and p_th was 1.1x too small).
+THERMAL_PRESSURE_CONVENTION_PHYSICAL = "physical"
+THERMAL_PRESSURE_CONVENTION_NT = "nT"
+THERMAL_PRESSURE_CONVENTION_DEFAULT = THERMAL_PRESSURE_CONVENTION_PHYSICAL
+# (neutral, ionized) particles per H nucleus, per convention.
+PARTICLES_PER_H_BY_CONVENTION = {
+    THERMAL_PRESSURE_CONVENTION_PHYSICAL: (PARTICLES_PER_H_NEUTRAL, PARTICLES_PER_H_IONIZED),
+    THERMAL_PRESSURE_CONVENTION_NT: (1.0, 1.0),
+}
+
+# Second header line for every results file, so no reported P_th can be
+# read as the old n_H*T value by mistake.
+THERMAL_PRESSURE_HEADER = "P_th = 1.1 n_H k T (physical)"
+THERMAL_PRESSURE_HEADER_BY_CONVENTION = {
+    THERMAL_PRESSURE_CONVENTION_PHYSICAL: THERMAL_PRESSURE_HEADER,
+    THERMAL_PRESSURE_CONVENTION_NT: "P_th = n_H k T (nT convention -- pre-Step-1d, not physical)",
+}
+
+# ---------------------------------------------------------------------------
 # HIM / phase-substitution temperature
 # ---------------------------------------------------------------------------
-T_HIM_K = 1.0e6  # K, assigned temperature for HIM_A/HIM_B substituted cells
+T_HIM_K = 1.0e6  # K, assigned temperature for HIM_A/HIM_B substituted cells.
+# HIM gas is FULLY IONIZED, so its substituted density follows from pressure
+# balance with PARTICLES_PER_H_IONIZED particles per H, not 1.1 -- see
+# src.physics.him.apply_variant().
 
 # ---------------------------------------------------------------------------
 # External gravity (Guo+20 Milky-Way stellar disk + dark-matter halo)

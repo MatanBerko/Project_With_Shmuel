@@ -1,3 +1,5 @@
-PROVISIONAL: f98 cube, n_H = 1653 A'; final cube pending
+PROVISIONAL: f98 cube, n_H = 1653 A'; final cube pending | HIM substitution now balances the physical
+pressure with fully ionized gas (1.1 P / (2.3 T_HIM)); the fractions below are of the OBSERVED density.
+
 HIM gas-mass fraction (observed/RAW density, +-500pc square footprint, slabs |z-z_c|<=30pc)
 z=0pc slab (-30 to 30pc): 3.1500% | z=150pc slab (120 to 180pc): 16.7966% | z=300pc slab (270 to 330pc): 45.7194% | STATS_BOX (|z|<=400pc): 10.3836% | full column (|z|<=750pc, the P_tot integration range): 17.9035%

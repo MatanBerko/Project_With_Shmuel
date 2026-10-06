@@ -39,6 +39,45 @@ behavior still reachable:
 
   * Percentiles -- 15th/85th (was 16th/84th), switchable.
 
+Step 1d (helium / particle count) conventions
+---------------------------------------------
+THERMAL_PRESSURE_CONVENTION = "physical" (new default) | "nT". The dust
+map gives n_H, hydrogen NUCLEI. Helium (n_He = 0.1 n_H) contributes to
+mass and to particle count by different factors, and thermal pressure
+counts particles:
+
+    rho        = 1.4 m_H n_H                 (MASS -- unchanged)
+    p_nT       = n_H T                       (BS19 convention)
+    p_th_phys  = 1.1 n_H T                   (PHYSICAL, neutral gas)
+
+This pipeline keeps the two pressures strictly apart:
+
+  * p_nT is used ONLY for classification -- the HIM flag
+    (p_nT < 0.5 P_min) and the dPdn/temperature phase schemes. P_min,
+    P_max and the n_W,max/n_C,min turning points are all tabulated in the
+    n_H*T convention, so this is the only pressure that may be compared
+    against them. Nothing about classification changed in Step 1d.
+
+  * p_th_phys is what goes into alpha, c_s, sigma_eff, sigma_nt and Mach,
+    and it is the ONLY pressure reported as "P_th" (quantity name
+    Pth_phys in the numbers table, renamed from Pth so the change is
+    visible in the data and not only in the prose).
+
+HIM cells are ionized, so their substituted density balances the physical
+pressure with 2.3 particles per H nucleus rather than 1.1:
+n_H = 1.1 P / (2.3 T_HIM), which is 0.478x the pre-Step-1d P / T_HIM. That
+is a real change to HIM cells' MASS, so it feeds rho, the self-gravity
+source, Sigma_gas and the mass weighting -- HIM_A/HIM_B P_tot shifts
+slightly. RAW's density is untouched, so RAW's P_tot is bit-identical to
+Step 1c and RAW's alpha is exactly Step 1c's divided by 1.1.
+
+Two velocity dispersions are now reported, because the pre-Step-1d code
+reported the second under the first one's name:
+    sigma_eff = sqrt(alpha) * c_s      -- TOTAL, = sqrt(P_tot/rho).
+                Convention-independent: the particle-count factor cancels.
+    sigma_nt  = sqrt(3(alpha-1)) * c_s -- NON-THERMAL, = Mach * c_s.
+                This is Step 1c's "sigma_eff".
+
 PROVISIONAL: the cube in use is the f98 cube (n_H = 1653 A'), which is
 known to need re-orienting; a re-oriented version and later a final
 Porter-FUV cube (n_H = 1727 A') will replace it via the single
@@ -70,6 +109,7 @@ from src.conventions import (
     PHASE_SCHEME_DEFAULT,
     PHASE_SCHEME_DPDN,
     PHASE_SCHEME_TEMPERATURE,
+    PARTICLES_PER_H_NEUTRAL,
     PROVISIONAL_CUBE_HEADER,
     SELF_GRAVITY_MODE_FOOTPRINT_MEAN,
     SELF_GRAVITY_MODE_OFF,
@@ -78,6 +118,8 @@ from src.conventions import (
     SLAB_HALF_THICKNESS_PC,
     STATS_BOX_XY_HALF_RANGE_PC,
     STATS_BOX_Z_HALF_RANGE_PC,
+    THERMAL_PRESSURE_CONVENTION_DEFAULT,
+    THERMAL_PRESSURE_HEADER_BY_CONVENTION,
     XY_HALF_RANGE_PC,
 )
 from src.physics import derived, gravity, hydrostatic, thermal
@@ -124,10 +166,12 @@ SELF_GRAVITY_MODE_BY_SETTING = {
     "mean": SELF_GRAVITY_MODE_FOOTPRINT_MEAN,
     "column": SELF_GRAVITY_MODE_PER_COLUMN,  # kept: see note above
 }
-# A Step-1 run may have cached self_gravity_off / self_gravity_on groups
-# (on == per_column). Reuse them under the new names instead of
-# recomputing -- the underlying physics is byte-for-byte identical.
-LEGACY_GROUP_NAME_BY_SETTING = {"off": "self_gravity_off", "column": "self_gravity_on"}
+# Step 1b's migration of Step-1 "self_gravity_on" groups is GONE as of
+# Step 1d, deliberately. Those groups were integrated against the
+# pre-Step-1d HIM densities (n = P/T_HIM, now 2.09x too large), so for
+# HIM_A/HIM_B they are simply wrong now, and reusing them would be
+# silently wrong rather than loudly missing. A variant whose stored
+# CONVENTION_ATTR does not match is rebuilt from scratch, groups and all.
 
 SELF_GRAVITY_DENSITY = "same_as_weight"  # "same_as_weight" (default) | "observed"
 
@@ -146,6 +190,12 @@ STATS_BOX_Z_HALF_PC = STATS_BOX_Z_HALF_RANGE_PC
 
 PERCENTILE_SCHEME = PERCENTILE_SCHEME_DEFAULT  # "15_85" (Shelest+26) | "16_84"
 PCT_LO, PCT_HI = percentile_levels(PERCENTILE_SCHEME)
+
+# Step 1d: "physical" (1.1 / 2.3 particles per H) | "nT" (1 / 1, the
+# pre-Step-1d behaviour, exactly reproducible). Classification is NOT
+# affected by this -- it always uses p_nT.
+THERMAL_PRESSURE_CONVENTION = THERMAL_PRESSURE_CONVENTION_DEFAULT
+THERMAL_PRESSURE_HEADER = THERMAL_PRESSURE_HEADER_BY_CONVENTION[THERMAL_PRESSURE_CONVENTION]
 
 # Both schemes are computed and reported so they can be compared; the
 # DEFAULT one is the headline. The HIM flag is independent of both.
@@ -170,9 +220,28 @@ CHUNK_Z = 32  # zarr chunking along z
 # be reusable without recomputation. "phase_flag" (singular, pre-Step-1c)
 # is deliberately NOT in this list: it recorded one scheme with no record
 # of which, so it is replaced rather than trusted.
-BASE_ARRAYS = ("n_model", "Pth", "T", "Sigma_gas", "him",
+BASE_ARRAYS = ("n_model", "p_th_phys", "T", "Sigma_gas", "him",
                "phase_flag_dpdn", "phase_flag_temperature")
-STALE_BASE_ARRAYS = ("phase_flag",)
+# Arrays from an older schema that are deleted rather than trusted:
+#   "phase_flag"  -- pre-Step-1c, recorded one scheme with no record of which.
+#   "Pth"         -- pre-Step-1d, held n_H*T under a name that now means
+#                    the physical 1.1 n_H*T. Renaming it in place would be
+#                    the exact confusion this step exists to remove.
+STALE_BASE_ARRAYS = ("phase_flag", "Pth")
+
+# Attribute stamped on each variant group recording which thermal-pressure
+# convention its n_model / p_th_phys / Ptot / alpha were built under. A
+# mismatch forces a full rebuild of that variant: flipping the convention
+# changes HIM cells' density, hence rho, hence P_tot -- so the cached
+# self-gravity groups are invalid too, not just the pressures.
+CONVENTION_ATTR = "thermal_pressure_convention"
+
+# XY tiling for the column-wise passes (P_tot integration and Sigma_gas).
+# Both are strictly per-sightline, so tiling is bit-identical to doing the
+# whole cube at once -- it only bounds peak memory, which matters: a
+# float64 (751, 501, 501) array is 1.5 GB and the hydrostatic integrator
+# needs several of them at once.
+XY_TILE_ROWS = 64
 
 PHASE_FLAG_ARRAY_BY_SCHEME = {
     PHASE_SCHEME_DPDN: "phase_flag_dpdn",
@@ -213,6 +282,19 @@ PHASE_CODES_ALL = PHASE_CODES_NEUTRAL + ((PHASE_HIM, "HIM"),)
 
 STAT_NAMES = ("median", "mean", f"p{PCT_LO:g}", f"p{PCT_HI:g}")
 
+# Plain-language meaning of each reported quantity, so the numbers table's
+# `definition` column always spells out WHICH thermal pressure is meant.
+# Bare "P_th" is ambiguous after Step 1d and must never appear alone.
+QUANTITY_NOTE = {
+    "Pth_phys": "P_th physical (1.1 n_H k T -- particle count incl. He)",
+    "Ptot": "P_tot hydrostatic (full-column integral)",
+    "alpha": "alpha = P_tot / P_th,physical",
+    "Mach": "Turbulent Mach number sqrt(3(alpha-1)) = sigma_nt/c_s",
+    "sigma_eff": "Total effective dispersion sqrt(alpha)*c_s = sqrt(P_tot/rho)",
+    "sigma_nt": "Non-thermal (turbulent) 3D dispersion sqrt(3(alpha-1))*c_s",
+    "c_s": "Isothermal sound speed sqrt(1.1 k T/(1.4 m_H)) of neutral gas",
+}
+
 
 def _stat_pairs(s):
     """(stat_name, value) pairs for one WeightedStats, with the percentile
@@ -248,10 +330,15 @@ def _profile_plane_groups(z_pc, use_abs: bool):
     return out
 
 
-def compute_vertical_profile(z_pc, Pth, Ptot, alpha_arr, him_cube, phase_cubes, T_cube,
+def compute_vertical_profile(z_pc, Pth_phys, Ptot, alpha_arr, him_cube, phase_cubes, T_cube,
                                n_model, footprint, use_abs: bool):
-    """Per-plane vertical profiles of Pth/Ptot/alpha stats, phase fractions
-    (one set per PHASE_SCHEME) and Mach/sigma_eff, inside the STATS_BOX.
+    """Per-plane vertical profiles of Pth_phys/Ptot/alpha stats, phase
+    fractions (one set per PHASE_SCHEME), Mach and both dispersions,
+    inside the STATS_BOX.
+
+    Pth_phys is the PHYSICAL thermal pressure (1.1 n_H T); p_nT never
+    appears here. sigma_eff is the total sqrt(alpha)*c_s and sigma_nt the
+    non-thermal sqrt(3(alpha-1))*c_s -- see src.physics.derived.
 
     phase_cubes: {scheme_name: int8 phase flag cube}. All arrays are
     already restricted to the STATS_BOX in z by the caller, and indices
@@ -262,7 +349,7 @@ def compute_vertical_profile(z_pc, Pth, Ptot, alpha_arr, him_cube, phase_cubes, 
     centers = np.array([g[0] for g in groups], dtype=float)
 
     out = {}
-    for qty in ("Pth", "Ptot", "alpha"):
+    for qty in ("Pth_phys", "Ptot", "alpha"):
         for wt in ("vol", "mw"):
             for s in STAT_NAMES:
                 out[f"{qty}_{wt}_{s}"] = np.full(n_pts, np.nan)
@@ -272,7 +359,9 @@ def compute_vertical_profile(z_pc, Pth, Ptot, alpha_arr, him_cube, phase_cubes, 
             out[f"f_{ph}_mw__{scheme}"] = np.full(n_pts, np.nan)
     for ph in ("CNM", "UNM", "WNM", "total"):
         out[f"sigma_eff_{ph}"] = np.full(n_pts, np.nan)
+        out[f"sigma_nt_{ph}"] = np.full(n_pts, np.nan)
     out["mach"] = np.full(n_pts, np.nan)
+    out["c_s_total"] = np.full(n_pts, np.nan)
     out["n_cells"] = np.zeros(n_pts, dtype=np.int64)
 
     headline_phase = phase_cubes[PHASE_SCHEME_HEADLINE]
@@ -281,13 +370,13 @@ def compute_vertical_profile(z_pc, Pth, Ptot, alpha_arr, him_cube, phase_cubes, 
         him_sub = him_cube[idxs][:, footprint]
         n_sub = n_model[idxs][:, footprint].astype(np.float64)
         T_sub = T_cube[idxs][:, footprint].astype(np.float64)
-        Pth_sub = Pth[idxs][:, footprint].astype(np.float64)
+        Pth_sub = Pth_phys[idxs][:, footprint].astype(np.float64)
         Ptot_sub = Ptot[idxs][:, footprint].astype(np.float64)
         alpha_sub = alpha_arr[idxs][:, footprint].astype(np.float64)
         neutral = ~him_sub
         out["n_cells"][b] = him_sub.size
 
-        for qty, arr_sub in (("Pth", Pth_sub), ("Ptot", Ptot_sub), ("alpha", alpha_sub)):
+        for qty, arr_sub in (("Pth_phys", Pth_sub), ("Ptot", Ptot_sub), ("alpha", alpha_sub)):
             s_vol = volume_weighted_stats(arr_sub, neutral, PERCENTILE_SCHEME)
             s_mw = mass_weighted_stats(arr_sub, neutral, n_sub, PERCENTILE_SCHEME)
             for wt, s in (("vol", s_vol), ("mw", s_mw)):
@@ -307,14 +396,21 @@ def compute_vertical_profile(z_pc, Pth, Ptot, alpha_arr, him_cube, phase_cubes, 
         alpha_plane_mean = out["alpha_vol_mean"][b]
         out["mach"][b] = float(derived.mach_number(np.array([alpha_plane_mean]))[0])
         phase_sub_headline = headline_phase[idxs][:, footprint]
+        A = np.array([alpha_plane_mean])
+
+        def _disp(T_mean):
+            T_arr = np.array([T_mean])
+            return (float(derived.sigma_eff_kmps(A, T_arr, THERMAL_PRESSURE_CONVENTION)[0]),
+                    float(derived.sigma_nt_kmps(A, T_arr, THERMAL_PRESSURE_CONVENTION)[0]))
+
         for code, ph in PHASE_CODES_NEUTRAL:
             m = neutral & (phase_sub_headline == code)
             T_ph_mean = float(T_sub[m].mean()) if m.any() else np.nan
-            out[f"sigma_eff_{ph}"][b] = float(
-                derived.sigma_eff_kmps(np.array([alpha_plane_mean]), np.array([T_ph_mean]))[0])
+            out[f"sigma_eff_{ph}"][b], out[f"sigma_nt_{ph}"][b] = _disp(T_ph_mean)
         T_tot_mean = float(T_sub[neutral].mean()) if neutral.any() else np.nan
-        out["sigma_eff_total"][b] = float(
-            derived.sigma_eff_kmps(np.array([alpha_plane_mean]), np.array([T_tot_mean]))[0])
+        out["sigma_eff_total"][b], out["sigma_nt_total"][b] = _disp(T_tot_mean)
+        out["c_s_total"][b] = float(
+            derived.sound_speed_kmps(np.array([T_tot_mean]), THERMAL_PRESSURE_CONVENTION)[0])
 
     out["z_pc"] = centers
     return out
@@ -360,21 +456,34 @@ def log_pdf_2d(x, y, w, n_bins=PDF_2D_N_BINS):
 Z_CHUNK_CLASSIFY = 48  # z planes per chunk when classifying (memory bound)
 
 
+def _cube_p_nT(n_raw_f32, T_f32, sl):
+    """p_nT = n_H * T over a z-slice, as float32.
+
+    Formed in float64 and rounded to float32 -- the ONE definition of
+    this cube's p_nT, used by both the HIM flag and apply_variant(), so
+    the flag and the pressure can never disagree about it. The float32
+    rounding is deliberate and load-bearing: the pre-Step-1d code stored
+    P_th as float32 and classified from that, so keeping the same
+    rounding is what makes the "nT" convention reproduce it exactly.
+    """
+    return (n_raw_f32[sl].astype(np.float64) * T_f32[sl].astype(np.float64)).astype(np.float32)
+
+
 def _him_chunked(n_raw, T, Pmin, chunk=Z_CHUNK_CLASSIFY):
     """HIM flag over the whole cube, a z-chunk at a time.
 
-    Element for element identical to him_flag(Pth_raw, Pmin) on the full
-    cube -- Pth is formed in float64 and rounded to float32 exactly as
-    before, just never materialised for all 751 planes at once. That
-    matters here only for peak memory (a full float32 Pth cube is ~0.75
-    GB); it must NOT change the flag, because the cached HIM_A/HIM_B
-    densities were built from it.
+    Element for element identical to him_flag(p_nT, Pmin) on the full
+    cube, just without materialising a full float32 p_nT cube (~0.75 GB).
+    That matters only for peak memory; it must NOT change the flag,
+    because HIM_A/HIM_B's densities are built from it.
+
+    The flag compares p_nT (NOT p_th_phys) against P_min -- see
+    src.physics.him.him_flag.
     """
     him = np.empty(n_raw.shape, dtype=bool)
     for lo in range(0, n_raw.shape[0], chunk):
         hi = min(lo + chunk, n_raw.shape[0])
-        pth_c = (n_raw[lo:hi].astype(np.float64) * T[lo:hi].astype(np.float64)).astype(np.float32)
-        him[lo:hi] = him_flag(pth_c, Pmin[lo:hi])
+        him[lo:hi] = him_flag(_cube_p_nT(n_raw, T, slice(lo, hi)), Pmin[lo:hi])
     return him
 
 
@@ -405,11 +514,114 @@ def _classify_dpdn_chunked(n_raw, Iuv, him, bounds, chunk=Z_CHUNK_CLASSIFY):
     return out, (unresolved / neutral_total if neutral_total else float("nan"))
 
 
+def _xy_tiles(ny, rows=XY_TILE_ROWS):
+    """Row-slices partitioning the Y axis, for the per-sightline passes."""
+    return [slice(y0, min(y0 + rows, ny)) for y0 in range(0, ny, rows)]
+
+
+def _write_variant_base_arrays(variant, vg, n_raw, T, Pmin, Pmax, him_cube, z_pc,
+                                 chunk=Z_CHUNK_CLASSIFY):
+    """Construct and write one variant's n_model, p_th_phys, T and Sigma_gas.
+
+    Written straight into the zarr arrays a z-chunk at a time, so neither
+    n_model nor p_th_phys is ever held for the whole cube here: with
+    n_raw, T, P_min, P_max, the HIM flag and two phase cubes already
+    resident, two more full cubes plus apply_variant's float64 working
+    copies would not fit.
+
+    apply_variant() applies the Step 1d particle-count factors, so what
+    lands in "p_th_phys" is the PHYSICAL thermal pressure and what lands
+    in "n_model" has the ionized-balance HIM substitution.
+    """
+    shape = n_raw.shape
+    chunks = (CHUNK_Z, shape[1], shape[2])
+    a_n = vg.create_array("n_model", shape=shape, dtype=np.float32, chunks=chunks)
+    a_p = vg.create_array("p_th_phys", shape=shape, dtype=np.float32, chunks=chunks)
+    vg.create_array("T", data=T, chunks=chunks)
+
+    for lo in range(0, shape[0], chunk):
+        hi = min(lo + chunk, shape[0])
+        sl = slice(lo, hi)
+        p_nT_c = _cube_p_nT(n_raw, T, sl)
+        vr = apply_variant(variant, n_raw[sl].astype(np.float64), p_nT_c.astype(np.float64),
+                             him_cube[sl], Pmin[sl].astype(np.float64),
+                             Pmax[sl].astype(np.float64), THERMAL_PRESSURE_CONVENTION)
+        a_n[sl] = vr.n_model.astype(np.float32)
+        a_p[sl] = vr.p_th_phys.astype(np.float32)
+        del vr, p_nT_c
+
+    # Sigma_gas: FULL-column trapezoid (the STATS_BOX z bound deliberately
+    # does not apply), read back in XY tiles so the float64 cast stays
+    # bounded. Per-sightline, so bit-identical to the whole-cube call.
+    sigma = np.empty((shape[1], shape[2]), dtype=np.float32)
+    for ysl in _xy_tiles(shape[1]):
+        tile = np.asarray(a_n[:, ysl, :], dtype=np.float64)
+        sigma[ysl, :] = derived.sigma_gas_map(z_pc, tile).astype(np.float32)
+        del tile
+    vg.create_array("Sigma_gas", data=sigma)
+    return sigma
+
+
+def _integrate_ptot_tiled(vg, z_pc, g, sg_group_name, nan_fraction):
+    """P_tot and alpha for one variant x self-gravity setting, XY-tiled.
+
+    g is either (Nz,) -- "off" and "footprint_mean", where gravity is the
+    same for every sightline -- or shaped like the cube for "per_column".
+    Each sightline's hydrostatic integral is independent of every other,
+    so tiling the XY plane is bit-identical to integrating the whole cube
+    at once; it just keeps the integrator's float64 working arrays (it
+    needs several of them simultaneously) down to a tile.
+
+    alpha's denominator is p_th_phys, read back from the cache per tile.
+    """
+    a_n = vg["n_model"]
+    a_p = vg["p_th_phys"]
+    shape = a_n.shape
+    chunks = (CHUNK_Z, shape[1], shape[2])
+    Ptot_kB = np.empty(shape, dtype=np.float32)
+    alpha_arr = np.empty(shape, dtype=np.float32)
+
+    g_is_cube = np.ndim(g) > 1
+    for ysl in _xy_tiles(shape[1]):
+        n_tile = np.asarray(a_n[:, ysl, :], dtype=np.float64)
+        rho_tile = MU * M_H * n_tile
+        del n_tile
+        g_tile = g[:, ysl, :] if g_is_cube else g
+        p_tile = hydrostatic.p_tot_kb_full_column(z_pc, rho_tile, g_tile)
+        del rho_tile
+        Ptot_kB[:, ysl, :] = p_tile.astype(np.float32)
+        p_th_tile = np.asarray(a_p[:, ysl, :], dtype=np.float64)
+        alpha_arr[:, ysl, :] = derived.alpha(p_tile, p_th_tile).astype(np.float32)
+        del p_tile, p_th_tile
+
+    sgg = vg.require_group(sg_group_name)
+    sgg.create_array("Ptot", data=Ptot_kB, chunks=chunks)
+    sgg.create_array("alpha", data=alpha_arr, chunks=chunks)
+    if nan_fraction is not None:
+        sgg.create_array("footprint_nan_fraction", data=nan_fraction.astype(np.float32))
+    del Ptot_kB, alpha_arr
+    gc.collect()
+
+
 def build_stage(variants):
+    """Two passes, deliberately separated by a full release of memory.
+
+    Pass 1 classifies and constructs: it needs n_raw, T, I_UV, P_min,
+    P_max, the HIM flag and both phase cubes resident at once (~3.5 GB),
+    and writes each variant's n_model / p_th_phys / T / Sigma_gas and the
+    him / phase arrays.
+
+    Pass 2 integrates: it needs n_model (to source the self-gravity
+    footprint average, in float64) and then only one XY tile at a time.
+    Running it inside pass 1 would stack the two peaks and thrash --
+    which is why the self-gravity groups are written in a second sweep
+    over the variants rather than inside the first.
+
+    Both passes are independently resumable per variant, as before.
+    """
     t_start = time.time()
     CACHE_DIR.mkdir(parents=True, exist_ok=True)
 
-    print("Opening zarr, loading full-column XY-footprint sub-cubes (density, T, Iuv_final)...")
     grid = open_zarr()
     x_sub, y_sub = load_xy_subset_coords(grid, FOOTPRINT_HALF_RANGE_PC)
     z_pc = grid.z_pc
@@ -419,208 +631,199 @@ def build_stage(variants):
         int(np.where(np.abs(grid.x_pc) <= FOOTPRINT_HALF_RANGE_PC)[0].max()) + 1
     y_lo, y_hi = int(np.where(np.abs(grid.y_pc) <= FOOTPRINT_HALF_RANGE_PC)[0].min()), \
         int(np.where(np.abs(grid.y_pc) <= FOOTPRINT_HALF_RANGE_PC)[0].max()) + 1
-    n_raw = da.from_zarr(grid.store["density"])[:, y_lo:y_hi, x_lo:x_hi].compute().astype(np.float32)
-    T = da.from_zarr(grid.store["T"])[:, y_lo:y_hi, x_lo:x_hi].compute().astype(np.float32)
-    Iuv = da.from_zarr(grid.store["Iuv_final"])[:, y_lo:y_hi, x_lo:x_hi].compute().astype(np.float32)
-    print(f"  sub-cube shape {n_raw.shape}, ~{n_raw.nbytes / 1e6:.1f} MB each (x3)")
 
-    # mode="a": RESUMABLE -- a prior run may have already written some
-    # variants (this is a long job; a killed/interrupted run should not
-    # lose completed variants). Existing groups are loaded back rather
-    # than recomputed. Opened BEFORE the expensive arrays are built so the
-    # remaining work is known up front and nothing is computed that the
-    # cache already has -- this machine does not have the headroom to hold
-    # every intermediate at once.
+    def _load(field):
+        return da.from_zarr(grid.store[field])[:, y_lo:y_hi, x_lo:x_hi].compute().astype(np.float32)
+
     core_store = zarr.open_group(str(ALPHA_CORE_ZARR_PATH), mode="a")
-    core_arrays = ("n_model", "Pth", "T", "Sigma_gas")
-    needs_core_build = [
-        v for v in variants
-        if v not in core_store or any(a not in core_store[v] for a in core_arrays)
-    ]
+    core_arrays = ("n_model", "p_th_phys", "T", "Sigma_gas")
+
+    def _variant_is_current(v):
+        """A cached variant is reusable only if its arrays are present AND
+        it was built under the convention now in force."""
+        if v not in core_store:
+            return False
+        if any(a not in core_store[v] for a in core_arrays):
+            return False
+        return core_store[v].attrs.get(CONVENTION_ATTR) == THERMAL_PRESSURE_CONVENTION
+
+    needs_core_build = [v for v in variants if not _variant_is_current(v)]
     sg_work = {
-        v: [k for k in SELF_GRAVITY_SETTINGS
-            if v in core_store
-            and not (f"self_gravity_{k}" in core_store[v]
-                     and "Ptot" in core_store[v][f"self_gravity_{k}"]
-                     and "alpha" in core_store[v][f"self_gravity_{k}"])]
+        v: ([] if v not in needs_core_build and v in core_store else list(SELF_GRAVITY_SETTINGS))
         for v in variants
     }
-    for v in needs_core_build:
-        sg_work[v] = list(SELF_GRAVITY_SETTINGS)
+    for v in variants:
+        if v in needs_core_build:
+            continue
+        sg_work[v] = [k for k in SELF_GRAVITY_SETTINGS
+                      if not (f"self_gravity_{k}" in core_store[v]
+                              and "Ptot" in core_store[v][f"self_gravity_{k}"]
+                              and "alpha" in core_store[v][f"self_gravity_{k}"])]
+
+    print(f"Thermal pressure convention: {THERMAL_PRESSURE_CONVENTION} "
+          f"({THERMAL_PRESSURE_HEADER})")
     print(f"  variants needing a core (re)build: {needs_core_build or 'none'}")
     print(f"  self-gravity work remaining: "
           f"{ {v: w for v, w in sg_work.items() if w} or 'none' }")
 
-    cfg = load_resolved_config()
-    pminmax = thermal.build_pmin_pmax(cfg["bs19_mat_path"])
-    print("Evaluating P_min(I_UV) over the full sub-cube (HIM threshold)...")
-    Pmin = pminmax.p_min(Iuv).astype(np.float32)
+    # ---------------------------------------------------------------- pass 1
+    def _missing_classification(v):
+        if v not in core_store:
+            return True
+        return any(a not in core_store[v]
+                   for a in ("him", "phase_flag_dpdn", "phase_flag_temperature"))
 
-    print("Classifying HIM (P_th < 0.5 P_min), chunked over z...")
-    him_cube = _him_chunked(n_raw, T, Pmin)
-    print(f"  HIM fraction (whole sub-cube): {him_cube.mean():.4%}")
+    if needs_core_build or any(_missing_classification(v) for v in variants):
+        print("\n--- Pass 1: classify + construct ---")
+        print("Loading full-column XY-footprint sub-cubes (density, T, Iuv_final)...")
+        n_raw = _load("density")
+        T = _load("T")
+        Iuv = _load("Iuv_final")
+        print(f"  sub-cube shape {n_raw.shape}, ~{n_raw.nbytes / 1e6:.1f} MB each (x3)")
 
-    # Both phase schemes, computed once and stored side by side, on the
-    # OBSERVED density: HIM cells (the only ones a variant's density
-    # substitution touches) are relabelled PHASE_HIM anyway, so one
-    # phase_flag per scheme is valid for all three variants.
-    print("Evaluating Shelest+26 dP/dn phase boundaries n_W,max(I_UV)/n_C,min(I_UV)...")
-    bounds = thermal.build_phase_density_bounds(cfg["bs19_mat_path"])
-    print(f"  method: {bounds.method}")
-    phase_dpdn, unresolved = _classify_dpdn_chunked(n_raw, Iuv, him_cube, bounds)
-    print(f"  dPdn: neutral cells with no finite boundary (defaulted to UNM): {unresolved:.4%}")
-    del Iuv
-    gc.collect()
-
-    phase_cubes = {
-        PHASE_SCHEME_DPDN: phase_dpdn,
-        PHASE_SCHEME_TEMPERATURE: phase_flag_temperature(T, him_cube),
-    }
-    del phase_dpdn
-    for scheme, cube in phase_cubes.items():
-        fracs = ", ".join(f"{ph} {np.mean(cube == code):.2%}" for code, ph in PHASE_CODES_ALL)
-        print(f"  {scheme:12s} whole sub-cube: {fracs}")
-
-    # P_max and the full float32 P_th cube are needed ONLY by
-    # apply_variant(), i.e. only when a variant's core arrays have to be
-    # (re)built. Skip them otherwise -- together they are ~1.5 GB.
-    if needs_core_build:
-        print("Evaluating P_max(I_UV) and P_th for the variant construction...")
-        Iuv = da.from_zarr(grid.store["Iuv_final"])[:, y_lo:y_hi, x_lo:x_hi].compute().astype(np.float32)
+        cfg = load_resolved_config()
+        pminmax = thermal.build_pmin_pmax(cfg["bs19_mat_path"])
+        print("Evaluating P_min(I_UV)/P_max(I_UV) over the full sub-cube...")
+        Pmin = pminmax.p_min(Iuv).astype(np.float32)
         Pmax = pminmax.p_max(Iuv).astype(np.float32)
+
+        print("Classifying HIM (p_nT < 0.5 P_min -- BS19 convention), chunked over z...")
+        him_cube = _him_chunked(n_raw, T, Pmin)
+        print(f"  HIM fraction (whole sub-cube): {him_cube.mean():.4%}")
+
+        print("Evaluating Shelest+26 dP/dn phase boundaries n_W,max(I_UV)/n_C,min(I_UV)...")
+        bounds = thermal.build_phase_density_bounds(cfg["bs19_mat_path"])
+        print(f"  method: {bounds.method}")
+        phase_dpdn, unresolved = _classify_dpdn_chunked(n_raw, Iuv, him_cube, bounds)
+        print(f"  dPdn: neutral cells with no finite boundary (defaulted to UNM): {unresolved:.4%}")
         del Iuv
-        Pth_raw = (n_raw.astype(np.float64) * T.astype(np.float64)).astype(np.float32)
-    else:
-        Pmax = None
-        Pth_raw = None
-        print("All variants' core arrays are cached -- skipping P_max/P_th (not needed).")
-    gc.collect()
+        gc.collect()
 
-    if "x_pc" not in core_store:
-        core_store.create_array("x_pc", data=x_sub.astype(np.float32))
-        core_store.create_array("y_pc", data=y_sub.astype(np.float32))
-        core_store.create_array("z_pc", data=z_pc.astype(np.float32))
-    core_store.attrs["variants"] = list(VARIANTS)
-    core_store.attrs["self_gravity_settings"] = list(SELF_GRAVITY_SETTINGS)
-    core_store.attrs["self_gravity_density"] = SELF_GRAVITY_DENSITY
-    core_store.attrs["footprint_half_range_pc"] = FOOTPRINT_HALF_RANGE_PC
-    core_store.attrs["stats_box_xy_half_range_pc"] = STATS_BOX_XY_HALF_RANGE_PC
-    core_store.attrs["stats_box_z_half_range_pc"] = STATS_BOX_Z_HALF_PC
-    core_store.attrs["phase_schemes"] = list(PHASE_SCHEMES_COMPUTED)
-    core_store.attrs["phase_scheme_headline"] = PHASE_SCHEME_HEADLINE
-    core_store.attrs["phase_density_bounds_method"] = bounds.method
-    core_store.attrs["dpdn_unresolved_fraction"] = float(unresolved)
-    core_store.attrs["percentile_scheme"] = PERCENTILE_SCHEME
-    core_store.attrs["slab_half_thickness_pc"] = SLAB_HALF_THICKNESS_PC
-    core_store.attrs["provisional"] = PROVISIONAL_CUBE_HEADER
-    core_store.attrs["masked_variant"] = "not implemented -- no MASKED definition in any reference script"
+        # Classified on the OBSERVED density: HIM cells (the only ones a
+        # variant's density substitution touches) are relabelled PHASE_HIM
+        # anyway, so one phase_flag per scheme is valid for all variants.
+        phase_cubes = {
+            PHASE_SCHEME_DPDN: phase_dpdn,
+            PHASE_SCHEME_TEMPERATURE: phase_flag_temperature(T, him_cube),
+        }
+        del phase_dpdn
+        for scheme, cube in phase_cubes.items():
+            fracs = ", ".join(f"{ph} {np.mean(cube == code):.2%}" for code, ph in PHASE_CODES_ALL)
+            print(f"  {scheme:12s} whole sub-cube: {fracs}")
 
-    for variant in variants:
-        print(f"\n=== Variant {variant} ===")
-        t_v = time.time()
+        if "x_pc" not in core_store:
+            core_store.create_array("x_pc", data=x_sub.astype(np.float32))
+            core_store.create_array("y_pc", data=y_sub.astype(np.float32))
+            core_store.create_array("z_pc", data=z_pc.astype(np.float32))
+        core_store.attrs["variants"] = list(VARIANTS)
+        core_store.attrs["self_gravity_settings"] = list(SELF_GRAVITY_SETTINGS)
+        core_store.attrs["self_gravity_density"] = SELF_GRAVITY_DENSITY
+        core_store.attrs["footprint_half_range_pc"] = FOOTPRINT_HALF_RANGE_PC
+        core_store.attrs["stats_box_xy_half_range_pc"] = STATS_BOX_XY_HALF_RANGE_PC
+        core_store.attrs["stats_box_z_half_range_pc"] = STATS_BOX_Z_HALF_PC
+        core_store.attrs["phase_schemes"] = list(PHASE_SCHEMES_COMPUTED)
+        core_store.attrs["phase_scheme_headline"] = PHASE_SCHEME_HEADLINE
+        core_store.attrs["phase_density_bounds_method"] = bounds.method
+        core_store.attrs["dpdn_unresolved_fraction"] = float(unresolved)
+        core_store.attrs["percentile_scheme"] = PERCENTILE_SCHEME
+        core_store.attrs["slab_half_thickness_pc"] = SLAB_HALF_THICKNESS_PC
+        core_store.attrs[CONVENTION_ATTR] = THERMAL_PRESSURE_CONVENTION
+        core_store.attrs["thermal_pressure_note"] = THERMAL_PRESSURE_HEADER
+        core_store.attrs["provisional"] = PROVISIONAL_CUBE_HEADER
+        core_store.attrs["masked_variant"] = "not implemented -- no MASKED definition in any reference script"
 
-        if variant in needs_core_build:
-            if variant in core_store:
-                print(f"  {variant} present but core arrays incomplete (killed mid-run?) -- discarding and redoing")
-                del core_store[variant]
-            vr = apply_variant(variant, n_raw.astype(np.float64), Pth_raw.astype(np.float64),
-                                 him_cube, Pmin.astype(np.float64), Pmax.astype(np.float64))
-            n_model = vr.n_model.astype(np.float32)
-            Pth_model = vr.Pth_model.astype(np.float32)
-            del vr
-            sigma_gas_variant = derived.sigma_gas_map(z_pc, n_model.astype(np.float64)).astype(np.float32)
-
-            vg = core_store.require_group(variant)
-            vg.create_array("n_model", data=n_model, chunks=(CHUNK_Z, n_model.shape[1], n_model.shape[2]))
-            vg.create_array("Pth", data=Pth_model, chunks=(CHUNK_Z, Pth_model.shape[1], Pth_model.shape[2]))
-            vg.create_array("T", data=T, chunks=(CHUNK_Z, T.shape[1], T.shape[2]))
-            vg.create_array("Sigma_gas", data=sigma_gas_variant)
-            del sigma_gas_variant
-        else:
-            print(f"  {variant} core arrays already in {ALPHA_CORE_ZARR_PATH} -- not recomputed")
-            vg = core_store[variant]
-            n_model = None
-            Pth_model = None
-
-        # --- Step 1c him/phase arrays: added in place, so an existing
-        # ~5 GB of valid core cache is never discarded just to record a
-        # new classification of it.
-        for stale in STALE_BASE_ARRAYS:
-            if stale in vg:
-                print(f"  dropping stale pre-Step-1c array '{stale}' (its scheme was not recorded)")
-                del vg[stale]
-        if "him" not in vg:
-            print("  writing 'him' (scheme-independent HIM flag)")
-            vg.create_array("him", data=him_cube.astype(np.int8),
-                              chunks=(CHUNK_Z, him_cube.shape[1], him_cube.shape[2]))
-        for scheme, arr_name in PHASE_FLAG_ARRAY_BY_SCHEME.items():
-            if arr_name not in vg:
-                print(f"  writing '{arr_name}'")
-                cube = phase_cubes[scheme]
-                vg.create_array(arr_name, data=cube,
-                                  chunks=(CHUNK_Z, cube.shape[1], cube.shape[2]))
-
-        pending_sg = sg_work.get(variant, [])
-        if not pending_sg:
-            print("  all self-gravity settings already complete in zarr -- nothing to integrate")
-        else:
-            if n_model is None:
-                n_model = np.asarray(vg["n_model"][:], dtype=np.float32)
-                Pth_model = np.asarray(vg["Pth"][:], dtype=np.float32)
-            rho = (MU * M_H * n_model.astype(np.float64))
-            # Already restricted to the +-500pc square footprint by the
-            # x_lo:x_hi / y_lo:y_hi slice above, so "footprint_mean" here
-            # averages over the entire loaded XY plane -- at every z the
-            # cube provides, which is exactly the Shelest+26 convention
-            # (the STATS_BOX |z| <= 400 pc bound is NOT applied to
-            # self-gravity; see the module docstring).
-            full_footprint_mask = np.ones((n_model.shape[1], n_model.shape[2]), dtype=bool)
-
-            for sg_key in pending_sg:
-                mode = SELF_GRAVITY_MODE_BY_SETTING[sg_key]
-                sg_group_name = f"self_gravity_{sg_key}"
-
-                if sg_group_name in vg:
-                    print(f"  self_gravity={sg_key}: partial group in zarr (killed mid-write?) -- discarding")
-                    del vg[sg_group_name]
-
-                legacy_name = LEGACY_GROUP_NAME_BY_SETTING.get(sg_key)
-                legacy_cached = (
-                    legacy_name is not None and legacy_name in vg
-                    and "Ptot" in vg[legacy_name] and "alpha" in vg[legacy_name]
-                )
-                if legacy_cached:
-                    print(f"  self_gravity={sg_key}: migrating cached legacy group '{legacy_name}' "
-                          f"(Step 1 behavior is unchanged for off/column) -- no recompute")
-                    Ptot_kB = np.asarray(vg[legacy_name]["Ptot"][:], dtype=np.float32)
-                    alpha_arr = np.asarray(vg[legacy_name]["alpha"][:], dtype=np.float32)
+        for variant in variants:
+            t_v = time.time()
+            if variant in needs_core_build:
+                if variant in core_store:
+                    print(f"\n=== Variant {variant}: rebuilding (convention/schema change or "
+                          f"incomplete group) -- discarding the cached group ===")
+                    del core_store[variant]
                 else:
-                    print(f"  self_gravity={sg_key}: P_tot integration...")
-                    gravity_density = None
-                    if mode != SELF_GRAVITY_MODE_OFF:
-                        gravity_density = (n_model if SELF_GRAVITY_DENSITY == "same_as_weight"
-                                           else n_raw).astype(np.float64)
-                    g, nan_fraction = gravity.g_total_cgs(z_pc, gravity_density, mode=mode,
-                                                            footprint_mask=full_footprint_mask)
-                    Ptot_kB = hydrostatic.p_tot_kb_full_column(z_pc, rho, g).astype(np.float32)
-                    alpha_arr = derived.alpha(Ptot_kB.astype(np.float64),
-                                                Pth_model.astype(np.float64)).astype(np.float32)
-                    del g, gravity_density
+                    print(f"\n=== Variant {variant}: building ===")
+                vg = core_store.require_group(variant)
+                sigma = _write_variant_base_arrays(variant, vg, n_raw, T, Pmin, Pmax,
+                                                     him_cube, z_pc)
+                print(f"  n_model, p_th_phys, T, Sigma_gas written "
+                      f"(Sigma_gas median {np.nanmedian(sigma):.4f} Msun/pc^2)")
+                del sigma
+            else:
+                print(f"\n=== Variant {variant}: core arrays current -- not recomputed ===")
+                vg = core_store[variant]
 
-                sgg = vg.require_group(sg_group_name)
-                sgg.create_array("Ptot", data=Ptot_kB, chunks=(CHUNK_Z, Ptot_kB.shape[1], Ptot_kB.shape[2]))
-                sgg.create_array("alpha", data=alpha_arr, chunks=(CHUNK_Z, alpha_arr.shape[1], alpha_arr.shape[2]))
-                if not legacy_cached and nan_fraction is not None:
-                    sgg.create_array("footprint_nan_fraction", data=nan_fraction.astype(np.float32))
-                print(f"  self_gravity={sg_key}: written to zarr")
+            for stale in STALE_BASE_ARRAYS:
+                if stale in vg:
+                    print(f"  dropping stale array '{stale}' (older schema -- see STALE_BASE_ARRAYS)")
+                    del vg[stale]
+            if "him" not in vg:
+                vg.create_array("him", data=him_cube.astype(np.int8),
+                                  chunks=(CHUNK_Z, him_cube.shape[1], him_cube.shape[2]))
+            for scheme, arr_name in PHASE_FLAG_ARRAY_BY_SCHEME.items():
+                if arr_name not in vg:
+                    cube = phase_cubes[scheme]
+                    vg.create_array(arr_name, data=cube,
+                                      chunks=(CHUNK_Z, cube.shape[1], cube.shape[2]))
+            vg.attrs[CONVENTION_ATTR] = THERMAL_PRESSURE_CONVENTION
+            gc.collect()
+            print(f"  pass 1 for {variant} done in {time.time() - t_v:.1f}s")
 
-                del Ptot_kB, alpha_arr
-                gc.collect()
-            del rho
-        del n_model, Pth_model
+        del n_raw, T, Pmin, Pmax, him_cube, phase_cubes
         gc.collect()
         peak_mb = peak_working_set_mb()
-        print(f"  variant {variant} done in {time.time() - t_v:.1f}s"
+        print(f"\n--- Pass 1 complete"
+              + (f", working set {peak_mb:.0f} MB" if peak_mb is not None else "") + " ---")
+    else:
+        print("\n--- Pass 1 skipped: every variant's core/him/phase arrays are current ---")
+
+    # ---------------------------------------------------------------- pass 2
+    print("\n--- Pass 2: P_tot integration (XY-tiled) ---")
+    for variant in variants:
+        pending_sg = [k for k in SELF_GRAVITY_SETTINGS
+                      if not (f"self_gravity_{k}" in core_store[variant]
+                              and "Ptot" in core_store[variant][f"self_gravity_{k}"]
+                              and "alpha" in core_store[variant][f"self_gravity_{k}"])]
+        if not pending_sg:
+            print(f"\n=== Variant {variant}: all self-gravity settings complete -- skipping ===")
+            continue
+        print(f"\n=== Variant {variant}: integrating {pending_sg} ===")
+        t_v = time.time()
+        vg = core_store[variant]
+
+        for sg_key in pending_sg:
+            mode = SELF_GRAVITY_MODE_BY_SETTING[sg_key]
+            sg_group_name = f"self_gravity_{sg_key}"
+            if sg_group_name in vg:
+                print(f"  self_gravity={sg_key}: partial group in zarr (killed mid-write?) -- discarding")
+                del vg[sg_group_name]
+
+            print(f"  self_gravity={sg_key}: g_total ({mode})...")
+            gravity_density = None
+            footprint_for_mean = None
+            if mode != SELF_GRAVITY_MODE_OFF:
+                # The density that sources self-gravity, in float64, read
+                # straight from the cache. Already restricted to the
+                # +-500 pc square, and spanning EVERY z the cube provides
+                # -- the STATS_BOX |z| <= 400 pc bound deliberately does
+                # not apply to self-gravity (see the module docstring).
+                # "same_as_weight" (default): this variant's own n_model.
+                # "observed": the unmodified raw density, i.e. RAW's
+                # n_model, regardless of variant.
+                src_group = vg if SELF_GRAVITY_DENSITY == "same_as_weight" else core_store["RAW"]
+                gravity_density = np.asarray(src_group["n_model"][:], dtype=np.float64)
+                footprint_for_mean = np.ones(gravity_density.shape[1:], dtype=bool)
+            g, nan_fraction = gravity.g_total_cgs(z_pc, gravity_density, mode=mode,
+                                                    footprint_mask=footprint_for_mean)
+            del gravity_density, footprint_for_mean
+            gc.collect()
+
+            print(f"  self_gravity={sg_key}: P_tot integration, {len(_xy_tiles(len(grid.y_pc[y_lo:y_hi])))} XY tiles...")
+            _integrate_ptot_tiled(vg, z_pc, g, sg_group_name, nan_fraction)
+            del g
+            gc.collect()
+            print(f"  self_gravity={sg_key}: written to zarr")
+
+        peak_mb = peak_working_set_mb()
+        print(f"  variant {variant} integrated in {time.time() - t_v:.1f}s"
               + (f", working set {peak_mb:.0f} MB" if peak_mb is not None else ""))
 
     elapsed = time.time() - t_start
@@ -667,7 +870,9 @@ def _finalize_one_variant(variant, core_store, footprint, z_pc_full, Iuv_box):
     zsl, z_pc = _box_z_slice(z_pc_full)
     vg = core_store[variant]
     n_model = np.asarray(vg["n_model"][zsl], dtype=np.float32)
-    Pth_model = np.asarray(vg["Pth"][zsl], dtype=np.float32)
+    # The PHYSICAL thermal pressure (1.1 n_H T). p_nT is never read here:
+    # classification is already baked into "him" and the phase flags.
+    p_th_phys = np.asarray(vg["p_th_phys"][zsl], dtype=np.float32)
     T = np.asarray(vg["T"][zsl], dtype=np.float32)
     him_cube = np.asarray(vg["him"][zsl]).astype(bool)
     phase_cubes = {
@@ -689,7 +894,7 @@ def _finalize_one_variant(variant, core_store, footprint, z_pc_full, Iuv_box):
                                f"footprint, unweighted {stat_name}"))
 
     # 1D PDFs (self-gravity independent: n, T, Iuv, Pth)
-    for qty, arr in (("n", n_model), ("T", T), ("Iuv", Iuv_box), ("Pth", Pth_model)):
+    for qty, arr in (("n", n_model), ("T", T), ("Iuv", Iuv_box), ("Pth_phys", p_th_phys)):
         for zc in SLAB_CENTERS_PC:
             idxs = slab_plane_indices(z_pc, zc)
             sub = arr[idxs][:, footprint]
@@ -699,7 +904,7 @@ def _finalize_one_variant(variant, core_store, footprint, z_pc_full, Iuv_box):
             summary[f"{variant}__pdf1d__{qty}__z{int(zc)}__counts"] = counts
 
     # 2D mass-weighted PDFs (n,Pth) and (Iuv,n) -- self-gravity independent
-    for (qx, xarr, qy, yarr) in (("n", n_model, "Pth", Pth_model), ("Iuv", Iuv_box, "n", n_model)):
+    for (qx, xarr, qy, yarr) in (("n", n_model, "Pth_phys", p_th_phys), ("Iuv", Iuv_box, "n", n_model)):
         for zc in SLAB_CENTERS_PC:
             idxs = slab_plane_indices(z_pc, zc)
             neutral = ~him_cube[idxs][:, footprint]
@@ -750,7 +955,7 @@ def _finalize_one_variant(variant, core_store, footprint, z_pc_full, Iuv_box):
             iz = int(np.argmin(np.abs(z_pc - zc)))
             summary[f"{variant}__sg{sg_key}__slice__n__z{int(zc)}"] = n_model[iz]
             summary[f"{variant}__sg{sg_key}__slice__T__z{int(zc)}"] = T[iz]
-            summary[f"{variant}__sg{sg_key}__slice__Pth__z{int(zc)}"] = Pth_model[iz]
+            summary[f"{variant}__sg{sg_key}__slice__Pth_phys__z{int(zc)}"] = p_th_phys[iz]
             summary[f"{variant}__sg{sg_key}__slice__Ptot__z{int(zc)}"] = Ptot_kB[iz]
             summary[f"{variant}__sg{sg_key}__slice__alpha__z{int(zc)}"] = alpha_arr[iz]
 
@@ -764,9 +969,9 @@ def _finalize_one_variant(variant, core_store, footprint, z_pc_full, Iuv_box):
                 summary[f"{variant}__sg{sg_key}__pdf1d__{qty}__z{int(zc)}__counts"] = counts
 
         print(f"  self_gravity={sg_key}: per-plane vertical profiles (signed z and |z|)...")
-        prof_signed = compute_vertical_profile(z_pc, Pth_model, Ptot_kB, alpha_arr, him_cube, phase_cubes,
+        prof_signed = compute_vertical_profile(z_pc, p_th_phys, Ptot_kB, alpha_arr, him_cube, phase_cubes,
                                                   T, n_model, footprint, use_abs=False)
-        prof_abs = compute_vertical_profile(z_pc, Pth_model, Ptot_kB, alpha_arr, him_cube, phase_cubes,
+        prof_abs = compute_vertical_profile(z_pc, p_th_phys, Ptot_kB, alpha_arr, him_cube, phase_cubes,
                                                T, n_model, footprint, use_abs=True)
         for k, v in prof_signed.items():
             summary[f"{variant}__sg{sg_key}__profile_signedz__{k}"] = v
@@ -785,32 +990,40 @@ def _finalize_one_variant(variant, core_store, footprint, z_pc_full, Iuv_box):
         ):
             neutral = ~him_cube[idxs][:, footprint]
             n_sub = n_model[idxs][:, footprint].astype(np.float64)
-            for qty, arr in (("Pth", Pth_model), ("Ptot", Ptot_kB), ("alpha", alpha_arr)):
+            for qty, arr in (("Pth_phys", p_th_phys), ("Ptot", Ptot_kB), ("alpha", alpha_arr)):
                 sub = arr[idxs][:, footprint].astype(np.float64)
-                for wt, s in (("vol", volume_weighted_stats(sub, neutral, PERCENTILE_SCHEME)),
-                                ("mw", mass_weighted_stats(sub, neutral, n_sub, PERCENTILE_SCHEME))):
-                    for stat_name, val in _stat_pairs(s):
+                for wt, st in (("vol", volume_weighted_stats(sub, neutral, PERCENTILE_SCHEME)),
+                                 ("mw", mass_weighted_stats(sub, neutral, n_sub, PERCENTILE_SCHEME))):
+                    for stat_name, val in _stat_pairs(st):
                         numbers_rows.append((
                             variant, sg_key, "n/a", qty, wt, f"{label}_{stat_name}", val,
-                            "K cm^-3" if qty in ("Pth", "Ptot") else "dimensionless",
-                            f"{qty} {stat_name}, {wt}-weighted, {where}, neutral (non-HIM) cells"
+                            "K cm^-3" if qty in ("Pth_phys", "Ptot") else "dimensionless",
+                            f"{QUANTITY_NOTE[qty]} {stat_name}, {wt}-weighted, {where}, "
+                            f"neutral (non-HIM) cells"
                         ))
 
         iz_mid = int(np.argmin(np.abs(z_pc)))
         alpha_mid_vol = volume_weighted_stats(alpha_arr[iz_mid], footprint & ~him_cube[iz_mid],
                                                 PERCENTILE_SCHEME)
-        mach_mid = float(derived.mach_number(np.array([alpha_mid_vol.arithmetic_mean]))[0])
+        A_mid = np.array([alpha_mid_vol.arithmetic_mean])
         T_neutral_mid = T[iz_mid][footprint & ~him_cube[iz_mid]].astype(np.float64)
-        sigma_eff_mid = float(derived.sigma_eff_kmps(
-            np.array([alpha_mid_vol.arithmetic_mean]),
-            np.array([T_neutral_mid.mean() if T_neutral_mid.size else np.nan]))[0])
-        numbers_rows.append((variant, sg_key, "n/a", "Mach", "vol", "midplane", mach_mid,
-                               "dimensionless", "Mach number at the z=0 plane, from volume-weighted mean alpha, neutral cells"))
-        numbers_rows.append((variant, sg_key, "n/a", "sigma_eff", "vol", "midplane", sigma_eff_mid,
-                               "km/s", "Effective turbulent velocity dispersion at the z=0 plane, neutral cells, all neutral phases"))
+        T_mid = np.array([T_neutral_mid.mean() if T_neutral_mid.size else np.nan])
+        mach_mid = float(derived.mach_number(A_mid)[0])
+        sigma_eff_mid = float(derived.sigma_eff_kmps(A_mid, T_mid, THERMAL_PRESSURE_CONVENTION)[0])
+        sigma_nt_mid = float(derived.sigma_nt_kmps(A_mid, T_mid, THERMAL_PRESSURE_CONVENTION)[0])
+        c_s_mid = float(derived.sound_speed_kmps(T_mid, THERMAL_PRESSURE_CONVENTION)[0])
+        for qty, val, units in (
+            ("Mach", mach_mid, "dimensionless"),
+            ("sigma_eff", sigma_eff_mid, "km/s"),
+            ("sigma_nt", sigma_nt_mid, "km/s"),
+            ("c_s", c_s_mid, "km/s"),
+        ):
+            numbers_rows.append((variant, sg_key, "n/a", qty, "vol", "midplane", val, units,
+                                   f"{QUANTITY_NOTE[qty]}, at the z=0 plane, from the "
+                                   f"volume-weighted mean alpha and the mean T of neutral cells"))
 
         del Ptot_kB, alpha_arr
-    del n_model, Pth_model, T, phase_cubes, him_cube
+    del n_model, p_th_phys, T, phase_cubes, him_cube
     gc.collect()
     print(f"  variant {variant} finalized in {time.time() - t_v:.1f}s")
     return summary, numbers_rows
@@ -932,12 +1145,14 @@ def finalize_merge():
     import csv
     with open(NUMBERS_TABLE_CSV_PATH, "w", newline="") as f:
         f.write(f"# {PROVISIONAL_CUBE_HEADER}\n")
+        f.write(f"# {THERMAL_PRESSURE_HEADER}\n")
         writer = csv.writer(f)
         writer.writerow(NUMBERS_TABLE_COLUMNS)
         for row in numbers_rows:
             writer.writerow(row)
     with open(NUMBERS_TABLE_TXT_PATH, "w") as f:
         f.write(f"{PROVISIONAL_CUBE_HEADER}\n")
+        f.write(f"{THERMAL_PRESSURE_HEADER}\n")
         f.write("Alpha paper -- headline numbers table (Shelest+26 conventions)\n")
         f.write(f"STATS_BOX: |x|,|y| <= {STATS_BOX_XY_HALF_RANGE_PC:.0f} pc, |z| <= {STATS_BOX_Z_HALF_PC:.0f} pc. "
                 f"Slabs: |z-z_c| <= {SLAB_HALF_THICKNESS_PC:.0f} pc. "
@@ -947,6 +1162,11 @@ def finalize_merge():
         f.write("MASKED variant: not implemented -- no MASKED definition exists in any reference script.\n")
         f.write("self_gravity column: off | mean (footprint_mean, DEFAULT); column (per_column) not run "
                 "in this sweep -- code retained.\n")
+        f.write(f"Thermal pressure: p_nT = n_H T is used ONLY for classification (the HIM flag\n"
+                f"  and the phase scheme) and is never reported; every number below uses\n"
+                f"  p_th_phys = {PARTICLES_PER_H_NEUTRAL:g} n_H T.\n")
+        f.write("sigma_eff = sqrt(alpha)*c_s (TOTAL, = sqrt(P_tot/rho)); sigma_nt = sqrt(3(alpha-1))*c_s\n"
+                "  (NON-THERMAL -- this is what Step 1c reported under the name \"sigma_eff\").\n")
         f.write("  -- see results/README.md for full column definitions.\n")
         f.write("=" * 132 + "\n")
         f.write(f"{'variant':<8}{'self_grav':<10}{'phase_sch':<13}{'quantity':<22}{'weight':<7}"

@@ -11,6 +11,14 @@ variant), so this uses RAW's n_model, which for that variant equals the
 raw observed density with no substitution. Since Step 1c the HIM flag is
 also stored in its own array ("him"), independent of PHASE_SCHEME.
 
+Step 1d does not change these numbers: RAW's density is the observed one
+and Step 1d only altered the SUBSTITUTED density inside HIM_A/HIM_B's HIM
+cells. Reading RAW is therefore still the right way to ask "how much
+observed gas mass does the HIM treatment touch". The Step 1d substitution
+puts 1.1/2.3 = 0.478x as much mass in those cells as before, so the
+fractions below now overstate, by about a factor two, how much mass the
+HIM_A/HIM_B models themselves carry there.
+
 Step 1c-prep: slabs are the Shelest+26 60pc-thick ones (|z - z_c| <= 30
 pc) and the headline total is over the STATS_BOX (|x|,|y| <= 500,
 |z| <= 400 pc). The full +-750 pc column total is still reported
@@ -28,6 +36,8 @@ import zarr
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 from src.conventions import (  # noqa: E402
+    PARTICLES_PER_H_IONIZED,
+    PARTICLES_PER_H_NEUTRAL,
     PROVISIONAL_CUBE_HEADER,
     SLAB_CENTERS_PC,
     SLAB_HALF_THICKNESS_PC,
@@ -68,7 +78,10 @@ def main():
     rows.append((f"full column (|z|<={np.abs(z_pc).max():.0f}pc, the P_tot integration range)",
                  mass_fraction(idxs_total)))
 
-    header = (f"{PROVISIONAL_CUBE_HEADER}\n"
+    header = (f"{PROVISIONAL_CUBE_HEADER} | HIM substitution now balances the physical\n"
+              f"pressure with fully ionized gas ({PARTICLES_PER_H_NEUTRAL:g} P / "
+              f"({PARTICLES_PER_H_IONIZED:g} T_HIM)); the fractions below are of the "
+              f"OBSERVED density.\n\n"
               f"HIM gas-mass fraction (observed/RAW density, +-500pc square footprint, "
               f"slabs |z-z_c|<={SLAB_HALF_THICKNESS_PC:.0f}pc)")
     line = " | ".join(f"{label}: {frac:.4%}" for label, frac in rows)

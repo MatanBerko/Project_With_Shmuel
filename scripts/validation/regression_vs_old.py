@@ -2,7 +2,9 @@
 Phase A regression: compare the new src.physics core against the OLD
 reference scripts' own cached output (read-only .npz caches under
 research_10.0/, never rerun or reimplemented from research_10.0 itself),
-for P_th, P_tot, alpha, sigma_eff, Mach across RAW/HIM_A/HIM_B.
+for P_th, P_tot, alpha, sigma_nt, Mach across RAW/HIM_A/HIM_B, pinned to
+the pre-Step-1d "nT" thermal-pressure convention (see apply_variant call
+below) since that is what the old caches were built with.
 
 Comparison conditions (matching the old scripts exactly, so any remaining
 difference is attributable to the SETTLED changes, not incidental setup
@@ -38,7 +40,7 @@ from src.physics import derived, gravity, hydrostatic, thermal
 from src.physics.him import apply_variant, him_flag, phase_flag, PHASE_CNM, PHASE_UNM, PHASE_WNM
 from src.physics.loading import cylinder_mask, load_xy_subset_coords, open_zarr
 from src.physics.stats import mass_weighted_stats, volume_weighted_stats
-from src.conventions import M_H, MU, R_MAX_PC
+from src.conventions import M_H, MU, R_MAX_PC, THERMAL_PRESSURE_CONVENTION_NT
 
 # OLD cache location -- research_10.0, read only, resolved by literal
 # relative-to-repo-root path (this script itself lives outside pipeline/,
@@ -99,9 +101,16 @@ def main():
         him_cube[jj] = him
         T_cube[jj] = T
         for v in VARIANTS:
-            variant = apply_variant(v, n_raw, Pth_raw, him, Pmin, Pmax)
+            # Step 1d: this script exists to reproduce the OLD scripts'
+            # numbers, which predate the helium/particle-count correction,
+            # so it pins the "nT" convention -- p_th = n_H*T and the old
+            # n = P/T_HIM substitution. Do NOT switch this to "physical":
+            # the old caches it compares against were built with nT, and
+            # a 1.1x shift here would read as a regression that isn't one.
+            variant = apply_variant(v, n_raw, Pth_raw, him, Pmin, Pmax,
+                                    THERMAL_PRESSURE_CONVENTION_NT)
             n_model_cubes[v][jj] = variant.n_model
-            Pth_model_cubes[v][jj] = variant.Pth_model
+            Pth_model_cubes[v][jj] = variant.p_th_phys
         if jj % 50 == 0:
             print(f"  z-plane {jj + 1}/{n_z}")
 
@@ -164,7 +173,7 @@ def main():
             print(f"{v:<8}{qty:<10}{weighting:<10}{stat:<10}{max_d:16.6e}{med_d:18.6e}")
             results.append((v, qty, weighting, stat, max_d, med_d))
 
-        # sigma_eff / Mach: use MY OWN alpha_vol_mean (this pipeline's
+        # sigma_nt / Mach: use MY OWN alpha_vol_mean (this pipeline's
         # equivalent of what old fig4b reads from the upstream profiles
         # cache), phase classification via T_cube + him_cube, matching
         # fig4b_velocity_dispertion_Mach_number/compute_data.py's algorithm.
@@ -177,15 +186,20 @@ def main():
             m = neutral[jj]
             if m.any():
                 T_mean_total[jj] = float(T_cube[jj][m].mean())
-        new_sigma_total = derived.sigma_eff_kmps(new_alpha_vol_mean, T_mean_total)
+        # The old scripts' "sigma_total" is the NON-THERMAL dispersion
+        # sqrt(3(alpha-1))*c_s, which Step 1d renamed sigma_nt_kmps (the
+        # name sigma_eff_kmps now means the total sqrt(alpha)*c_s). Same
+        # formula, same convention, so the comparison is unchanged.
+        new_sigma_total = derived.sigma_nt_kmps(new_alpha_vol_mean, T_mean_total,
+                                                THERMAL_PRESSURE_CONVENTION_NT)
 
         max_d, med_d = rel_diff(new_mach, old_sigma_mach["mach"])
         print(f"{v:<8}{'Mach':<10}{'n/a':<10}{'value':<10}{max_d:16.6e}{med_d:18.6e}")
         results.append((v, "Mach", "n/a", "value", max_d, med_d))
 
         max_d, med_d = rel_diff(new_sigma_total, old_sigma_mach["sigma_total"])
-        print(f"{v:<8}{'sigma_eff':<10}{'total':<10}{'value':<10}{max_d:16.6e}{med_d:18.6e}")
-        results.append((v, "sigma_eff", "total", "value", max_d, med_d))
+        print(f"{v:<8}{'sigma_nt':<10}{'total':<10}{'value':<10}{max_d:16.6e}{med_d:18.6e}")
+        results.append((v, "sigma_nt", "total", "value", max_d, med_d))
 
     print("=" * 100)
     return results
