@@ -1,0 +1,25 @@
+# TIGRESS R8 reference values, for comparison with the observational profiles.
+#
+# These are SIMULATION values, not measurements from this project's cube. They
+# are kept in results/reference/ so that every figure that overlays them reads
+# one file, and so the provenance travels with the numbers.
+#
+# NOTE ON COMPARABILITY: R8 has Sigma_gas = 9.87 Msun/pc^2, about twice the
+# local value this cube measures (4.81 Msun/pc^2). Absolute pressures scale
+# roughly with Sigma_gas^2 in a self-regulated disc, so they are NOT expected
+# to match. alpha = P_tot/P_th is a ratio and can be compared directly.
+#
+# "2p" = two-phase gas, T < 2e4 K, i.e. the neutral medium -- the counterpart
+# of this project's non-HIM-flagged cells. Pressures are P/k_B.
+quantity,value,units,source
+P_tot_2p,1.91e4,K cm^-3,"Ostriker & Kim 2022, ApJ, Table 2, model R8; midplane horizontal averages of 2p gas (T < 2e4 K)"
+P_th_2p,5.02e3,K cm^-3,"Ostriker & Kim 2022, ApJ, Table 2, model R8; midplane horizontal averages of 2p gas (T < 2e4 K)"
+P_turb_2p,5.71e3,K cm^-3,"Ostriker & Kim 2022, ApJ, Table 2, model R8; midplane horizontal averages of 2p gas (T < 2e4 K)"
+Pi_mag_2p,7.86e3,K cm^-3,"Ostriker & Kim 2022, ApJ, Table 2, model R8; midplane horizontal averages of 2p gas (T < 2e4 K)"
+P_tot_hot,1.70e4,K cm^-3,"Ostriker & Kim 2022, ApJ, Table 2, model R8; midplane horizontal averages of 2p gas (T < 2e4 K)"
+P_DE,2.34e4,K cm^-3,"Ostriker & Kim 2022, ApJ, Table 2, model R8; midplane horizontal averages of 2p gas (T < 2e4 K)"
+n_H_2p,1.18,cm^-3,"Ostriker & Kim 2022, ApJ, Table 2, model R8; midplane horizontal averages of 2p gas (T < 2e4 K)"
+sigma_eff_2p,13.9,km/s,"Ostriker & Kim 2022, ApJ, Table 2, model R8; midplane horizontal averages of 2p gas (T < 2e4 K)"
+Sigma_gas,9.87,Msun/pc^2,"Ostriker & Kim 2022, ApJ, Table 2, model R8; midplane horizontal averages of 2p gas (T < 2e4 K)"
+H_2p,351,pc,"Ostriker & Kim 2022, ApJ, Table 2, model R8; midplane horizontal averages of 2p gas (T < 2e4 K)"
+alpha_2p,3.80,dimensionless,"Derived here as P_tot_2p / P_th_2p from Ostriker & Kim 2022, ApJ, Table 2, model R8"

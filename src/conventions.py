@@ -36,6 +36,23 @@ COLOR_RPP = "#d35400"     # R_pp (or related ratio quantity)
 # threshold was found to misclassify ~50% of CNM cells as HIM.
 HIM_THRESHOLD_FACTOR = 0.5
 
+# Step 2c: the same number under the name the sensitivity analysis uses.
+# HIM_FLAG_COEFF is an ALIAS, not a second constant -- binding it to
+# HIM_THRESHOLD_FACTOR means the two can never drift apart, which two
+# independently-typed 0.5s eventually would. The classification code
+# keeps the older name (it is out of scope to rename), and
+# tests/test_him_coeff_sensitivity.py asserts they stay equal.
+#
+# C is a choice, not a measurement, so Step 2c sweeps it:
+# scripts/compute/compute_him_coeff_sensitivity.py recomputes the flag
+# for every C in HIM_FLAG_COEFF_GRID and reports how far the answers
+# move. Note that P_tot is NOT recomputed per C -- under the fiducial
+# treatment the flagged cells keep their observed mass in the
+# hydrostatic weight no matter which cells the flag picks out, so only
+# the STATISTICS depend on C.
+HIM_FLAG_COEFF = HIM_THRESHOLD_FACTOR
+HIM_FLAG_COEFF_GRID = (0.1, 0.25, 0.5, 1.0)
+
 # ---------------------------------------------------------------------------
 # Phase temperature cuts
 # ---------------------------------------------------------------------------

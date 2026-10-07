@@ -1,0 +1,60 @@
+PROVISIONAL: f98 cube, n_H = 1653 A'; final cube pending
+P_th = 1.1 n_H k T (physical)
+Sensitivity to the HIM-flag coefficient C:  p_nT = n_H T  <  C * P_min(I_UV)
+========================================================================================================
+Variant RAW, self-gravity mean, STATS_BOX |x|,|y| <= 500 pc, |z| <= 400 pc, 4 pc bins.
+Fiducial C = 0.5. The recomputed flag reproduces the cached one at that
+  value on 100.000000% of the box, so this sweep sits on the same flag as the
+  rest of the project.
+
+P_tot is NOT recomputed per C: under the fiducial treatment the flagged cells keep
+  their observed mass in the hydrostatic weight whichever cells the flag picks out,
+  so only which cells enter a STATISTIC depends on C.
+
+CONTAMINATION = of the cells flagged at C, the fraction that the neutral classifier
+  calls CNM or UNM. Computed with the HIM override switched OFF, because the cached
+  phase cubes have already relabelled every flagged cell as HIM.
+
+Box-level:
+     C   flag vol  flag mass  contam dPdn vol  contam dPdn mw  contam T vol  contam T mw
+----------------------------------------------------------------------------------------
+  0.10    0.20371    0.00967         0.000000        0.000000      0.000000     0.000000
+  0.25    0.51855    0.04991         0.000000        0.000000      0.000000     0.000000
+  0.50    0.70646    0.10384         0.000000        0.000000      0.000000     0.000000
+  1.00    0.82809    0.29949         0.007411        0.419798      0.007411     0.419823
+----------------------------------------------------------------------------------------
+
+Exact onset of contamination (min of p_nT / P_min over the CNM/UNM cells -- the
+  smallest C at which ANY of them is flagged, not a grid bracket):
+  dPdn scheme:        C = 0.9175
+  temperature scheme: C = 0.8774
+  So C = 0.5 has a factor 1.84 of headroom before the first
+  CNM/UNM cell is caught.
+
+Box-level alpha over NON-flagged cells (15/85 in brackets):
+     C   wt    median      mean  rat.means      p15      p85
+------------------------------------------------------------
+  0.10  vol    6.1218    8.0841     4.1994   2.2018  13.2462
+  0.10   mw    4.1122    6.9267     4.4082   1.3686  11.7746
+  0.25  vol    3.8176    4.9241     3.3445   1.6266   7.5805
+  0.25   mw    3.9031    6.7139     4.3726   1.3369  11.3381
+  0.50  vol    2.6194    3.6742     2.8254   1.2829   5.4103
+  0.50   mw    3.7420    6.7276     4.3471   1.2955  11.5561
+  1.00  vol    1.9579    3.0707     2.4321   1.0534   4.5538
+  1.00   mw    3.2092    6.3063     3.9647   1.1560  10.9678
+------------------------------------------------------------
+
+Mass-weighted alpha at z = 0 / 150 / 300 pc:
+     C               estimator         z=0       z=150       z=300
+------------------------------------------------------------------
+  0.10        median of ratios      3.3020      5.0527      3.8417
+  0.10          ratio of means      3.0843      6.9797      2.8434
+  0.25        median of ratios      3.2706      4.4453      2.8497
+  0.25          ratio of means      3.0631      6.9074      2.5040
+  0.50        median of ratios      3.2355      3.9615      2.2036
+  0.50          ratio of means      3.0288      6.9238      2.2633
+  1.00        median of ratios      2.8127      3.1567      1.8726
+  1.00          ratio of means      2.6794      6.6172      2.0439
+------------------------------------------------------------------
+
+(runtime 356.8s)

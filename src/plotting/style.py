@@ -36,7 +36,16 @@ import matplotlib as mpl
 import matplotlib.pyplot as plt
 import numpy as np
 
-from src.conventions import CNM, HIM, UNM, WNM
+from src.conventions import (
+    CNM,
+    COLOR_PMAX,
+    COLOR_PMIN,
+    COLOR_PTH,
+    COLOR_PTOT,
+    HIM,
+    UNM,
+    WNM,
+)
 
 # ---------------------------------------------------------------------------
 # PROVISIONAL label -- one switch for every figure
@@ -79,6 +88,20 @@ FLAG_LABELS = {"flagged": "HIM-flagged", "neutral": "non-flagged"}
 # Volume- vs mass-weighted, where both appear in one panel.
 WEIGHT_COLORS = {"vol": "#1a1a2e", "mw": "#c0392b"}
 WEIGHT_LABELS = {"vol": "volume-weighted", "mw": "mass-weighted"}
+
+# Pressure components, where several share a panel. Taken from
+# src.conventions so the paper's existing colour for each quantity is
+# reused rather than a second one invented here.
+PRESSURE_COLORS = {"Ptot": COLOR_PTOT, "Pth": COLOR_PTH,
+                   "Pmin": COLOR_PMIN, "Pmax": COLOR_PMAX}
+
+# Reference values from a SIMULATION overlaid on observed profiles. Open
+# markers, deliberately: a hollow symbol reads as "not one of these
+# measurements" at a glance, which is the whole point of the overlay.
+REFERENCE_MARKER = dict(marker="o", markersize=6.5, markerfacecolor="none",
+                        markeredgewidth=1.4, linestyle="none", zorder=6)
+REFERENCE_COLOR = "#117733"
+REFERENCE_LABEL = "TIGRESS R8 (O&K22)"
 
 # ---------------------------------------------------------------------------
 # Estimator line styles -- the three alpha estimators, same encoding
@@ -167,8 +190,18 @@ def apply_paper_style():
 # ---------------------------------------------------------------------------
 # Annotations: panel letters and in-panel text instead of titles
 # ---------------------------------------------------------------------------
-def panel_label(ax, letter, loc="upper left", pad=0.035, size=8.5):
-    """Put "(a)" inside the panel. Titles are not used in this paper."""
+def panel_label(ax, letter, loc="upper left", pad=0.035, size=8.5, outside=False):
+    """Put "(a)" inside the panel. Titles are not used in this paper.
+
+    `outside=True` places it just above the axes instead. Use it on a
+    panel whose corners all carry data that a label would hide -- a
+    heatmap, say, where every cell is a number.
+    """
+    if outside:
+        x, ha = (0.0, "left") if "left" in loc else (1.0, "right")
+        return ax.text(x, 1.015, f"({letter})", transform=ax.transAxes,
+                       ha=ha, va="bottom", fontsize=size, fontweight="bold",
+                       zorder=10)
     x, ha = (pad, "left") if "left" in loc else (1.0 - pad, "right")
     y, va = (1.0 - pad, "top") if "upper" in loc else (pad, "bottom")
     return ax.text(x, y, f"({letter})", transform=ax.transAxes,
