@@ -9,9 +9,7 @@ physics here.
 
 Three stacked panels on a shared signed-z axis:
   (a) P_tot and P_th of the neutral gas -- mass-weighted mean as lines,
-      median with its 15-85 band -- plus the band HIM_A and HIM_B would
-      IMPOSE on the flagged cells, hatched to mark it as an assumption
-      rather than a measurement.
+      median with its 15-85 band.
   (b) alpha three ways, with alpha = 1 marked.
   (c) n_H, volume- and mass-weighted, over all cells and over non-HIM
       cells. The two are different physical questions -- "mean density of
@@ -57,7 +55,6 @@ CACHE = Path("cache/core/component_profiles.npz")
 NAME = "fig_component_profiles"
 Z_RANGE = (-400.0, 400.0)
 Z_TICKS = (-400, -200, 0, 200, 400)
-HIM_BAND_COLOR = "#7b5ea7"
 ALL_LS, NEUTRAL_LS = "--", "-"
 
 
@@ -72,15 +69,11 @@ def main():
     # Reserve a strip at the bottom for the comparability note. fig.text
     # does not reserve space under constrained_layout, so without this the
     # note lands on top of the x-label.
-    # Top edge is pulled in too: panel (a) carries a three-row legend that
+    # Top edge is pulled in too: panel (a) carries a two-row legend that
     # runs to the axes top, and a rect reaching y = 1.0 clips it.
     fig.get_layout_engine().set(rect=(0.0, 0.030, 1.0, 0.962))
 
     # ---------------------------------------------------------------- (a)
-    # the assumed HIM band first, so it sits behind the measurements
-    ax_a.fill_between(z, d["him_assumed_Pth_A"], d["him_assumed_Pth_B"],
-                      facecolor="none", edgecolor=HIM_BAND_COLOR, hatch="//",
-                      linewidth=0.0, alpha=0.30, zorder=1)
     for key, label in (("Ptot", "$P_\\mathrm{tot}$"),
                        ("Pth_neutral", "$P_\\mathrm{th}$, neutral")):
         col = PRESSURE_COLORS["Ptot" if key == "Ptot" else "Pth"]
@@ -98,10 +91,9 @@ def main():
     ax_a.set_ylabel("$P/k_\\mathrm{B}$  [K cm$^{-3}$]")
     lo, hi = robust_log_ylim(
         [d[f"{k}_mw_{s}"] for k in ("Ptot", "Pth_neutral")
-         for s in ("mean", "median", "p15", "p85")]
-        + [d["him_assumed_Pth_A"], d["him_assumed_Pth_B"]], z=z, z_range=Z_RANGE)
+         for s in ("mean", "median", "p15", "p85")], z=z, z_range=Z_RANGE)
     hi = max(hi, float(d["ref_P_tot_2p"][0]) * 1.15)
-    ax_a.set_ylim(lo, hi * 2.6)
+    ax_a.set_ylim(lo, hi * 1.8)   # two legend rows now, not three
     panel_label(ax_a, "a")
 
     handles = [
@@ -110,13 +102,11 @@ def main():
         Line2D([], [], color="0.35", linestyle="-", linewidth=1.6),
         Line2D([], [], color="0.35", linestyle=":", linewidth=1.4),
         Patch(facecolor="0.35", alpha=BAND_ALPHA, linewidth=0),
-        Patch(facecolor="none", edgecolor=HIM_BAND_COLOR, hatch="//", linewidth=0.0,
-              alpha=0.6),
         Line2D([], [], color=REFERENCE_COLOR, **REFERENCE_MARKER),
     ]
     labels = ["$P_\\mathrm{tot}$", "$P_\\mathrm{th}$, neutral",
               "mass-weighted mean", "median",
-              f"median {band}", "assumed HIM (HIM$_\\mathrm{A}$–HIM$_\\mathrm{B}$)",
+              f"median {band}",
               REFERENCE_LABEL]
     ax_a.legend(handles, labels, loc="upper center", bbox_to_anchor=(0.5, 0.995), ncols=3)
 

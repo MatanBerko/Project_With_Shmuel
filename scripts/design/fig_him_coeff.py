@@ -10,9 +10,10 @@ rather than a measurement. This figure shows what moves when C moves over
   (b) the mass-weighted median-of-ratios alpha profile for each C;
   (c) the same for the ratio-of-means alpha profile.
 
-Panel (a) also carries the number the choice of C is supposed to be
-protecting: the box-level fraction of the flagged cells that are really
-CNM or UNM, and the exact C at which the first such cell is caught.
+The number the choice of C is supposed to be protecting -- the fraction
+of the flagged cells that are really CNM or UNM, and the exact C at which
+the first such cell is caught -- is in results/him_coeff_sensitivity.txt,
+not on the figure.
 
 DESIGN script: reads ONLY cache/core/him_coeff_sensitivity.npz (written
 by scripts/compute/compute_him_coeff_sensitivity.py). No physics, no cube.
@@ -31,7 +32,6 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 from src.plotting.style import (  # noqa: E402
     ESTIMATOR_LABELS,
-    annotate,
     apply_paper_style,
     guide_line,
     panel_label,
@@ -90,22 +90,6 @@ def main():
     ax_a.set_ylim(0.0, 1.22)          # headroom for the legend row
     ax_a.set_yticks([0.0, 0.2, 0.4, 0.6, 0.8, 1.0])
     panel_label(ax_a, "a")
-
-    # The claim C = 0.5 is making, checked rather than repeated. It goes
-    # in the lower right, the one corner of this panel no curve reaches.
-    contam_vol = d["box_contam_dPdn__vol"]
-    contam_mw = d["box_contam_dPdn__mw"]
-    clean = [f"{C:g}" for i, C in enumerate(C_grid)
-             if contam_vol[i] == 0.0 and contam_mw[i] == 0.0]
-    dirty = [f"{100 * contam_vol[i]:.2f}% by volume ({100 * contam_mw[i]:.0f}% "
-             f"by mass) at $C = {C:g}$"
-             for i, C in enumerate(C_grid)
-             if not (contam_vol[i] == 0.0 and contam_mw[i] == 0.0)]
-    rows = ["CNM+UNM contamination of the flagged set (box, dP/dn scheme):",
-            "none at $C$ = " + ", ".join(clean) + ";  " + ";  ".join(dirty),
-            f"the first CNM/UNM cell is caught at "
-            f"$C = {float(d['C_crit_dPdn'][0]):.3f}$"]
-    annotate(ax_a, "\n".join(rows), loc="lower right", pad=0.02, size=6.2)
 
     # ---- (b), (c) the two alpha estimators --------------------------------
     for ax, letter, key in ((ax_b, "b", "alpha_median_of_ratios"),
