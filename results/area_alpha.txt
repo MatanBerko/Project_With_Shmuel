@@ -1,0 +1,147 @@
+PROVISIONAL: f98 cube, n_H = 1653 A'; final cube pending
+P_th = 1.1 n_H k T (physical)
+Step 2d: AREA-AVERAGED P_tot and alpha, and the sub-area scale test
+====================================================================================================
+
+P_tot is a macroscopic pressure: vertical balance between pressure and weight holds
+only on average over a large area (Ostriker & Kim 2022 horizontally average both the
+weight and the midplane pressures). Everything else in this project reduces alpha over
+CELLS; here the area average is taken FIRST and the ratio SECOND.
+
+  <P_tot>_area(z)    plain mean of the per-column P_tot over ALL cells in the plane,
+                     HIM-flagged cells INCLUDED (their observed mass is in the
+                     hydrostatic weight, so there is nothing to exclude).
+  <P_th>_neutral(z)  mean of p_th_phys over NON-HIM cells, volume-weighted (plain
+                     mean) and mass-weighted (weights n_H).
+  alpha_area(z)      <P_tot>_area / <P_th>_neutral, both weightings.
+
+RAW only. Footprint |x|,|y| <= 500 pc, box |z| <= 400 pc, 4 pc bins, slabs +-30 pc.
+Nothing here recomputes P_tot, alpha, p_th_phys or the HIM flag -- all are read from
+cache/core/alpha_core.zarr. g(z) is the only quantity re-derived, through the same
+src.physics.gravity call the build stage makes, because the cache does not store it.
+
+----------------------------------------------------------------------------------------------------
+1. VALIDATION of the area-average identity
+----------------------------------------------------------------------------------------------------
+g(z) is identical for every (x,y) column under both settings and P_tot is linear in
+rho, so the plane mean of the per-column P_tot must equal the hydrostatic integral of
+the footprint-mean density:  <P_tot>_area(z) = int_z^top <rho>_area g dz'.
+The two sides are computed by completely different routes (a mean over 251001
+independently integrated columns vs a single integral of one 1-D profile).
+
+  self-gravity    max |rel diff| full column   max |rel diff| in box
+--------------------------------------------------------------------
+          mean                     5.288e-10               2.420e-10
+           off                     5.727e-10               1.915e-10
+--------------------------------------------------------------------
+Both are at the floor set by the cache storing P_tot as float32 (the threshold that
+would have raised is 1e-06). The identity holds exactly; what is
+being measured here is round-off.
+
+One detail worth recording, because it is the sort that quietly turns a 1e-8 check into
+a 1e-6 one: g(z) must be re-derived against the SOURCE cube's float64 z grid, which is
+what build_stage integrates against, not against the float32 copy of it stored in
+alpha_core.zarr. The two agree to 2e-13 pc, but the float64 grid is antisymmetric only
+to that same 2e-13, which shifts the searchsorted lookup inside the enclosed-column
+integral by one index at 42 of the 751 planes and moves g_gas enough to bias P_tot by
+~7e-6 everywhere. Using the cached copy raises the 'mean' number above to 7.0e-06 --
+still small, still wrong, and caught by the threshold.
+
+----------------------------------------------------------------------------------------------------
+2. AREA AVERAGES AND alpha_area AT THE THREE SLABS
+----------------------------------------------------------------------------------------------------
+The last column is the EXISTING cell-based mass-weighted ratio of means, read from
+results/numbers_table.csv -- the same quantity this project has been reporting.
+
+     z    sg  <P_tot>_area  <P_th> vol   <P_th> mw  a_area vol   a_area mw  cell mw RoM  cell mw med
+  [pc]           [K cm^-3]   [K cm^-3]   [K cm^-3]                                                  
+----------------------------------------------------------------------------------------------------
+     0  mean        7800.3      3356.5      3084.0       2.324       2.529        3.562        3.693
+     0   off        6250.2      3356.5      3084.0       1.862       2.027        2.763        2.898
+
+   150  mean        4849.8      2002.6      2133.7       2.422       2.273        6.151        3.962
+   150   off        4080.3      2002.6      2133.7       2.038       1.912        4.936        3.293
+
+   300  mean        3284.2      1631.0      2345.3       2.014       1.400        2.156        2.137
+   300   off        2828.3      1631.0      2345.3       1.734       1.206        1.824        1.819
+
+----------------------------------------------------------------------------------------------------
+Why alpha_area (vol) sits BELOW the cell-based mass-weighted numbers: the numerator is
+an average over every cell while the cell-based mass-weighted estimators weight by n_H,
+which emphasises the dense midplane clumps where alpha is largest, and the ratio of
+means additionally weights each cell by its own P_th.
+
+----------------------------------------------------------------------------------------------------
+3. SUB-AREA SCALE TEST -- alpha_area inside N x N patches
+----------------------------------------------------------------------------------------------------
+The footprint is split into N x N equal-width square patches and the SAME three
+quantities are formed from each patch's own cells. g(z) is NOT recomputed per patch: it
+is a property of the whole disc, and changing it per patch would be a different
+physical model rather than a scale test of this one. Reported: median and
+15-85 percentiles ACROSS patches (nearest-rank, equal weight per patch).
+
+alpha_area, volume-weighted P_th
+     z    sg  full 1000 pc                N=2 (500 pc)                N=4 (250 pc)                N=8 (125 pc)
+--------------------------------------------------------------------------------------------------------------
+     0  mean         2.324       2.302  [ 1.269,  3.288]       2.478  [ 1.323,  3.729]       2.346  [ 1.584,  4.096]
+     0   off         1.862       1.841  [ 1.032,  2.594]       1.964  [ 1.086,  2.928]       1.919  [ 1.309,  3.357]
+
+   150  mean         2.422       2.044  [ 1.547,  3.252]       2.728  [ 1.353,  3.558]       2.939  [ 1.746,  4.063]
+   150   off         2.038       1.726  [ 1.301,  2.766]       2.277  [ 1.145,  3.061]       2.491  [ 1.482,  3.393]
+
+   300  mean         2.014       2.052  [ 1.380,  2.669]       2.305  [ 1.458,  4.315]       2.677  [ 1.458,  4.286]
+   300   off         1.734       1.774  [ 1.188,  2.292]       1.960  [ 1.254,  3.735]       2.305  [ 1.246,  3.666]
+
+
+alpha_area, mass-weighted P_th
+     z    sg  full 1000 pc                N=2 (500 pc)                N=4 (250 pc)                N=8 (125 pc)
+--------------------------------------------------------------------------------------------------------------
+     0  mean         2.529       1.842  [ 1.141,  3.877]       2.184  [ 1.262,  3.925]       2.383  [ 1.356,  4.480]
+     0   off         2.027       1.493  [ 0.928,  3.058]       1.786  [ 0.996,  3.117]       1.872  [ 1.069,  3.493]
+
+   150  mean         2.273       1.609  [ 1.093,  3.231]       2.166  [ 1.007,  3.218]       2.388  [ 1.321,  4.026]
+   150   off         1.912       1.359  [ 0.919,  2.687]       1.820  [ 0.852,  2.735]       2.048  [ 1.124,  3.336]
+
+   300  mean         1.400       1.421  [ 0.988,  1.870]       1.755  [ 1.092,  3.954]       2.463  [ 1.140,  4.152]
+   300   off         1.206       1.228  [ 0.850,  1.605]       1.515  [ 0.939,  3.422]       2.132  [ 0.986,  3.574]
+
+
+----------------------------------------------------------------------------------------------------
+4. PROFILE (every 10th 4 pc bin; the full 200-bin arrays are in cache/core/area_alpha.npz)
+----------------------------------------------------------------------------------------------------
+      z  <P_tot>_area  <P_th> vol   <P_th> mw  a_area vol   a_area mw  cell mw RoM  neutral frac
+   [pc]     [K cm^-3]   [K cm^-3]   [K cm^-3]                                                   
+------------------------------------------------------------------------------------------------
+   -398        1994.6      1529.6      2372.6       1.304       0.841        1.007        0.0312
+   -358        2271.2      1702.6      2371.5       1.334       0.958        2.135        0.0935
+   -318        2688.2      1831.8      2458.8       1.468       1.093        3.575        0.1682
+   -278        3205.0      1975.9      2582.3       1.622       1.241        3.017        0.2320
+   -238        3895.2      2069.4      2540.8       1.882       1.533        3.253        0.2973
+   -198        4634.5      2073.8      2658.7       2.235       1.743        3.583        0.3286
+   -158        5411.4      2351.1      2601.4       2.302       2.080        4.243        0.4118
+   -118        6399.4      2499.3      2608.3       2.560       2.453        6.419        0.4111
+    -78        7333.0      2800.9      2827.1       2.618       2.594        6.242        0.4909
+    -38        8212.4      3310.6      3308.0       2.481       2.483        4.083        0.5771
+      2        7244.9      3376.2      3132.5       2.146       2.313        3.399        0.5329
+     42        6773.7      3140.2      3017.7       2.157       2.245        3.955        0.5042
+     82        5878.7      2578.5      2423.9       2.280       2.425        5.048        0.4150
+    122        5216.1      2260.8      2235.4       2.307       2.333        6.361        0.3013
+    162        4718.8      1854.6      2056.8       2.544       2.294        5.775        0.2399
+    202        4261.5      1812.0      2306.6       2.352       1.848        3.229        0.2314
+    242        3828.4      1893.3      2229.4       2.022       1.717        3.478        0.1811
+    282        3434.0      1730.3      2525.0       1.985       1.360        2.098        0.1452
+    322        3123.1      1516.5      2213.9       2.059       1.411        2.084        0.1111
+    362        2815.4      1292.7      1857.2       2.178       1.516        2.600        0.1257
+------------------------------------------------------------------------------------------------
+  (self-gravity = mean, the fiducial setting; 'neutral frac' is the fraction of the
+   bin's cells that are NOT HIM-flagged, i.e. the population behind <P_th>_neutral)
+
+----------------------------------------------------------------------------------------------------
+5. TIGRESS R8 midplane reference (Ostriker & Kim 2022, Table 2; 2p gas, T < 2e4 K)
+----------------------------------------------------------------------------------------------------
+  P_tot_2p   1.91e+04 K cm^-3    P_th_2p       5020 K cm^-3    alpha_2p     3.8
+  R8 has Sigma_gas = 9.87 Msun/pc^2, about twice this cube's 4.81, and
+  absolute pressures scale roughly as Sigma_gas^2 in a self-regulated disc -- so the
+  pressures are NOT expected to match. alpha is a ratio and CAN be compared.
+
+(runtime 41.5s)
