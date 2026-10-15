@@ -16,6 +16,7 @@ dependencies:
   - zarr
   - dask
   - pyyaml
+  - pytest
   - pip
   - pip:
       - dustmaps
