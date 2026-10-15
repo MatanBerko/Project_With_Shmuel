@@ -1,7 +1,8 @@
 """
 Phase A regression: compare the new src.physics core against the OLD
-reference scripts' own cached output (read-only .npz caches under
-research_10.0/, never rerun or reimplemented from research_10.0 itself),
+reference scripts' own cached output (read-only .npz caches originally
+produced under research_10.0/ and now committed as copies under
+tests/reference_data/, never rerun or reimplemented from research_10.0),
 for P_th, P_tot, alpha, sigma_nt, Mach across RAW/HIM_A/HIM_B, pinned to
 the pre-Step-1d "nT" thermal-pressure convention (see apply_variant call
 below) since that is what the old caches were built with.
@@ -16,11 +17,8 @@ drift):
     planes, z grid confirmed to match the old caches' zpos exactly
   - NEUTRAL-only (HIM-excluded) statistics, matching the old scripts
 
-Old caches read (read-only, under research_10.0/, resolved via the
-research_10.0 path this session already has on disk -- never hardcoded
-into any COMMITTED script; this validation script is itself not committed
-data, but note this reads outside the repo, matching the task's own
-"old .npz caches read-only" instruction):
+Old caches read (read-only, under tests/reference_data/, which mirrors
+the research_10.0/ layout the caches were originally written to):
   fig4_vertical_profiles/data/profiles_{RAW,HIM_A,HIM_B}.npz
   fig4b_velocity_dispertion_Mach_number/data/sigma_mach_{RAW,HIM_A,HIM_B}.npz
 
@@ -42,10 +40,11 @@ from src.physics.loading import cylinder_mask, load_xy_subset_coords, open_zarr
 from src.physics.stats import mass_weighted_stats, volume_weighted_stats
 from src.conventions import M_H, MU, R_MAX_PC, THERMAL_PRESSURE_CONVENTION_NT
 
-# OLD cache location -- research_10.0, read only, resolved by literal
-# relative-to-repo-root path (this script itself lives outside pipeline/,
-# is not part of the committed pipeline, and never writes there).
-OLD_DATA_ROOT = Path(__file__).resolve().parent.parent.parent.parent / "research_10.0"
+# OLD cache location -- byte-for-byte copies of the research_10.0 caches,
+# committed under tests/reference_data/ with the same sub-directory layout,
+# so this check no longer depends on research_10.0 existing next to the
+# repo. Read only; this script never writes there.
+OLD_DATA_ROOT = Path(__file__).resolve().parent.parent.parent / "tests" / "reference_data"
 OLD_PROFILES_DIR = OLD_DATA_ROOT / "fig4_vertical_profiles" / "data"
 OLD_SIGMA_MACH_DIR = OLD_DATA_ROOT / "fig4b_velocity_dispertion_Mach_number" / "data"
 
