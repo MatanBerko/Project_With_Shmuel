@@ -1,6 +1,7 @@
 """
-fig_area_alpha -- the area-averaged pressures and alpha, the PI's
-physical definition, with the sub-area scale test as a band.
+fig_area_alpha -- the area-averaged pressures and the two alphas built on
+<P_tot>_area: the PI's per-cell alpha_cell (Step 2e) as the main curve,
+and the ratio of area averages alpha_area (Step 2d) for comparison.
 
 Reads ONLY cache/core/area_alpha.npz (written by
 scripts/compute/compute_area_alpha.py, which also carries the TIGRESS R8
@@ -9,28 +10,26 @@ physics here.
 
 Two stacked panels on a shared signed-z axis:
   (a) <P_tot>_area -- the plain horizontal mean of the per-column P_tot
-      over every cell -- and <P_th>_neutral, the mean thermal pressure of
-      the non-HIM cells, volume- and mass-weighted. P_tot is shown for
-      both self-gravity settings because it is the only curve in the
-      panel that depends on the setting at all; <P_th>_neutral does not.
-  (b) alpha_area = <P_tot>_area / <P_th>_neutral for both weightings,
-      with the spread across 250 pc sub-patches as a light band, and the
-      project's existing CELL-based mass-weighted ratio of means as a
-      thin dotted line so the two definitions can be read against each
-      other directly.
+      over every cell -- for both self-gravity settings, and three means
+      of the non-HIM thermal pressure: arithmetic volume- and
+      mass-weighted, and the volume-weighted HARMONIC mean P_th,harm,
+      which is the one alpha_cell's mean is built on.
+  (b) alpha_cell = <P_tot>_area / p_th per non-HIM cell, volume-weighted:
+      median with its 15-85 percentile band (main curve), and the mean
+      <alpha_cell> = <P_tot>_area / P_th,harm dashed. alpha_area =
+      <P_tot>_area / <P_th> (ratio of means) is the thin grey line.
+      Harmonic <= arithmetic, so the dashed line can never dip below it.
 
-Encoding: COLOUR says which QUANTITY, LINESTYLE says which WEIGHTING
-(solid = volume-weighted, dashed = mass-weighted). This figure cannot use
+Encoding: COLOUR says which QUANTITY. In (a) LINESTYLE says which MEAN
+(solid = volume-weighted arithmetic, dashed = mass-weighted arithmetic,
+dash-dot = volume-weighted harmonic); in (b) it says which STATISTIC
+(solid = median, dashed = mean). This figure cannot use
 style.WEIGHT_COLORS, the project's usual volume/mass pair, because its
 mass-weighted colour is byte-identical to COLOR_PTOT -- and panel (a)
-draws P_tot and a mass-weighted P_th in the same axes, so those two
-curves would come out the same red. One rule, learned once, covers both
-panels.
+draws P_tot and a mass-weighted P_th in the same axes.
 
-The point of the figure is that (b)'s thick lines are flatter and lower
-than the dotted one: averaging over the area first and taking the ratio
-second is a different question from reducing per-cell ratios, and in this
-cube the two answers differ by a factor of ~1.5-2.5.
+The patch scale test (Step 2d) is no longer drawn here; patches will be
+their own analysis.
 
 R8's midplane values are open markers at z = 0. R8 has about twice the
 local gas surface density, so the absolute pressures in (a) are not
@@ -79,16 +78,16 @@ Z_TICKS = (-400, -200, 0, 200, 400)
 SG_FIDUCIAL = "mean"
 SG_OTHER = "off"
 
-# The patch size whose spread is drawn as the band. 250 pc is the middle
-# of the three tested scales -- small enough that the spread is a real
-# measurement rather than 4 numbers, large enough that most patches still
-# hold neutral gas at every height.
-BAND_N = 4
-BAND_ALPHA_FILL = 0.15
+BAND_ALPHA_FILL = 0.18
 
 # colour = quantity, linestyle = weighting (see the module docstring)
 VOL_LS = "-"
 MW_LS = (0, (4.5, 2.0))
+HARM_LS = (0, (5.0, 1.6, 1.2, 1.6))
+MEAN_LS = (0, (4.5, 2.0))
+AREA_COLOR = "0.30"
+A_HEADROOM = 1.8
+B_HEADROOM = 1.30
 SG_OFF_LS = (0, (1.2, 1.6))
 
 
@@ -97,7 +96,6 @@ def main():
     d = np.load(CACHE, allow_pickle=False)
     z = d["z_pc"]
     pct_lo, pct_hi = d["percentile_levels"]
-    side = float(d["patch_sides_pc"][list(d["patch_ns"]).index(BAND_N)])
 
     fig, (ax_a, ax_b) = plt.subplots(2, 1, figsize=(7.0, 6.1), sharex=True)
     # rect is (left, bottom, WIDTH, HEIGHT), NOT (x0, y0, x1, y1): the
@@ -110,6 +108,7 @@ def main():
     ptot_off = d[f"{SG_OTHER}__Ptot_area"]
     pth_vol = d[f"{SG_FIDUCIAL}__Pth_neutral_vol"]
     pth_mw = d[f"{SG_FIDUCIAL}__Pth_neutral_mw"]
+    pth_harm = d[f"{SG_FIDUCIAL}__Pth_harm_vol"]
     c_ptot = PRESSURE_COLORS["Ptot"]
     c_pth = PRESSURE_COLORS["Pth"]
 
@@ -117,83 +116,88 @@ def main():
     ax_a.plot(z, ptot_off, color=c_ptot, linestyle=SG_OFF_LS, linewidth=1.1, zorder=4)
     ax_a.plot(z, pth_vol, color=c_pth, linestyle=VOL_LS, linewidth=1.5, zorder=5)
     ax_a.plot(z, pth_mw, color=c_pth, linestyle=MW_LS, linewidth=1.5, zorder=5)
+    ax_a.plot(z, pth_harm, color=c_pth, linestyle=HARM_LS, linewidth=1.5, zorder=5)
     for q in ("P_tot_2p", "P_th_2p"):
         ax_a.plot([0.0], [float(d[f"ref_{q}"][0])], color=REFERENCE_COLOR,
                   **REFERENCE_MARKER)
 
     ax_a.set_yscale("log")
     ax_a.set_ylabel(r"$\langle P\rangle/k_\mathrm{B}$  [K cm$^{-3}$]")
-    lo, hi = robust_log_ylim([ptot_fid, ptot_off, pth_vol, pth_mw],
+    lo, hi = robust_log_ylim([ptot_fid, ptot_off, pth_vol, pth_mw, pth_harm],
                              z=z, z_range=Z_RANGE)
     hi = max(hi, float(d["ref_P_tot_2p"][0]))
-    ax_a.set_ylim(lo, hi * 1.8)   # headroom for the two legend rows
+    ax_a.set_ylim(lo, hi * A_HEADROOM)   # headroom for the two legend rows
     # The panel spans ~1.5 decades, where the default log locator offers
     # exactly one labelled tick (10^4). Label the half-decades by hand.
-    ticks = [t for t in (1e3, 2e3, 5e3, 1e4, 2e4) if lo <= t <= hi * 1.8]
+    ticks = [t for t in (200, 500, 1e3, 2e3, 5e3, 1e4, 2e4) if lo <= t <= hi * A_HEADROOM]
     ax_a.set_yticks(ticks)
-    ax_a.set_yticklabels([f"{t:,.0f}".replace(",", " ") for t in ticks])
+    ax_a.set_yticklabels([f"{t:,.0f}".replace(",", " ") for t in ticks])
     ax_a.yaxis.set_minor_formatter(mticker.NullFormatter())
     panel_label(ax_a, "a", loc="lower left")
 
+    # ncols=3 fills column-major: P_tot pair | arithmetic P_th pair | harm + R8
     handles_a = [
         Line2D([], [], color=c_ptot, linestyle=VOL_LS, linewidth=2.0),
         Line2D([], [], color=c_ptot, linestyle=SG_OFF_LS, linewidth=1.1),
         Line2D([], [], color=c_pth, linestyle=VOL_LS, linewidth=1.5),
         Line2D([], [], color=c_pth, linestyle=MW_LS, linewidth=1.5),
+        Line2D([], [], color=c_pth, linestyle=HARM_LS, linewidth=1.5),
         Line2D([], [], color=REFERENCE_COLOR, **REFERENCE_MARKER),
     ]
     labels_a = [
         r"$\langle P_\mathrm{tot}\rangle_\mathrm{area}$, self-gravity on",
         r"$\langle P_\mathrm{tot}\rangle_\mathrm{area}$, self-gravity off",
-        r"$\langle P_\mathrm{th}\rangle_\mathrm{neutral}$, vol-weighted",
-        r"$\langle P_\mathrm{th}\rangle_\mathrm{neutral}$, mass-weighted",
+        r"$\langle P_\mathrm{th}\rangle$, vol-weighted",
+        r"$\langle P_\mathrm{th}\rangle$, mass-weighted",
+        r"$P_\mathrm{th,harm}$, vol-weighted",
         REFERENCE_LABEL,
     ]
+    # anchored left of centre so the right column clears the PROVISIONAL tag
     ax_a.legend(handles_a, labels_a, loc="upper center",
-                bbox_to_anchor=(0.5, 1.00), ncols=3, columnspacing=1.4)
+                bbox_to_anchor=(0.46, 1.00), ncols=3, columnspacing=1.0)
 
     # ------------------------------------------------------------------ (b)
-    a_vol = d[f"{SG_FIDUCIAL}__alpha_area_vol"]
-    a_mw = d[f"{SG_FIDUCIAL}__alpha_area_mw"]
-    band_lo = d[f"{SG_FIDUCIAL}__patch{BAND_N}__alpha_area_vol_p_lo"]
-    band_hi = d[f"{SG_FIDUCIAL}__patch{BAND_N}__alpha_area_vol_p_hi"]
-    cell_rom = d[f"{SG_FIDUCIAL}__cellbased_alpha_ratio_of_means_mw"]
+    a_med = d[f"{SG_FIDUCIAL}__alpha_cell_median_vol"]
+    a_lo = d[f"{SG_FIDUCIAL}__alpha_cell_p_lo_vol"]
+    a_hi = d[f"{SG_FIDUCIAL}__alpha_cell_p_hi_vol"]
+    a_mean = d[f"{SG_FIDUCIAL}__alpha_cell_mean_vol"]
+    a_area = d[f"{SG_FIDUCIAL}__alpha_area_vol"]
+    alpha_ref = float(d["ref_alpha_2p"][0])
 
-    ax_b.fill_between(z, band_lo, band_hi, color=COLOR_ALPHA,
+    ax_b.fill_between(z, a_lo, a_hi, color=COLOR_ALPHA,
                       alpha=BAND_ALPHA_FILL, linewidth=0, zorder=1)
     guide_line(ax_b, 1.0, label=r"$\alpha=1$", label_x=0.42, label_loc="below")
-    ax_b.plot(z, cell_rom, color="0.35", linestyle=":", linewidth=1.1, zorder=3)
-    ax_b.plot(z, a_vol, color=COLOR_ALPHA, linestyle=VOL_LS, linewidth=2.0, zorder=5)
-    ax_b.plot(z, a_mw, color=COLOR_ALPHA, linestyle=MW_LS, linewidth=2.0, zorder=5)
-    ax_b.plot([0.0], [float(d["ref_alpha_2p"][0])], color=REFERENCE_COLOR,
-              **REFERENCE_MARKER)
+    ax_b.plot(z, a_area, color=AREA_COLOR, linestyle=VOL_LS, linewidth=0.9, zorder=3)
+    ax_b.plot(z, a_mean, color=COLOR_ALPHA, linestyle=MEAN_LS, linewidth=1.5, zorder=4)
+    ax_b.plot(z, a_med, color=COLOR_ALPHA, linestyle=VOL_LS, linewidth=2.0, zorder=5)
+    ax_b.plot([0.0], [alpha_ref], color=REFERENCE_COLOR, **REFERENCE_MARKER)
 
-    ax_b.set_ylabel(r"$\alpha_\mathrm{area}$")
+    ax_b.set_ylabel(r"$\alpha$")
     ax_b.set_xlabel(r"$z$  [pc]")
-    # Linear, not log: how FLAT the thick lines are is the whole point,
-    # and a log axis would flatten them further. The top is set by the
-    # cell-based line, which runs well above everything else.
-    top = float(np.nanmax(np.concatenate(
-        [cell_rom, band_hi, [float(d["ref_alpha_2p"][0])]])))
-    ax_b.set_ylim(0.0, top * 1.30)   # headroom for the two legend rows
+    # Linear: the band's upper edge sets the top.
+    top = float(np.nanmax(np.concatenate([a_hi, a_mean, [alpha_ref]])))
+    ax_b.set_ylim(0.0, top * B_HEADROOM)   # headroom for the legend rows
     panel_label(ax_b, "b", loc="lower left")
 
     handles_b = [
         Line2D([], [], color=COLOR_ALPHA, linestyle=VOL_LS, linewidth=2.0),
-        Line2D([], [], color=COLOR_ALPHA, linestyle=MW_LS, linewidth=2.0),
         Patch(facecolor=COLOR_ALPHA, alpha=BAND_ALPHA_FILL, linewidth=0),
-        Line2D([], [], color="0.35", linestyle=":", linewidth=1.1),
+        Line2D([], [], color=COLOR_ALPHA, linestyle=MEAN_LS, linewidth=1.5),
+        Line2D([], [], color=AREA_COLOR, linestyle=VOL_LS, linewidth=0.9),
     ]
     labels_b = [
-        r"$\alpha_\mathrm{area}$, vol-weighted $\langle P_\mathrm{th}\rangle$",
-        r"$\alpha_\mathrm{area}$, mass-weighted $\langle P_\mathrm{th}\rangle$",
-        f"{side:.0f} pc patches, {pct_lo:g}-{pct_hi:g} pct (vol)",
-        "cell-based mass-weighted ratio of means",
+        r"median $\alpha_\mathrm{cell}$",
+        f"{pct_lo:g}-{pct_hi:g} pct of " + r"$\alpha_\mathrm{cell}$",
+        r"$\langle\alpha_\mathrm{cell}\rangle = \langle P_\mathrm{tot}\rangle_\mathrm{area}"
+        r"/P_\mathrm{th,harm}$",
+        r"$\alpha_\mathrm{area} = \langle P_\mathrm{tot}\rangle_\mathrm{area}"
+        r"/\langle P_\mathrm{th}\rangle$",
     ]
     ax_b.legend(handles_b, labels_b, loc="upper center",
                 bbox_to_anchor=(0.5, 1.00), ncols=2, columnspacing=1.4)
 
-    annotate(ax_b, "self-gravity on (fiducial)", loc="lower right", size=6.5)
+    annotate(ax_b, "self-gravity on (fiducial), volume-weighted",
+             loc="lower right", size=6.5)
 
     # ---------------------------------------------------------------- axes
     ax_b.set_xlim(*Z_RANGE)
@@ -203,12 +207,12 @@ def main():
         0.5, 0.032,
         r"$\langle P_\mathrm{tot}\rangle_\mathrm{area}$: equal-weight mean over ALL cells "
         r"in the plane, HIM-flagged included.    "
-        r"$\langle P_\mathrm{th}\rangle_\mathrm{neutral}$: non-HIM cells only.",
+        r"$P_\mathrm{th}$ statistics: non-HIM cells only.",
         ha="center", va="bottom", fontsize=6.5, color="0.25")
     fig.text(
         0.5, 0.006,
-        "The area average is taken first and the ratio second.    "
-        "Colour = quantity, linestyle = weighting.",
+        r"$\alpha_\mathrm{cell} = \langle P_\mathrm{tot}\rangle_\mathrm{area}/p_\mathrm{th}$ "
+        "per non-HIM cell, with one area-averaged numerator per 4 pc bin.",
         ha="center", va="bottom", fontsize=6.5, color="0.25")
     provisional_label(fig, loc="upper right")
 

@@ -1,6 +1,7 @@
 PROVISIONAL: f98 cube, n_H = 1653 A'; final cube pending
 P_th = 1.1 n_H k T (physical)
 Step 2d: AREA-AVERAGED P_tot and alpha, and the sub-area scale test
+Step 2e: the PER-CELL alpha against <P_tot>_area (section 6)
 ====================================================================================================
 
 P_tot is a macroscopic pressure: vertical balance between pressure and weight holds
@@ -144,4 +145,75 @@ alpha_area, mass-weighted P_th
   absolute pressures scale roughly as Sigma_gas^2 in a self-regulated disc -- so the
   pressures are NOT expected to match. alpha is a ratio and CAN be compared.
 
-(runtime 41.5s)
+----------------------------------------------------------------------------------------------------
+6. PER-CELL alpha AGAINST THE AREA-AVERAGED P_tot (Step 2e)
+----------------------------------------------------------------------------------------------------
+  alpha_cell(x,y,z) = <P_tot>_area / p_th_phys(x,y,z)   for every NON-HIM cell,
+  with <P_tot>_area the group's own number from section 2 / 4 (one per 4 pc bin or
+  60 pc slab). Over each group's non-HIM cells, w = 1 (vol) and w = n_H (mw):
+    P_th,harm      = [sum(w/p_th)/sum(w)]^-1           (harmonic mean)
+    <alpha_cell>   = <P_tot>_area / P_th,harm          (= <P_tot>_area * <1/p_th>)
+    median, p15, p85 of alpha_cell   (nearest-rank, as everywhere else)
+  alpha_area = <P_tot>_area / <P_th> (arithmetic) is unchanged and shown alongside.
+  Since harmonic <= arithmetic, <alpha_cell> >= alpha_area always; they are equal
+  only if p_th is uniform over the group.
+
+VOLUME-weighted (w = 1)
+     z    sg  <P_tot>_area  <P_th> arith   P_th,harm   a_area  <a_cell>  med a_cell        [p15, p85]
+  [pc]           [K cm^-3]     [K cm^-3]   [K cm^-3]
+-----------------------------------------------------------------------------------------------------
+     0  mean        7800.3        3356.5      2370.5    2.324     3.291       2.722    [1.454,  5.504]
+     0   off        6250.2        3356.5      2370.5    1.862     2.637       2.181    [1.165,  4.410]
+
+   150  mean        4849.8        2002.6      1489.5    2.422     3.256       3.025    [1.444,  5.100]
+   150   off        4080.3        2002.6      1489.5    2.038     2.739       2.545    [1.215,  4.291]
+
+   300  mean        3284.2        1631.0      1221.0    2.014     2.690       2.646    [1.223,  4.122]
+   300   off        2828.3        1631.0      1221.0    1.734     2.316       2.279    [1.053,  3.550]
+
+
+MASS-weighted (w = n_H)
+     z    sg  <P_tot>_area  <P_th> arith   P_th,harm   a_area  <a_cell>  med a_cell        [p15, p85]
+  [pc]           [K cm^-3]     [K cm^-3]   [K cm^-3]
+-----------------------------------------------------------------------------------------------------
+     0  mean        7800.3        3084.0      2056.2    2.529     3.794       3.277    [1.498,  6.557]
+     0   off        6250.2        3084.0      2056.2    2.027     3.040       2.626    [1.200,  5.254]
+
+   150  mean        4849.8        2133.7      1523.6    2.273     3.183       3.121    [1.280,  5.059]
+   150   off        4080.3        2133.7      1523.6    1.912     2.678       2.626    [1.077,  4.256]
+
+   300  mean        3284.2        2345.3      1711.3    1.400     1.919       1.635    [0.827,  3.148]
+   300   off        2828.3        2345.3      1711.3    1.206     1.653       1.408    [0.713,  2.711]
+
+
+In-script checks (the script raises if any fails):
+  (i)  median(alpha_cell) = <P_tot>_area / median(p_th), vol-weighted, every bin and slab.
+       The nearest-rank median with w = 1 sits at sorted index ceil(n/2)-1; reversing
+       the order through 1/p_th maps it onto p_th's index n-ceil(n/2), which is the
+       p_th median itself for odd n and the next order statistic up for even n. The
+       check requires agreement at that mirrored rank to 1e-12:
+         mean: max |rel diff| at the mirrored rank 0.00e+00; against p_th's own median 1.67e-04  (203 groups)
+          off: max |rel diff| at the mirrored rank 0.00e+00; against p_th's own median 1.67e-04  (203 groups)
+       (the second number is the one-order-statistic gap for even n).
+  (ii) <alpha_cell> >= alpha_area, both weightings, every bin and slab; and
+       <P_tot>_area/P_th,harm equals the directly formed mean of alpha_cell to 1e-10:
+         mean vol: min <alpha_cell>/alpha_area = 1.2248; mean identity 3.97e-16  (203 groups)
+         mean  mw: min <alpha_cell>/alpha_area = 1.2721; mean identity 4.32e-16  (203 groups)
+          off vol: min <alpha_cell>/alpha_area = 1.2248; mean identity 3.79e-16  (203 groups)
+          off  mw: min <alpha_cell>/alpha_area = 1.2721; mean identity 3.62e-16  (203 groups)
+
+Diagnostic: <P_tot>_area per PLANE instead of per group. Within a 4 pc bin (2 planes)
+the two definitions coincide to the plane-to-plane change in <P_tot>_area; across a
+60 pc slab <P_tot>_area itself changes, so the per-plane version is a different
+(z-mixed) statistic. Self-gravity = mean, volume-weighted:
+     z   med (group P)   med (plane P)  mean (group P)  mean (plane P)
+     0           2.722           2.727           3.291           3.288
+   150           3.025           3.033           3.256           3.257
+   300           2.646           2.650           2.690           2.698
+  4 pc bins: max |rel diff| of the median between the two = 7.34e-04
+
+Why <alpha_cell> sits above alpha_area: the mean of 1/p_th is dominated by the
+low-pressure neutral cells, so the harmonic mean P_th,harm falls below the
+arithmetic <P_th>, by an amount set by the spread of p_th within the group.
+
+(runtime 46.3s)

@@ -79,6 +79,25 @@ done through the same src.physics.gravity call the build stage made,
 from the same cached n_model, so it is a re-derivation rather than a
 second implementation.
 
+Step 2e: the per-cell alpha
+---------------------------
+The PI's per-cell definition sits next to alpha_area:
+
+  alpha_cell(x,y,z)    <P_tot>_area / p_th_phys(x,y,z) for every NON-HIM
+                       cell, with <P_tot>_area the group's own number (one
+                       per 4 pc bin or 60 pc slab, the same one alpha_area
+                       uses).
+  P_th,harm            [sum(w/p_th)/sum(w)]^-1, the harmonic mean.
+  <alpha_cell>         <P_tot>_area / P_th,harm.
+  median, 15/85 pct    of alpha_cell, nearest-rank like everywhere else.
+
+all for w = 1 and w = n_H. Because the numerator is constant over a
+group, harmonic <= arithmetic gives <alpha_cell> >= alpha_area, and the
+rank-based median of alpha_cell is <P_tot>_area over the (mirrored-rank)
+median of p_th. Both are checked on the real cells and the script raises
+if either fails (check_cell_alpha). A per-PLANE <P_tot>_area variant is
+reported as a diagnostic only.
+
 Variant RAW only, both self-gravity settings (mean = fiducial, off).
 """
 
@@ -288,6 +307,145 @@ def across_patch_spread(values, scheme=PERCENTILE_SCHEME_DEFAULT):
     v = np.asarray(values, dtype=float).ravel()
     st = weighted_stats(v, np.ones_like(v), scheme)
     return st.median, st.p_lo, st.p_hi, st.n
+
+
+# ---------------------------------------------------------------------------
+# Step 2e: the per-cell alpha against the area-averaged P_tot
+# ---------------------------------------------------------------------------
+# alpha_cell = <P_tot>_area / p_th_phys for every non-HIM cell of a group,
+# with <P_tot>_area the group's own (one number per bin or slab, as
+# reported above). Because the numerator is a constant over the group,
+# every statistic of alpha_cell is a statistic of 1/p_th scaled by it:
+#   <alpha_cell>      = <P_tot>_area * <1/p_th>_w = <P_tot>_area / P_th,harm
+#   median(alpha_cell) = <P_tot>_area / median(p_th)   (rank-based: 1/x is
+#                        monotone decreasing, so ranks reverse)
+# Both are verified on the real cells in check_cell_alpha() rather than
+# used as shortcuts: alpha_cell is formed explicitly and reduced with the
+# project's own weighted_stats().
+CELL_ALPHA_KEYS = ("Pth_harm", "Pth_median", "alpha_cell_mean",
+                   "alpha_cell_mean_direct", "alpha_cell_median",
+                   "alpha_cell_p_lo", "alpha_cell_p_hi", "n_cells_used")
+
+# Required agreement between <P_tot>_area * <1/p_th> and the direct weighted
+# mean of the formed alpha_cell array. Pure float64 round-off over <= 1e7
+# terms; a real discrepancy would be O(1).
+CELL_ALPHA_MEAN_RTOL = 1e-10
+# Required agreement between median(alpha_cell) and <P_tot>_area divided by
+# the order statistic of p_th the nearest-rank median maps onto (one float64
+# division and its inverse).
+CELL_ALPHA_MEDIAN_RTOL = 1e-12
+
+
+def cell_alpha_stats(p_th, w, p_tot_area, scheme=PERCENTILE_SCHEME_DEFAULT):
+    """The Step 2e statistics of alpha_cell = p_tot_area / p_th over one group.
+
+    p_th and w are the group's NON-HIM cells (the caller selects them);
+    p_tot_area is the group's scalar <P_tot>_area. Cells with non-finite
+    or non-positive p_th or w are dropped, as weighted_stats() does.
+
+    Returns a dict over CELL_ALPHA_KEYS:
+      Pth_harm               [sum(w/p_th)/sum(w)]^-1
+      Pth_median             weighted median of p_th
+      alpha_cell_mean        p_tot_area / Pth_harm
+      alpha_cell_mean_direct weighted mean of the formed alpha_cell array --
+                             the same number by a different route, kept so
+                             the identity can be checked
+      alpha_cell_median, _p_lo, _p_hi   weighted median/percentiles of alpha_cell
+      n_cells_used
+    """
+    p = np.asarray(p_th, dtype=float).ravel()
+    ww = np.asarray(w, dtype=float).ravel()
+    m = np.isfinite(p) & np.isfinite(ww) & (ww > 0) & (p > 0)
+    if not m.any() or not np.isfinite(p_tot_area):
+        return {k: (0 if k == "n_cells_used" else np.nan) for k in CELL_ALPHA_KEYS}
+    p, ww = p[m], ww[m]
+    pth_harm = 1.0 / (np.sum(ww / p) / np.sum(ww))
+    st_a = weighted_stats(p_tot_area / p, ww, scheme)
+    st_p = weighted_stats(p, ww, scheme)
+    return {
+        "Pth_harm": float(pth_harm),
+        "Pth_median": st_p.median,
+        "alpha_cell_mean": float(p_tot_area / pth_harm),
+        "alpha_cell_mean_direct": st_a.arithmetic_mean,
+        "alpha_cell_median": st_a.median,
+        "alpha_cell_p_lo": st_a.p_lo,
+        "alpha_cell_p_hi": st_a.p_hi,
+        "n_cells_used": st_a.n,
+    }
+
+
+def median_identity_residual(p_th, p_tot_area, alpha_median):
+    """How far the volume-weighted median(alpha_cell) is from p_tot_area/median(p_th).
+
+    Returns (rel_diff_vs_median, rel_diff_vs_mapped, n). The nearest-rank
+    estimator with w = 1 picks sorted index i = ceil(n/2) - 1. Reversing
+    the order (1/x) maps that onto p_th's sorted index n - 1 - i, which
+    IS i for odd n and is i + 1 for even n -- one order statistic above
+    the p_th median (README, Step 1e). So:
+      rel_diff_vs_mapped  against p_th[n-1-i]: must be round-off for any n
+      rel_diff_vs_median  against p_th's own median: round-off for odd n,
+                          the gap to the neighbouring order statistic for
+                          even n (reported, not required to vanish)
+    """
+    p = np.asarray(p_th, dtype=float).ravel()
+    p = np.sort(p[np.isfinite(p) & (p > 0)])
+    n = p.size
+    if n == 0:
+        return np.nan, np.nan, 0
+    i = int(np.ceil(0.5 * n)) - 1
+    rel_med = abs(alpha_median - p_tot_area / p[i]) / alpha_median
+    rel_map = abs(alpha_median - p_tot_area / p[n - 1 - i]) / alpha_median
+    return float(rel_med), float(rel_map), n
+
+
+def check_cell_alpha(stats_by_key, alpha_area_by_key, median_residuals):
+    """The two in-script checks of Step 2e (plus the mean identity). Raises.
+
+    stats_by_key       {(sg, weight): {CELL_ALPHA_KEY: (n_groups,) array}}
+    alpha_area_by_key  {(sg, weight): (n_groups,) alpha_area}
+    median_residuals   {sg: (n_groups, 2) [rel_vs_median, rel_vs_mapped]} (vol)
+    Returns a summary dict for the report.
+    """
+    summary = {}
+    for key, st in stats_by_key.items():
+        a_mean, a_direct = st["alpha_cell_mean"], st["alpha_cell_mean_direct"]
+        fin = np.isfinite(a_mean) & np.isfinite(a_direct)
+        rel = np.abs(a_mean[fin] - a_direct[fin]) / a_mean[fin]
+        max_rel = float(rel.max()) if rel.size else np.nan
+        if rel.size and max_rel > CELL_ALPHA_MEAN_RTOL:
+            raise RuntimeError(
+                f"<alpha_cell> identity FAILED for {key}: <P_tot>_area/P_th,harm and "
+                f"the direct mean of alpha_cell differ by {max_rel:.3e} "
+                f"(> {CELL_ALPHA_MEAN_RTOL:.0e}). STOPPING.")
+        a_area = alpha_area_by_key[key]
+        both = np.isfinite(a_mean) & np.isfinite(a_area)
+        # harmonic <= arithmetic, so <alpha_cell> >= alpha_area; the 1e-12
+        # allows for the two being formed by different float64 sums when
+        # p_th is uniform and they are mathematically equal
+        ratio = a_mean[both] / a_area[both]
+        if ratio.size and (ratio < 1.0 - 1e-12).any():
+            bad = int(np.sum(ratio < 1.0 - 1e-12))
+            raise RuntimeError(
+                f"<alpha_cell> >= alpha_area FAILED for {key} in {bad} groups "
+                f"(min ratio {ratio.min():.6f}). Harmonic mean exceeded the "
+                "arithmetic mean -- impossible for positive p_th, so the two "
+                "were not formed over the same cells. STOPPING.")
+        summary[key] = {"mean_identity_max_rel": max_rel,
+                        "min_ratio_mean_to_area": float(ratio.min()) if ratio.size else np.nan,
+                        "n_groups": int(both.sum())}
+    for sg_key, res in median_residuals.items():
+        fin = np.isfinite(res[:, 1])
+        max_map = float(res[fin, 1].max()) if fin.any() else np.nan
+        if fin.any() and max_map > CELL_ALPHA_MEDIAN_RTOL:
+            raise RuntimeError(
+                f"median(alpha_cell) identity FAILED for self_gravity={sg_key}: "
+                f"median(alpha_cell) and <P_tot>_area / p_th at the mirrored rank "
+                f"differ by {max_map:.3e} (> {CELL_ALPHA_MEDIAN_RTOL:.0e}). STOPPING.")
+        summary[("median", sg_key)] = {
+            "max_rel_vs_mapped": max_map,
+            "max_rel_vs_median": float(np.nanmax(res[:, 0])),
+            "n_groups": int(fin.sum())}
+    return summary
 
 
 # ---------------------------------------------------------------------------
@@ -622,20 +780,185 @@ def main():
               f"alpha_area vol {out[f'slab__{sg_key}__alpha_area_vol'][0]:.3f} / mw "
               f"{out[f'slab__{sg_key}__alpha_area_mw'][0]:.3f}")
 
+    # ---- Step 2e: per-cell alpha against <P_tot>_area -------------------
+    # Needs every non-HIM cell of a group at once (medians), so the box is
+    # read whole as float32 -- ~0.9 GB, as pipeline finalize already does.
+    print("\n=== Step 2e: per-cell alpha_cell = <P_tot>_area / p_th_phys ===")
+    pth_box = np.asarray(pth_arr[zsl], dtype=np.float32).reshape(len(z_box), -1)
+    n_box = np.asarray(n_arr[zsl], dtype=np.float32).reshape(len(z_box), -1)
+    him_box = np.asarray(him_arr[zsl]).astype(bool).reshape(len(z_box), -1)
+    all_groups = [idxs for _, idxs in bin_groups] + [idxs for _, idxs in slab_groups]
+    weights = ("vol", "mw")
+    cell_stats = {(sg, wt): {k: np.full(n_groups, np.nan) for k in CELL_ALPHA_KEYS}
+                  for sg in SELF_GRAVITY_SETTINGS for wt in weights}
+    # diagnostic: alpha_cell with the PER-PLANE <P_tot>_area instead of the
+    # group's one number (the two differ only through P_tot's variation
+    # across the group's planes)
+    plane_stats = {(sg, wt): {k: np.full(n_groups, np.nan)
+                              for k in ("median", "mean")}
+                   for sg in SELF_GRAVITY_SETTINGS for wt in weights}
+    median_res = {sg: np.full((n_groups, 2), np.nan) for sg in SELF_GRAVITY_SETTINGS}
+    ptot_group = {sg: np.concatenate([out[f"{sg}__Ptot_area"],
+                                       out[f"slab__{sg}__Ptot_area"]])
+                  for sg in SELF_GRAVITY_SETTINGS}
+    ptot_plane_box = {sg: out[f"{sg}__ptot_plane_mean_full"][zsl]
+                      for sg in SELF_GRAVITY_SETTINGS}
+    for g, idxs in enumerate(all_groups):
+        idxs = np.asarray(idxs, dtype=int)
+        if idxs.size == 0:
+            continue
+        neutral = ~him_box[idxs]
+        p_g = pth_box[idxs][neutral].astype(np.float64)
+        n_g = n_box[idxs][neutral].astype(np.float64)
+        plane_of_cell = np.broadcast_to(idxs[:, None], neutral.shape)[neutral]
+        w_by = {"vol": np.ones_like(p_g), "mw": n_g}
+        for sg in SELF_GRAVITY_SETTINGS:
+            P = float(ptot_group[sg][g])
+            p_plane = ptot_plane_box[sg][plane_of_cell]
+            for wt in weights:
+                st = cell_alpha_stats(p_g, w_by[wt], P)
+                for k, v in st.items():
+                    cell_stats[(sg, wt)][k][g] = v
+                ps = weighted_stats(p_plane / p_g, w_by[wt])
+                plane_stats[(sg, wt)]["median"][g] = ps.median
+                plane_stats[(sg, wt)]["mean"][g] = ps.arithmetic_mean
+            r_med, r_map, _ = median_identity_residual(
+                p_g, P, cell_stats[(sg, "vol")]["alpha_cell_median"][g])
+            median_res[sg][g] = (r_med, r_map)
+    del pth_box, n_box, him_box
+
+    alpha_area_by_key = {
+        (sg, wt): np.concatenate([out[f"{sg}__alpha_area_{wt}"],
+                                  out[f"slab__{sg}__alpha_area_{wt}"]])
+        for sg in SELF_GRAVITY_SETTINGS for wt in weights}
+    cell_checks = check_cell_alpha(cell_stats, alpha_area_by_key, median_res)
+    for (sg, wt), st in cell_stats.items():
+        for k, arr in st.items():
+            out[f"{sg}__{k}_{wt}"] = arr[:n_bins]
+            out[f"slab__{sg}__{k}_{wt}"] = arr[n_bins:]
+        for k, arr in plane_stats[(sg, wt)].items():
+            out[f"{sg}__alpha_cell_perplane_{k}_{wt}"] = arr[:n_bins]
+            out[f"slab__{sg}__alpha_cell_perplane_{k}_{wt}"] = arr[n_bins:]
+    for sg in SELF_GRAVITY_SETTINGS:
+        out[f"{sg}__median_identity_rel_vs_median_vol"] = median_res[sg][:n_bins, 0]
+        out[f"slab__{sg}__median_identity_rel_vs_median_vol"] = median_res[sg][n_bins:, 0]
+        out[f"{sg}__median_identity_rel_vs_mapped_vol"] = median_res[sg][:n_bins, 1]
+        out[f"slab__{sg}__median_identity_rel_vs_mapped_vol"] = median_res[sg][n_bins:, 1]
+    for (sg, wt), c in ((k, v) for k, v in cell_checks.items() if k[0] != "median"):
+        print(f"  {sg:>4} {wt:>3}: <alpha_cell> = <P_tot>/P_th,harm to "
+              f"{c['mean_identity_max_rel']:.1e}; min <alpha_cell>/alpha_area "
+              f"{c['min_ratio_mean_to_area']:.4f} over {c['n_groups']} groups")
+    for sg in SELF_GRAVITY_SETTINGS:
+        c = cell_checks[("median", sg)]
+        print(f"  {sg:>4} vol: median identity, mirrored rank {c['max_rel_vs_mapped']:.1e}, "
+              f"vs p_th median {c['max_rel_vs_median']:.1e}")
+
     for q, v in ref.items():
         out[f"ref_{q}"] = np.array([v])
     np.savez_compressed(OUT_NPZ_PATH, **out)
     print(f"\nSaved {OUT_NPZ_PATH}")
 
-    write_report(out, validation, ref, pct_lo, pct_hi, t0)
+    write_report(out, validation, ref, pct_lo, pct_hi, t0, cell_checks)
 
 
 # ---------------------------------------------------------------------------
-def write_report(out, validation, ref, pct_lo, pct_hi, t0):
+def cell_alpha_report_lines(out, cell_checks, pct_lo, pct_hi):
+    """Section 6 of results/area_alpha.txt: the Step 2e per-cell alpha."""
+    L = [
+        "-" * 100,
+        "6. PER-CELL alpha AGAINST THE AREA-AVERAGED P_tot (Step 2e)",
+        "-" * 100,
+        "  alpha_cell(x,y,z) = <P_tot>_area / p_th_phys(x,y,z)   for every NON-HIM cell,",
+        "  with <P_tot>_area the group's own number from section 2 / 4 (one per 4 pc bin or",
+        "  60 pc slab). Over each group's non-HIM cells, w = 1 (vol) and w = n_H (mw):",
+        "    P_th,harm      = [sum(w/p_th)/sum(w)]^-1           (harmonic mean)",
+        "    <alpha_cell>   = <P_tot>_area / P_th,harm          (= <P_tot>_area * <1/p_th>)",
+        f"    median, p{pct_lo:g}, p{pct_hi:g} of alpha_cell   (nearest-rank, as everywhere else)",
+        "  alpha_area = <P_tot>_area / <P_th> (arithmetic) is unchanged and shown alongside.",
+        "  Since harmonic <= arithmetic, <alpha_cell> >= alpha_area always; they are equal",
+        "  only if p_th is uniform over the group.",
+        "",
+    ]
+    for wt, wlabel in (("vol", "VOLUME-weighted (w = 1)"), ("mw", "MASS-weighted (w = n_H)")):
+        L += [
+            wlabel,
+            f"{'z':>6}{'sg':>6}{'<P_tot>_area':>14}{'<P_th> arith':>14}{'P_th,harm':>12}"
+            f"{'a_area':>9}{'<a_cell>':>10}{'med a_cell':>12}"
+            f"{f'[p{pct_lo:g}, p{pct_hi:g}]':>18}",
+            f"{'[pc]':>6}{'':>6}{'[K cm^-3]':>14}{'[K cm^-3]':>14}{'[K cm^-3]':>12}",
+            "-" * 101,
+        ]
+        for i, zc in enumerate(out["slab_centers_pc"]):
+            for sg in SELF_GRAVITY_SETTINGS:
+                s = f"slab__{sg}__"
+                L.append(
+                    f"{zc:>6.0f}{sg:>6}{out[s + 'Ptot_area'][i]:>14.1f}"
+                    f"{out[s + f'Pth_neutral_{wt}'][i]:>14.1f}"
+                    f"{out[s + f'Pth_harm_{wt}'][i]:>12.1f}"
+                    f"{out[s + f'alpha_area_{wt}'][i]:>9.3f}"
+                    f"{out[s + f'alpha_cell_mean_{wt}'][i]:>10.3f}"
+                    f"{out[s + f'alpha_cell_median_{wt}'][i]:>12.3f}"
+                    f"    [{out[s + f'alpha_cell_p_lo_{wt}'][i]:>5.3f}, "
+                    f"{out[s + f'alpha_cell_p_hi_{wt}'][i]:>6.3f}]")
+            L.append("")
+        L.append("")
+
+    L += [
+        "In-script checks (the script raises if any fails):",
+        f"  (i)  median(alpha_cell) = <P_tot>_area / median(p_th), vol-weighted, every bin and slab.",
+        "       The nearest-rank median with w = 1 sits at sorted index ceil(n/2)-1; reversing",
+        "       the order through 1/p_th maps it onto p_th's index n-ceil(n/2), which is the",
+        "       p_th median itself for odd n and the next order statistic up for even n. The",
+        f"       check requires agreement at that mirrored rank to {CELL_ALPHA_MEDIAN_RTOL:.0e}:",
+    ]
+    for sg in SELF_GRAVITY_SETTINGS:
+        c = cell_checks[("median", sg)]
+        L.append(f"         {sg:>4}: max |rel diff| at the mirrored rank {c['max_rel_vs_mapped']:.2e}; "
+                 f"against p_th's own median {c['max_rel_vs_median']:.2e}  "
+                 f"({c['n_groups']} groups)")
+    L += [
+        "       (the second number is the one-order-statistic gap for even n).",
+        "  (ii) <alpha_cell> >= alpha_area, both weightings, every bin and slab; and",
+        "       <P_tot>_area/P_th,harm equals the directly formed mean of alpha_cell to "
+        f"{CELL_ALPHA_MEAN_RTOL:.0e}:",
+    ]
+    for (sg, wt), c in ((k, v) for k, v in cell_checks.items() if k[0] != "median"):
+        L.append(f"         {sg:>4} {wt:>3}: min <alpha_cell>/alpha_area = "
+                 f"{c['min_ratio_mean_to_area']:.4f}; mean identity {c['mean_identity_max_rel']:.2e}"
+                 f"  ({c['n_groups']} groups)")
+    L += [
+        "",
+        "Diagnostic: <P_tot>_area per PLANE instead of per group. Within a 4 pc bin (2 planes)",
+        "the two definitions coincide to the plane-to-plane change in <P_tot>_area; across a",
+        "60 pc slab <P_tot>_area itself changes, so the per-plane version is a different",
+        "(z-mixed) statistic. Self-gravity = mean, volume-weighted:",
+        f"{'z':>6}{'med (group P)':>16}{'med (plane P)':>16}{'mean (group P)':>16}{'mean (plane P)':>16}",
+    ]
+    for i, zc in enumerate(out["slab_centers_pc"]):
+        s = "slab__mean__"
+        L.append(f"{zc:>6.0f}{out[s + 'alpha_cell_median_vol'][i]:>16.3f}"
+                 f"{out[s + 'alpha_cell_perplane_median_vol'][i]:>16.3f}"
+                 f"{out[s + 'alpha_cell_mean_vol'][i]:>16.3f}"
+                 f"{out[s + 'alpha_cell_perplane_mean_vol'][i]:>16.3f}")
+    with np.errstate(invalid="ignore"):
+        d_bins = np.abs(out["mean__alpha_cell_perplane_median_vol"]
+                        / out["mean__alpha_cell_median_vol"] - 1.0)
+    L.append(f"  4 pc bins: max |rel diff| of the median between the two = {np.nanmax(d_bins):.2e}")
+    L += [
+        "",
+        "Why <alpha_cell> sits above alpha_area: the mean of 1/p_th is dominated by the",
+        "low-pressure neutral cells, so the harmonic mean P_th,harm falls below the",
+        "arithmetic <P_th>, by an amount set by the spread of p_th within the group.",
+    ]
+    return L
+
+
+def write_report(out, validation, ref, pct_lo, pct_hi, t0, cell_checks):
     L = [
         PROVISIONAL_CUBE_HEADER,
         THERMAL_PRESSURE_HEADER,
         "Step 2d: AREA-AVERAGED P_tot and alpha, and the sub-area scale test",
+        "Step 2e: the PER-CELL alpha against <P_tot>_area (section 6)",
         "=" * 100,
         "",
         "P_tot is a macroscopic pressure: vertical balance between pressure and weight holds",
@@ -790,6 +1113,10 @@ def write_report(out, validation, ref, pct_lo, pct_hi, t0):
         f"  R8 has Sigma_gas = {ref['Sigma_gas']:.2f} Msun/pc^2, about twice this cube's 4.81, and",
         "  absolute pressures scale roughly as Sigma_gas^2 in a self-regulated disc -- so the",
         "  pressures are NOT expected to match. alpha is a ratio and CAN be compared.",
+        "",
+    ]
+    L += cell_alpha_report_lines(out, cell_checks, pct_lo, pct_hi)
+    L += [
         "",
         f"(runtime {time.time() - t0:.1f}s)",
     ]
