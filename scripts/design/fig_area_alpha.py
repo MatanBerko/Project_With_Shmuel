@@ -149,7 +149,7 @@ def main():
         r"$\langle P_\mathrm{tot}\rangle_\mathrm{area}$, self-gravity off",
         r"$\langle P_\mathrm{th}\rangle$, vol-weighted",
         r"$\langle P_\mathrm{th}\rangle$, mass-weighted",
-        r"$P_\mathrm{th,harm}$, vol-weighted",
+        r"$\langle 1/P_{\rm th}\rangle^{-1}$, vol-weighted",
         REFERENCE_LABEL,
     ]
     # anchored left of centre so the right column clears the PROVISIONAL tag
@@ -188,8 +188,8 @@ def main():
     labels_b = [
         r"median $\alpha_\mathrm{cell}$",
         f"{pct_lo:g}-{pct_hi:g} pct of " + r"$\alpha_\mathrm{cell}$",
-        r"$\langle\alpha_\mathrm{cell}\rangle = \langle P_\mathrm{tot}\rangle_\mathrm{area}"
-        r"/P_\mathrm{th,harm}$",
+        r"$\langle\alpha_{\rm cell}\rangle = \langle P_{\rm tot}\rangle_{\rm area}"
+        r"\,\langle 1/P_{\rm th}\rangle$",
         r"$\alpha_\mathrm{area} = \langle P_\mathrm{tot}\rangle_\mathrm{area}"
         r"/\langle P_\mathrm{th}\rangle$",
     ]
