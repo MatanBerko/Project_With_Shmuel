@@ -25,9 +25,8 @@ results/model_pressure.txt use thermal.build_pmin_pmax, not this.
       curve's maximum and P_min below the bottom curve's minimum.
   (b) the two-phase band P_min(I_UV) - P_max(I_UV), with the midplane
       area-averaged <P_tot> and <1/P_th>^-1 as horizontal lines; a strip
-      underneath with the I_UV distribution of the midplane gas: volume-
-      weighted filled (the weighting of the two lines, 15-85 percentile range
-      shaded), mass-weighted as a thin outline.
+      underneath with the volume-weighted I_UV distribution of the midplane
+      gas (the weighting of the two lines), 15-85 percentile range shaded.
   (c) only with --with-phase-plane (-> fig_model_pressure_phase_plane):
       P_th/k over the (n_H, I_UV) plane with the phase boundaries
       n_W,max(I_UV) and n_C,min(I_UV), and the midplane gas as contours
@@ -65,7 +64,6 @@ from src.physics.thermal import locate_scurve_turning_points  # noqa: E402
 from src.plotting.style import (  # noqa: E402
     apply_paper_style,
     panel_label,
-    provisional_label,
     save_figure,
 )
 
@@ -101,7 +99,6 @@ LABELLED_CURVE_IUV = 1.0      # the (a) curve whose dashed branch carries "unsta
 EDGE_LABEL_COLOR = "0.25"
 P_NORM_C = (1e2, 1e4)         # (c) colour range, as Fig. 2's P_th columns
 N_BAND_SMOOTH = 300
-STRIP_DATA_FRAC = 0.66        # fraction of the strip height the histograms use
 B_PMAX_LABEL_IUV = 0.18       # where along the band edges their labels sit
 B_PMIN_LABEL_IUV = 0.30
 
@@ -298,34 +295,25 @@ def panel_b(ax, ax_s, d):
                     ha="center", va=va, rotation=ang, rotation_mode="anchor",
                     fontsize=TEXT_FS, color=EDGE_LABEL_COLOR, zorder=5)
 
-    # strip: I_UV distribution of the midplane gas. FILLED = volume-weighted
-    # (equal weight per cell), the weighting of the area-averaged <P_tot> and
-    # <1/P_th>^-1 drawn above it, with its 15-85% range shaded; LINE = the
-    # mass-weighted distribution. Both as densities in log I_UV (each
-    # integrates to 1), so their shapes compare directly.
+    # strip: VOLUME-weighted (equal weight per cell) I_UV distribution of the
+    # midplane gas -- the weighting of the area-averaged <P_tot> and
+    # <1/P_th>^-1 drawn above it -- as a density in log I_UV, 15-85% shaded
     le = d["slab_logiuv_edges"]
     e = 10 ** le
-    dlog = np.diff(le)
-    h_vol = d["slab_H1_iuv_vol"] / (d["slab_H1_iuv_vol"].sum() * dlog)
-    h_mass = d["slab_H1_iuv_mass"] / (d["slab_H1_iuv_mass"].sum() * dlog)
+    h_vol = d["slab_H1_iuv_vol"] / (d["slab_H1_iuv_vol"].sum() * np.diff(le))
     ax_s.stairs(h_vol, e, fill=True, color="0.62", lw=0, zorder=1)
-    ax_s.stairs(h_mass, e, color="0.15", lw=0.6, zorder=3)
     v15, _, v85 = d["iuv_pct_vol"]
-    # the markers stop below the label row at the top of the strip
-    ax_s.axvspan(v15, v85, ymax=STRIP_DATA_FRAC, color=COLOR_PTH, alpha=0.12, lw=0, zorder=0)
+    ax_s.axvspan(v15, v85, color=COLOR_PTH, alpha=0.12, lw=0, zorder=0)
     for p in (v15, v85):
-        ax_s.axvline(p, ymax=STRIP_DATA_FRAC, color=COLOR_PTH, lw=0.6, zorder=2)
+        ax_s.axvline(p, color=COLOR_PTH, lw=0.6, zorder=2)
     log_axes(ax_s, y=False)
     ax_s.set_xlim(IUV_LIM_B)
-    ax_s.set_ylim(0, max(h_vol.max(), h_mass.max()) / STRIP_DATA_FRAC * 1.02)
+    ax_s.set_ylim(0, h_vol.max() * 1.15)
     ax_s.set_yticks([])
     ax_s.tick_params(axis="y", which="both", left=False, right=False)
-    # no top ticks: the strip sits right under (b), whose bottom axis has them,
-    # and inward top ticks would run into the label row
+    # no top ticks: the strip sits right under (b), whose bottom axis has them
     ax_s.tick_params(axis="x", which="both", top=False)
     ax_s.set_xlabel(LABEL_IUV, fontsize=LABEL_FS)
-    ax_s.text(0.97, 0.96, "volume (filled), mass (line)", transform=ax_s.transAxes,
-              ha="right", va="top", fontsize=TEXT_FS - 1, color="0.3")
 
 
 def panel_c(fig, ax, cax, d):
@@ -399,7 +387,7 @@ def _two_panel_axes(fig_w):
     L, GAP_AB, R = 0.50, 0.07, 0.10
     w = (fig_w - L - GAP_AB - R) / 2
     hm, hs, gs = TWO_PANEL_ASPECT * w, 0.17 * TWO_PANEL_ASPECT * w, 0.03
-    B, T = 0.36, 0.17           # T: room for PROVISIONAL above the panels
+    B, T = 0.36, 0.06
     fig_h = B + hs + gs + hm + T
     fig = plt.figure(figsize=(fig_w, fig_h))
 
@@ -450,7 +438,7 @@ def build(with_phase_plane=False, fig_w=TWO_PANEL_WIDTH):
               f"I_UV {ylim[0]:.3g} .. {ylim[1]:.3g}")
     for ax, letter in panels:
         panel_label(ax, letter, loc="upper left", size=8.5, pad=0.035)
-    provisional_label(fig, loc="upper right")
+    # no PROVISIONAL marker on this figure (paper Fig. 1)
     return fig
 
 

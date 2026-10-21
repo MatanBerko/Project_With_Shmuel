@@ -164,18 +164,18 @@ def choose_iuv_curves(p15, p85, n=N_IUV_CURVES, clean=CLEAN_IUV):
 # midplane reference pressures (read, not recomputed)
 # ---------------------------------------------------------------------------
 def read_midplane_references(path=AREA_ALPHA_TXT):
-    """(<P_tot>_area, <1/P_th>^-1, header line, data line) from section 6, vol, z = 0, sg mean."""
+    """(<P_tot>_area, <1/P_th>^-1, <alpha_cell>, header, data line): section 6, vol, z = 0, sg mean."""
     lines = path.read_text().splitlines()
     i6 = next(i for i, ln in enumerate(lines) if ln.startswith("6. PER-CELL"))
     iv = next(i for i in range(i6, len(lines)) if lines[i].startswith("VOLUME-weighted"))
     header = lines[iv + 1]
     row = next(ln for ln in lines[iv:] if re.match(r"^\s+0\s+mean\s", ln))
     cols = header.split()
-    if not ("<P_tot>_area" in cols and "P_th,harm" in cols):
+    if not ("<P_tot>_area" in cols and "P_th,harm" in cols and "<a_cell>" in cols):
         raise RuntimeError(f"unexpected header in {path}: {header!r}")
     vals = row.split()
-    # header tokens: z sg <P_tot>_area <P_th> arith P_th,harm ... ; data: z sg P_tot P_th_arith P_th_harm ...
-    return float(vals[2]), float(vals[4]), header, row
+    # data tokens: z sg <P_tot>_area <P_th>_arith P_th,harm a_area <a_cell> med [p15, p85]
+    return float(vals[2]), float(vals[4]), float(vals[6]), header, row
 
 
 # ---------------------------------------------------------------------------
@@ -227,12 +227,19 @@ def main():
     # averaged <P_tot> and <1/P_th>^-1 the figure draws next to this gas
     ones = np.ones_like(iuv_s)
     v15, v50, v85 = (weighted_percentile(iuv_s, ones, q) for q in PCT)
-    iuv_curves = choose_iuv_curves(p15, p85)
-    print(f"mass-weighted I_UV percentiles 15/50/85: {p15:.3f} / {p50:.3f} / {p85:.3f}")
+    # curves span the VOLUME-weighted 15-85% range (the figure's weighting);
+    # the mass-weighted range gives the same four clean values
+    iuv_curves = choose_iuv_curves(v15, v85)
+    if iuv_curves != choose_iuv_curves(p15, p85):
+        print("  note: mass- and volume-weighted ranges pick different IUV_CURVES")
+    print(f"volume-weighted I_UV percentiles 15/50/85: {v15:.3f} / {v50:.3f} / {v85:.3f}")
     print(f"IUV_CURVES = {iuv_curves}")
     f_out_hi = float(w[iuv_s > iuv_hi_edge].sum())
     f_out_lo = float(w[iuv_s < iuv_lo_edge].sum())
     f_out_hi_grid = float(w[iuv_s > row_bounds[1]].sum())
+    fv_out_hi = float(np.mean(iuv_s > iuv_hi_edge))
+    fv_out_lo = float(np.mean(iuv_s < iuv_lo_edge))
+    fv_out_hi_grid = float(np.mean(iuv_s > row_bounds[1]))
 
     # ---- histograms -------------------------------------------------------
     ln, li = np.log10(n_s), np.log10(iuv_s)
@@ -269,6 +276,8 @@ def main():
         "slab_H2_mass": H2, "slab_H1_iuv_mass": H1,
         "f_mass_iuv_above_scurve": np.array([f_out_hi]),
         "f_mass_iuv_below_scurve": np.array([f_out_lo]),
+        "f_vol_iuv_above_scurve": np.array([fv_out_hi]),
+        "f_vol_iuv_below_scurve": np.array([fv_out_lo]),
         "F_NEUTRAL": np.array([F_NEUTRAL]),
         "provisional": np.array([PROVISIONAL_CUBE_HEADER]),
     }
@@ -285,7 +294,11 @@ def main():
         curve_rows.append((iv, F_NEUTRAL * float(pmm.p_min(iv)), F_NEUTRAL * float(pmm.p_max(iv)),
                            out[f"curve{k}__turning"]))
 
-    p_tot_mid, p_inv_mid, ref_header, ref_row = read_midplane_references()
+    p_tot_mid, p_inv_mid, a_cell_mid, ref_header, ref_row = read_midplane_references()
+    ratio_mid = p_tot_mid / p_inv_mid
+    if abs(ratio_mid - a_cell_mid) > 1e-3 * a_cell_mid:
+        raise RuntimeError(f"<P_tot>/<1/P_th>^-1 = {ratio_mid:.4f} does not match "
+                           f"<alpha_cell> = {a_cell_mid} from area_alpha.txt")
     out["midplane_Ptot_area"] = np.array([p_tot_mid])
     out["midplane_Pth_inv_inv"] = np.array([p_inv_mid])
 
@@ -318,9 +331,8 @@ def main():
     print(f"Saved {OUT_NPZ_PATH}")
 
     # ---- report -------------------------------------------------------------
-    pmin50, pmax50 = F_NEUTRAL * float(pmm.p_min(p50)), F_NEUTRAL * float(pmm.p_max(p50))
-    where = ("BELOW P_min" if p_tot_mid < pmin50 else
-             "ABOVE P_max" if p_tot_mid > pmax50 else "INSIDE the two-phase band")
+    where = ("BELOW P_min" if p_tot_mid < pmin_v50 else
+             "ABOVE P_max" if p_tot_mid > pmax_v50 else "INSIDE the two-phase band")
     L = [
         PROVISIONAL_CUBE_HEADER,
         "Fig. 1 (pressure-framed BS19 model) -- inputs and reference numbers",
@@ -337,14 +349,13 @@ def main():
         "",
         f"Midplane gas: RAW, non-HIM cells, |x|,|y| <= {STATS_BOX_XY_HALF_RANGE_PC:.0f} pc, "
         f"|z| <= {SLAB_HALF_PC:.0f} pc ({iz.size} planes, {int(sel.sum())} cells used)",
-        "  mass-weighted (rho = 1.4 m_H n_H), nearest-rank weighted percentiles",
-        f"  I_UV percentiles  p15 {p15:.3f}   p50 {p50:.3f}   p85 {p85:.3f}   (mass-weighted)",
-        f"  I_UV percentiles  p15 {v15:.3f}   p50 {v50:.3f}   p85 {v85:.3f}   "
-        "(VOLUME-weighted, equal weight per cell -- the weighting of <P_tot> and <1/P_th>^-1)",
+        "  VOLUME-weighted (equal weight per cell) -- the weighting of the area-averaged",
+        "  <P_tot> and <1/P_th>^-1; nearest-rank percentiles",
+        f"  I_UV percentiles  p15 {v15:.3f}   p50 {v50:.3f}   p85 {v85:.3f}",
         f"  IUV_CURVES (clean values spanning p15-p85): {', '.join(f'{v:g}' for v in iuv_curves)}",
-        f"  mass fraction with I_UV ABOVE the S-curve range ({iuv_hi_edge:.4g}): {f_out_hi:.4%}"
-        f"   (above the last tabulated S-curve row {row_bounds[1]:g}: {f_out_hi_grid:.4%})",
-        f"  mass fraction with I_UV BELOW the S-curve range ({iuv_lo_edge:.4g}): {f_out_lo:.4%}",
+        f"  volume fraction with I_UV ABOVE the S-curve range ({iuv_hi_edge:.4g}): {fv_out_hi:.4%}"
+        f"   (above the last tabulated S-curve row {row_bounds[1]:g}: {fv_out_hi_grid:.4%})",
+        f"  volume fraction with I_UV BELOW the S-curve range ({iuv_lo_edge:.4g}): {fv_out_lo:.4%}",
         f"  cached HIM flag == recomputed flag in every slab cell; slab 2-D histogram "
         f"reproduces summary.npz's midplane PDF to {cross_rel:.1e}",
         "",
@@ -366,17 +377,17 @@ def main():
         f"  <1/P_th>^-1    = {p_inv_mid:.1f} K cm^-3   (the column headed P_th,harm)",
         "  header line:  " + ref_header.strip(),
         "  data line:    " + ref_row.strip(),
+        f"  <P_tot>/<1/P_th>^-1 = {ratio_mid:.2f} = <alpha_cell> ({a_cell_mid:.3f}, same line, "
+        "section 6, volume-weighted, z = 0, sg = mean)",
         "",
-        f"At the MASS-weighted median midplane I_UV = {p50:.3f}: P_min = {pmin50:.0f}, P_max = {pmax50:.0f} K cm^-3;",
+        f"At the median midplane I_UV = {v50:.3f}: P_min = {pmin_v50:.0f}, P_max = {pmax_v50:.0f} K cm^-3;",
         f"  midplane <P_tot> = {p_tot_mid:.0f} is {where}; <1/P_th>^-1 = {p_inv_mid:.0f}.",
-        f"At the VOLUME-weighted median I_UV = {v50:.3f}: P_min = {pmin_v50:.0f}, "
-        f"P_max = {pmax_v50:.0f} K cm^-3.",
         "",
         f"I_UV,cross, where P_max(I_UV) = midplane <P_tot> = {p_tot_mid:.1f}: "
         f"I_UV,cross = {iuv_cross:.4f}",
         f"  (P_max x1.1 from thermal.build_pmin_pmax; for I_UV < I_UV,cross, <P_tot> > P_max)",
-        f"  fraction of midplane gas (same slab) with I_UV < I_UV,cross:   "
-        f"mass {f_below_cross:.4f}   volume {f_vol_below_cross:.4f}",
+        f"  volume fraction of midplane gas (same slab) with I_UV < I_UV,cross: "
+        f"{f_vol_below_cross:.4f}",
         "",
         f"(runtime {time.time() - t0:.1f}s)",
     ]

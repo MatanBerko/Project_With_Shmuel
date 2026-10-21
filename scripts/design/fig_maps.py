@@ -36,7 +36,6 @@ from pathlib import Path
 import matplotlib
 matplotlib.use("Agg")
 
-import matplotlib.patheffects as pe  # noqa: E402
 import matplotlib.pyplot as plt  # noqa: E402
 import matplotlib.ticker as mticker  # noqa: E402
 import numpy as np  # noqa: E402
@@ -49,7 +48,6 @@ from src.plotting.style import (  # noqa: E402
     annotate,
     apply_paper_style,
     panel_label,
-    provisional_label,
     save_figure,
 )
 
@@ -71,7 +69,7 @@ HIM_TINT = tuple(HIM_TINT_FRACTION * c + (1.0 - HIM_TINT_FRACTION)
                  for c in to_rgb(HIM))
 PHASE_CMAP = ListedColormap([CNM, UNM, WNM, HIM_TINT])
 PHASE_NORM = BoundaryNorm([-0.5, 0.5, 1.5, 2.5, 3.5], 4)
-PHASE_LABELS = ("CNM", "UNM", "WNM", "HIM (flag)")
+PHASE_LABELS = ("CNM", "UNM", "WNM", "HIM")
 P_TH_RANGE = (1e2, 1e4)
 CB_EXTEND = {"n_H": "both", "I_UV": "both", "P_th": "min", "phase_dpdn": "neither"}
 
@@ -150,12 +148,10 @@ def main():
     y_row2 = BOTTOM
     y_row1 = BOTTOM + h2 + ROW_GAP
     y_cb = y_row1 + h1 + CB_GAP
-    axes = {}
     for col, (key, cmap, cblabel) in enumerate(COLUMNS):
         x0 = LEFT + col * (pw + COL_GAP)
         for row, (tag, y0, h) in enumerate((("xy", y_row1, h1), ("xz", y_row2, h2))):
             ax = fig.add_axes(rect(x0, y0, pw, h))
-            axes[(row, col)] = ax
             if key == "phase_dpdn":
                 im = ax.imshow(d[f"{tag}__{key}"], origin="lower", extent=ext[tag],
                                cmap=PHASE_CMAP, norm=PHASE_NORM, interpolation="nearest",
@@ -200,21 +196,13 @@ def main():
             cb.set_ticklabels(PHASE_LABELS, fontsize=6.0)
             cax.tick_params(which="major", length=0)
             cax.xaxis.set_minor_locator(mticker.NullLocator())
-            cb.set_label("phase (dP/dn)", fontsize=7.5, labelpad=2)
+            cb.set_label("phase", fontsize=7.5, labelpad=2)
         else:
             decade_ticks(cax, norms[key].vmin, norms[key].vmax)
             cb.set_label(cblabel, fontsize=7.5, labelpad=2)
 
-    # ---- "-> GC" on panel (a) only ---------------------------------------
-    ax_a = axes[(0, 0)]
-    outline = [pe.withStroke(linewidth=1.6, foreground="black")]
-    ax_a.annotate("", xy=(0.97, 0.07), xytext=(0.77, 0.07), xycoords="axes fraction",
-                  arrowprops=dict(arrowstyle="-|>", color="white", lw=0.9,
-                                  mutation_scale=7, path_effects=outline))
-    ax_a.text(0.75, 0.07, "GC", transform=ax_a.transAxes, ha="right", va="center",
-              fontsize=6.0, color="white", path_effects=outline)
-
-    provisional_label(fig, loc="upper right")
+    # orientation (+x toward the GC) and the phase scheme are stated in the
+    # caption (results/fig_maps_caption.txt); no PROVISIONAL marker on Fig. 2
     save_figure(fig, NAME)
     return ranges
 
