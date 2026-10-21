@@ -1,0 +1,60 @@
+PROVISIONAL: f98 cube, n_H = 1653 A'; final cube pending
+P_th = 1.1 n_H k T (physical)
+Step 2g (Fig. 6): area-averaged alpha split by PHASE
+====================================================================================================
+Per signed 4 pc z bin and per 60 pc slab, over the whole footprint (|x|,|y| <= 500 pc, box |z| <= 400 pc),
+RAW, self-gravity mean (fiducial), VOLUME-weighted (equal weight per cell):
+  <1/P_th>_k^-1  harmonic mean of p_th_phys over the cells of phase k
+  <alpha>_k      <P_tot>_area * <1/P_th>_k -- the same <P_tot>_area for every phase,
+                 read from cache/core/area_alpha.npz (Step 2e), not recomputed
+  alpha_cell     <P_tot>_area / p_th_phys per cell of phase k: median, p15, p85 (nearest-rank)
+  vol frac       cell fraction of each phase in the bin (HIM included)
+Phases: cached dP/dn flag (alpha_core.zarr RAW/phase_flag_dpdn), codes CNM = 0, UNM = 1, WNM = 2, HIM = 3 (src.physics.him).
+A phase's statistics are NaN in a bin with fewer than N_MIN_CELLS = 100 of its cells.
+
+----------------------------------------------------------------------------------------------------
+CHECKS (the script raises if either fails)
+----------------------------------------------------------------------------------------------------
+  a) sum_k N_k <1/P_th>_k / sum_k N_k vs Step 2e's all-non-HIM <1/P_th>, every bin and
+     slab: max |rel diff| 3.33e-16 (threshold 1e-12)  PASS
+  b) CNM+UNM+WNM+HIM fractions sum to 1 within 0.0e+00 in every bin and slab; HIM
+     volume fraction of the z = 0 slab 0.4636339 vs numbers_table.csv 0.4636339
+     (rel 0.0e+00)  PASS
+
+----------------------------------------------------------------------------------------------------
+SLABS (+-30 pc)
+----------------------------------------------------------------------------------------------------
+    z phase  <1/P_th>_k^-1  <alpha>_k    alpha_cell median [p15, p85]  vol frac     cells
+ [pc]            [K cm^-3]
+    0   all         2370.5      3.291              (Step 2e, non-HIM)    0.5364   4173481
+        CNM         1295.6      6.021        6.322  [ 3.474,  8.192]    0.0227    176315
+        UNM         2371.2      3.290        2.729  [ 1.403,  5.674]    0.1768   1375798
+        WNM         2510.1      3.108        2.586  [ 1.448,  4.966]    0.3369   2621368
+        HIM                                                              0.4636   3607550
+       <P_tot>_area = 7800.3 K cm^-3
+
+  150   all         1489.5      3.256              (Step 2e, non-HIM)    0.2559   1991554
+        CNM          958.4      5.060        5.070  [ 4.313,  5.826]    0.0041     31548
+        UNM         2031.2      2.388        1.941  [ 1.161,  4.040]    0.0253    196552
+        WNM         1460.6      3.320        3.091  [ 1.516,  5.156]    0.2266   1763454
+        HIM                                                              0.7441   5789477
+       <P_tot>_area = 4849.8 K cm^-3
+
+  300   all         1221.0      2.690              (Step 2e, non-HIM)    0.1294   1006954
+        CNM         1157.9      2.836        2.867  [ 2.661,  3.079]    0.0000       182
+        UNM         2631.0      1.248        1.033  [ 0.732,  1.936]    0.0053     41362
+        WNM         1193.6      2.752        2.721  [ 1.310,  4.156]    0.1241    965410
+        HIM                                                              0.8706   6774077
+       <P_tot>_area = 3284.2 K cm^-3
+
+----------------------------------------------------------------------------------------------------
+NaN BINS (fewer than 100 cells of the phase), 4 pc signed bins in |z| <= 400 pc
+----------------------------------------------------------------------------------------------------
+ phase  NaN bins  first NaN at z < 0  first NaN at z > 0
+   CNM        51        |z| = 286 pc        |z| = 262 pc
+   UNM         0                none                none
+   WNM         0                none                none
+  ('first NaN' = the bin centre nearest the midplane that is NaN; bins beyond it may
+   recover where the phase reappears -- the full arrays are in phase_alpha.npz)
+
+(runtime 2.6s)
