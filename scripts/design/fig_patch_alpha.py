@@ -12,7 +12,8 @@ Three stacked panels on a shared signed-z axis, self-gravity on
   (c) <alpha>_i        = <P_tot>_i <1/P_th>_i
 Each panel: median over patches (solid), mean over patches (dashed),
 15-85 percentile strip over patches, and the whole-footprint value (the
-Step 2e number) as a thin black line. (c) adds TIGRESS R8 and alpha = 1.
+Step 2e number) as a thin black line. (c) adds the alpha = 1 guide (simulation
+comparisons such as TIGRESS R8 belong only in Fig. 8).
 
 The patches overlap and over-sample the footprint's centre (see
 results/patch_alpha.txt, section 2), so the strip is a spread between
@@ -39,9 +40,6 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from src.conventions import COLOR_ALPHA  # noqa: E402
 from src.plotting.style import (  # noqa: E402
     PRESSURE_COLORS,
-    REFERENCE_COLOR,
-    REFERENCE_LABEL,
-    REFERENCE_MARKER,
     annotate,
     apply_paper_style,
     guide_line,
@@ -153,17 +151,13 @@ def make_figure(d, L):
     # (c) <alpha>_i
     c = COLOR_ALPHA
     stem = f"{tag}__{SG}__alpha_vol"
-    alpha_ref = float(d["ref_alpha_2p"][0])
     _strip(ax_c, z, d, stem, c)
     ax_c.plot(z, d[f"full__{SG}__alpha_vol"], color=FULL_COLOR, linewidth=FULL_LW, zorder=6)
     guide_line(ax_c, 1.0, label=r"$\alpha=1$", label_x=0.42, label_loc="below")
-    ax_c.plot([0.0], [alpha_ref], color=REFERENCE_COLOR, **REFERENCE_MARKER)
-    top = float(np.nanmax(np.concatenate([d[stem + "__p_hi"], [alpha_ref]])))
+    top = float(np.nanmax(d[stem + "__p_hi"]))
     ax_c.set_ylim(0.0, top * LIN_HEADROOM)
     ax_c.set_ylabel(r"$\langle\alpha\rangle_i = \langle P_{\rm tot}\rangle_i"
                     r"\,\langle 1/P_{\rm th}\rangle_i$")
-    ax_c.legend([Line2D([], [], color=REFERENCE_COLOR, **REFERENCE_MARKER)],
-                [REFERENCE_LABEL], loc="upper right")
     panel_label(ax_c, "c", loc="lower left")
     annotate(ax_c, "self-gravity on (fiducial), volume-weighted", loc="lower right", size=6.5)
 
