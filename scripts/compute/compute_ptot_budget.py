@@ -53,7 +53,7 @@ from src.conventions import (  # noqa: E402
 )
 from src.conventions import MIDPLANE_MODE, MIDPLANE_MODE_BALANCED  # noqa: E402
 from src.physics import gravity, hydrostatic, midplane  # noqa: E402
-from src.physics.loading import open_zarr  # noqa: E402
+from src.physics.loading import open_zarr, slab_z_indices  # noqa: E402
 
 # ═══════════════════════════════════════════════════════════════════════
 # ██  CONTROL BLOCK
@@ -104,6 +104,16 @@ def sigma_components(z_pc, n_bar_cm3, z_ref_pc=0.0):
         lo = np.interp(np.clip(z_ref_pc - s, z_pc[0], z_pc[-1]), z_pc, cum)
         gas = hi - lo
     return {"star": star, "dm": dm, "gas": gas}
+
+
+def shares_one_decimal(fracs):
+    """Percentages to one decimal that sum to exactly 100.0: largest-remainder
+    rounding of the DISPLAY values only (the unrounded shares are kept)."""
+    tenths = np.asarray(fracs, dtype=float) * 1000.0
+    base = np.floor(tenths)
+    short = int(round(1000 - base.sum()))
+    base[np.argsort(-(tenths - base))[:short]] += 1
+    return [float(v) for v in base / 10.0]
 
 
 def g_from_sigma(sigma):
@@ -255,6 +265,22 @@ def main():
     P_zmid = 0.5 * (br["total"][0] + br["total"][1])
     comp_mid = {k: 0.5 * (br[k][0] + br[k][1]) for k in COMPONENTS}   # each component's mean branch
     shares = {k: comp_mid[k] / P_zmid for k in COMPONENTS}
+
+    # ---- the MIDPLANE SLAB, |z - z_mid| <= 30 pc: every paper "midplane" number.
+    # Exactly compute_area_alpha.py's selection (pipe._box_z_slice on the source
+    # grid, then slab_z_indices(z_box, midplane.slab_center(0, z_mid, MODE))) and
+    # its averaging: the slab <P_tot>_area is the mean over all cells of those
+    # planes = the plain mean of the plane means (every plane has the same cells).
+    import pipeline.compute_all as pipe
+    zsl, z_box = pipe._box_z_slice(z)
+    slab_idx = zsl.start + slab_z_indices(z_box, midplane.slab_center(0.0, z_mid, MIDPLANE_MODE))
+    slab = {k: float(np.mean(P[k][slab_idx])) for k in COMPONENTS + ("sum",)}
+    slab_shares = {k: slab[k] / slab["sum"] for k in COMPONENTS}
+    check("slab mean of P_sum vs area_alpha's midplane <P_tot>_area (rel)",
+          abs(slab["sum"] / float(aa["slab__mean__Ptot_area"][0]) - 1), 1e-6)
+    check("slab component means sum to the slab P_sum (rel)",
+          abs(sum(slab[k] for k in COMPONENTS) / slab["sum"] - 1), 1e-12)
+    slab_pct = shares_one_decimal([slab_shares[k] for k in COMPONENTS])
     # the old Sun-centred jump, recomputed live for comparison
     sig_sun = sigma_components(z, nH)
     g_sun = g_from_sigma(sig_sun["star"] + sig_sun["dm"] + sig_sun["gas"])
@@ -295,6 +321,11 @@ def main():
         "z_mid_diag_on": np.array([zm_diag["on"]]), "z_mid_diag_off": np.array([zm_diag["off"]]),
         "z_colbal": np.array([z_colbal]),
         "P_zmid": np.array([P_zmid]),
+        "slab_P_sum": np.array([slab["sum"]]),
+        "slab_P_components": np.array([slab[k] for k in COMPONENTS]),
+        "slab_shares": np.array([slab_shares[k] for k in COMPONENTS]),
+        "slab_shares_pct_1dp": np.array(slab_pct),
+        "slab_z_pc": z[slab_idx],
         "shares_zmid": np.array([shares[k] for k in COMPONENTS]),
         "P_sun_branches": np.array([sun_top, sun_bot]),
         "sigma_gas_total": np.array([sigma_tot]),
@@ -372,7 +403,21 @@ def main():
     L += [
         "",
         "-" * 100,
-        "MIDPLANE VALUE AND SHARES",
+        "MIDPLANE SLAB, |z - z_mid| <= 30 pc -- the paper's 'midplane' convention (Figs. 1, 3, 4)",
+        "-" * 100,
+        f"  planes z = {z[slab_idx][0]:g} .. {z[slab_idx][-1]:g} pc ({slab_idx.size} planes), selected and",
+        "  averaged exactly as compute_area_alpha.py's midplane slab",
+        f"  slab <P_tot> = {slab['sum']:.2f} K cm^-3   (area_alpha.npz midplane <P_tot>_area "
+        f"{float(aa['slab__mean__Ptot_area'][0]):.2f})",
+        f"  {'':<18}{'slab mean':>10}{'share':>10}{'unrounded':>12}",
+        *[f"  {lab:<18}{slab[k]:>10.1f}{pct:>9.1f}%{slab_shares[k] * 100:>12.4f}"
+          for (k, lab), pct in zip((("star", "stars"), ("dm", "dark matter"),
+                                    ("gas", "gas self-gravity")), slab_pct)],
+        f"  (shares shown to one decimal, rounded by largest remainder so they sum to "
+        f"{sum(slab_pct):.1f})",
+        "",
+        "-" * 100,
+        "PEAK AT z_mid (the single continuous value where the two branches meet)",
         "-" * 100,
         f"  P(z_mid) = {P_zmid:.2f} K cm^-3  (top-down {br['total'][0]:.4f}, bottom-up {br['total'][1]:.4f})",
         "  shares (each component's mean of its two branches; the components are NOT individually",

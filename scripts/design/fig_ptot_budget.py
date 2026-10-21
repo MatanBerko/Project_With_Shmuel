@@ -118,17 +118,23 @@ def main():
     ax_c.fill_between(z, p1, p2, color=COLOR_DM, lw=0, zorder=1)
     ax_c.fill_between(z, p2, p3, color=COLOR_GAS, lw=0, zorder=1)
     ax_c.plot(z, d["ptot_area_cached_on"], color=PTOT_COLOR, lw=1.4, zorder=4)
-    ax_c.set_ylim(0, float(p3[box].max()) * 1.28)
+    ax_c.set_ylim(0, float(p3[box].max()) * 1.42)   # room for the shares line above the peak labels
     ax_c.set_ylabel(r"$\langle P_{\rm tot}\rangle/k_{\rm B}$ [K cm$^{-3}$]")
     panel_label(ax_c, "c", loc="upper left")
-    p_mid = float(d["P_zmid"][0])
-    ax_c.annotate(rf"$\approx {_round100(p_mid)}$", (zmid, p_mid), xytext=(6, 4),
+    # the paper's "midplane" convention: the |z - z_mid| <= 30 pc slab mean
+    # (the same slab as Figs. 1 and 4), anchored just above the stack's peak
+    p_slab = float(d["slab_P_sum"][0])
+    p_peak = float(d["P_zmid"][0])
+    ax_c.annotate(rf"$\approx {_round100(p_slab)}$", (zmid, p_peak), xytext=(6, 13),
                   textcoords="offset points", ha="left", va="bottom", fontsize=TEXT_FS,
                   color=PTOT_COLOR, zorder=6)
-    sh = _shares_1dp(d["shares_zmid"])
+    ax_c.annotate(r"$|z - z_\mathrm{mid}| \leq 30$ pc", (zmid, p_peak), xytext=(6, 4),
+                  textcoords="offset points", ha="left", va="bottom", fontsize=TEXT_FS - 1,
+                  color="0.45", zorder=6)
+    sh = _shares_1dp(d["slab_shares"])
     assert abs(sh.sum() - 100.0) < 1e-9
-    annotate(ax_c, rf"at $z_\mathrm{{mid}}$: stars {sh[0]:.1f}%, DM {sh[1]:.1f}%, "
-             f"gas {sh[2]:.1f}%", loc="upper right", size=TEXT_FS)
+    annotate(ax_c, f"midplane: stars {sh[0]:.1f}%, DM {sh[1]:.1f}%, gas {sh[2]:.1f}%",
+             loc="upper right", size=TEXT_FS)
     handles_c = [Patch(facecolor=COLORS[k], lw=0) for k in ("star", "dm", "gas")]
     handles_c.append(Line2D([], [], color=PTOT_COLOR, lw=1.4))
     ax_c.legend(handles_c, ["stars", "dark matter", "gas self-gravity",
@@ -139,7 +145,7 @@ def main():
     # ---------------------------------------------------- z_mid preview
     if SHOW_ZMID:
         ax_a.axvline(zmid, ymax=0.76, **ZMID_KW)   # stops below the Sigma text
-        ax_c.axvline(zmid, **ZMID_KW)
+        ax_c.axvline(zmid, ymax=0.88, **ZMID_KW)   # stops below the shares line
         ax_c.text(zmid - 4, 0.03, ZMID_LABEL, transform=ax_c.get_xaxis_transform(),
                   ha="right", va="bottom", fontsize=TEXT_FS - 0.5, color="0.25")
 

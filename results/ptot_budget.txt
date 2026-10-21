@@ -27,6 +27,8 @@ ASSERTIONS (the script raises if any fails)
     7.77e-16  (<= 1e-12)  sum of component P == P from summed g (max rel, linearity)
     6.57e-14  (<= 1e-06)  total P at z_mid: top-down vs bottom-up (rel) -- continuity
     5.55e-16  (<= 1e-12)  sum of component branches == total branch, top and bottom (max rel)
+    9.42e-12  (<= 1e-06)  slab mean of P_sum vs area_alpha's midplane <P_tot>_area (rel)
+    2.22e-16  (<= 1e-12)  slab component means sum to the slab P_sum (rel)
     4.72e-05  (<= 1e-02)  0.5[P_gas(z_mid+)+P_gas(z_mid-)] vs pi G Sigma^2/2 (rel)
 
 ----------------------------------------------------------------------------------------------------
@@ -54,7 +56,19 @@ PROFILES  (z_mid-/z_mid+ = the bottom-up / top-down branch AT z_mid; they meet)
      750    0.0262    32.330   20.266    6.908       0.0      0.0      0.0       0.0
 
 ----------------------------------------------------------------------------------------------------
-MIDPLANE VALUE AND SHARES
+MIDPLANE SLAB, |z - z_mid| <= 30 pc -- the paper's 'midplane' convention (Figs. 1, 3, 4)
+----------------------------------------------------------------------------------------------------
+  planes z = -40 .. 18 pc (30 planes), selected and
+  averaged exactly as compute_area_alpha.py's midplane slab
+  slab <P_tot> = 7826.14 K cm^-3   (area_alpha.npz midplane <P_tot>_area 7826.14)
+                     slab mean     share   unrounded
+  stars                 4462.1     57.0%     57.0159
+  dark matter           1805.2     23.1%     23.0665
+  gas self-gravity      1558.8     19.9%     19.9176
+  (shares shown to one decimal, rounded by largest remainder so they sum to 100.0)
+
+----------------------------------------------------------------------------------------------------
+PEAK AT z_mid (the single continuous value where the two branches meet)
 ----------------------------------------------------------------------------------------------------
   P(z_mid) = 7902.70 K cm^-3  (top-down 7902.6962, bottom-up 7902.6962)
   shares (each component's mean of its two branches; the components are NOT individually
