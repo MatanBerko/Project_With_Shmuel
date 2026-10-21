@@ -1,0 +1,18 @@
+PROVISIONAL: f98 cube, n_H = 1653 A'; final cube pending
+Step 1i guard: MIDPLANE_MODE = 'sun' reproduces the pre-Step-1i pipeline
+==========================================================================================
+
+1. P_tot / alpha cubes, recomputed in memory in 'sun' mode vs the cached build:
+   RAW    sg off   z_mid +0.0  Ptot bitwise True  alpha bitwise True
+   RAW    sg mean  z_mid +0.0  Ptot bitwise True  alpha bitwise True
+   HIM_A  sg off   z_mid +0.0  Ptot bitwise True  alpha bitwise True
+   HIM_A  sg mean  z_mid +0.0  Ptot bitwise True  alpha bitwise True
+   HIM_B  sg off   z_mid +0.0  Ptot bitwise True  alpha bitwise True
+   HIM_B  sg mean  z_mid +0.0  Ptot bitwise True  alpha bitwise True
+
+2. RAW finalize in 'sun' mode vs the old code's partial on this machine:
+   numbers_table rows: 948 vs 948; rows differing in any field (text or value, exact): 0
+   summary arrays: 740 in the reference; differing (bitwise): 0
+   new keys (Step 1i bookkeeping only): ['RAW__midplane_mode', 'RAW__sgmean__z_mid_pc', 'RAW__sgoff__z_mid_pc']
+
+(runtime 574.6s)

@@ -64,13 +64,22 @@ def integrate_ptot_halfcolumn(z_ordered: np.ndarray, rho_ordered: np.ndarray,
 
 
 def p_tot_kb_full_column(z_pc: np.ndarray, rho_g_cm3: np.ndarray,
-                            g_cgs: np.ndarray) -> np.ndarray:
+                            g_cgs: np.ndarray, z_split: float = 0.0) -> np.ndarray:
     """P_tot/k_B [K cm^-3] for every z in z_pc (both signs), P=0 at the top
     AND bottom edges of the Zarr volume (mirrored halves, see module
     docstring). Output is aligned to the ORIGINAL order of z_pc.
 
     z_pc: (Nz,) real coordinate values, both signs present.
     rho_g_cm3, g_cgs: (Nz, ...) or (Nz,), aligned to z_pc along axis 0.
+    z_split: where the two half-columns meet (Step 1i). Planes with
+      z >= z_split take the top-down value, planes with z < z_split the
+      bottom-up one; a plane exactly at z_split takes the top-down value,
+      as the plane at z = 0 always has. The default 0.0 is the old
+      Sun-centred behaviour, unchanged operation for operation. A z_split
+      between grid planes needs no node of its own here: each grid plane's
+      value is the integral from its own domain edge to that plane, which
+      never reaches z_split (see src.physics.midplane for the branch values
+      AT an off-grid z_split).
     """
     rho_g_cm3 = np.asarray(rho_g_cm3)
     g_cgs = _align_leading(np.asarray(g_cgs), rho_g_cm3.ndim)
@@ -81,8 +90,8 @@ def p_tot_kb_full_column(z_pc: np.ndarray, rho_g_cm3: np.ndarray,
     rho_sorted = rho_g_cm3[order]
     g_sorted = g_cgs[order]
 
-    pos_idx = np.where(z_sorted >= 0)[0]  # ascending: 0 ... +zmax
-    neg_idx = np.where(z_sorted <= 0)[0]  # ascending: -zmax ... 0
+    pos_idx = np.where(z_sorted >= z_split)[0]  # ascending: split ... +zmax
+    neg_idx = np.where(z_sorted <= z_split)[0]  # ascending: -zmax ... split
 
     # Positive half: reverse to (top boundary -> plane) order, integrate,
     # then reverse back to ascending (0 -> top) order.

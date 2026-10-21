@@ -58,7 +58,8 @@ from src.conventions import (  # noqa: E402
     PROVISIONAL_CUBE_HEADER,
     STATS_BOX_XY_HALF_RANGE_PC,
 )
-from src.physics import thermal  # noqa: E402
+from src.conventions import MIDPLANE_MODE, MIDPLANE_MODE_BALANCED  # noqa: E402
+from src.physics import midplane, thermal  # noqa: E402
 from src.physics.him import him_flag  # noqa: E402
 from src.physics.loading import (  # noqa: E402
     IUV_FIELD,
@@ -144,15 +145,21 @@ def scurve_edges(n_grid, iuv_grid, t2d):
 
 
 def choose_iuv_curves(p15, p85, n=N_IUV_CURVES, clean=CLEAN_IUV):
-    """n clean values spanning [p15, p85]: log-even targets snapped to `clean`.
+    """n clean values BRACKETING [p15, p85].
 
-    Each target takes the nearest clean value not already taken, so the
-    ends can land just outside [p15, p85] -- the chosen set brackets the
-    range rather than sitting strictly inside it.
+    The ends are the largest clean value <= p15 and the smallest >= p85;
+    the inner values are log-even targets between those ends, each snapped
+    to the nearest clean value not already taken. (Snapping the ends too,
+    as before Step 1i, flipped the whole set from 0.3/0.5/1/2 to 0.5/1/2/3
+    when p15 moved from 0.385 to 0.392 -- across the 0.3/0.5 snapping
+    boundary -- and lost the low end of the range.)
     """
-    targets = np.logspace(np.log10(p15), np.log10(p85), n)
+    clean = tuple(sorted(clean))
+    lo = max((c for c in clean if c <= p15), default=clean[0])
+    hi = min((c for c in clean if c >= p85), default=clean[-1])
+    targets = np.logspace(np.log10(lo), np.log10(hi), n)[1:-1]
     lc = np.log10(clean)
-    chosen = []
+    chosen = [lo, hi]
     for t in targets:
         order = np.argsort(np.abs(lc - np.log10(t)))
         pick = next(clean[j] for j in order if clean[j] not in chosen)
@@ -169,7 +176,8 @@ def read_midplane_references(path=AREA_ALPHA_TXT):
     i6 = next(i for i, ln in enumerate(lines) if ln.startswith("6. PER-CELL"))
     iv = next(i for i in range(i6, len(lines)) if lines[i].startswith("VOLUME-weighted"))
     header = lines[iv + 1]
-    row = next(ln for ln in lines[iv:] if re.match(r"^\s+0\s+mean\s", ln))
+    # the midplane slab row: 'mid' (balanced, Step 1i) or '0' (Sun-centred)
+    row = next(ln for ln in lines[iv:] if re.match(r"^\s+(mid|0)\s+mean\s", ln))
     cols = header.split()
     if not ("<P_tot>_area" in cols and "P_th,harm" in cols and "<a_cell>" in cols):
         raise RuntimeError(f"unexpected header in {path}: {header!r}")
@@ -197,14 +205,18 @@ def main():
     grid = open_zarr()
     x_lo, x_hi = xy_index_range(grid.x_pc, STATS_BOX_XY_HALF_RANGE_PC)
     y_lo, y_hi = xy_index_range(grid.y_pc, STATS_BOX_XY_HALF_RANGE_PC)
-    iz = slab_z_indices(grid.z_pc, 0.0, SLAB_HALF_PC)
+    # Step 1i: the midplane slab is |z - z_mid| <= 30 pc (the fiducial
+    # self-gravity setting's z_mid, as built and recorded in the cache)
+    core = zarr.open_group(str(ALPHA_CORE_ZARR_PATH), mode="r")
+    z_mid = float(core["RAW"]["self_gravity_mean"].attrs.get("z_mid_pc", 0.0))
+    z_slab = midplane.slab_center(0.0, z_mid, MIDPLANE_MODE)
+    iz = slab_z_indices(grid.z_pc, z_slab, SLAB_HALF_PC)
     zs = slice(int(iz.min()), int(iz.max()) + 1)
     if zs.stop - zs.start != iz.size:
         raise RuntimeError("slab planes are not contiguous")
     read = lambda f: np.asarray(grid.store[f][zs, y_lo:y_hi, x_lo:x_hi], dtype=np.float64)  # noqa: E731
     n_h, iuv, T = read(RHO_FIELD), read(IUV_FIELD), read(T_FIELD)
 
-    core = zarr.open_group(str(ALPHA_CORE_ZARR_PATH), mode="r")
     zc = np.asarray(core["z_pc"][:], dtype=float)
     jz = np.array([int(np.argmin(np.abs(zc - z))) for z in grid.z_pc[zs]])
     if not np.allclose(zc[jz], grid.z_pc[zs], atol=1e-3) or np.any(np.diff(jz) != 1):
@@ -348,7 +360,10 @@ def main():
         "log-I_UV-interpolated curves)",
         "",
         f"Midplane gas: RAW, non-HIM cells, |x|,|y| <= {STATS_BOX_XY_HALF_RANGE_PC:.0f} pc, "
-        f"|z| <= {SLAB_HALF_PC:.0f} pc ({iz.size} planes, {int(sel.sum())} cells used)",
+        + (f"|z - z_mid| <= {SLAB_HALF_PC:.0f} pc, z_mid = {z_mid:+.3f} pc (balanced, Step 1i)"
+           if MIDPLANE_MODE == MIDPLANE_MODE_BALANCED else f"|z| <= {SLAB_HALF_PC:.0f} pc")
+        + f" ({iz.size} planes, z = {grid.z_pc[zs][0]:g}..{grid.z_pc[zs][-1]:g} pc, "
+        f"{int(sel.sum())} cells used)",
         "  VOLUME-weighted (equal weight per cell) -- the weighting of the area-averaged",
         "  <P_tot> and <1/P_th>^-1; nearest-rank percentiles",
         f"  I_UV percentiles  p15 {v15:.3f}   p50 {v50:.3f}   p85 {v85:.3f}",
@@ -371,14 +386,15 @@ def main():
         "   P-tabulated table; turning points from the n-tabulated curve actually plotted. The",
         "   two tabulations differ by up to ~5% at these I_UV.)",
         "",
-        "Midplane reference pressures, READ from results/area_alpha.txt (section 6, |z| <= 30 pc",
-        "slab, self-gravity on = footprint-mean, volume-weighted), not recomputed:",
+        "Midplane reference pressures, READ from results/area_alpha.txt (section 6, the midplane",
+        "slab -- |z - z_mid| <= 30 pc in balanced mode --, self-gravity on = footprint-mean,",
+        "volume-weighted), not recomputed:",
         f"  <P_tot>_area   = {p_tot_mid:.1f} K cm^-3",
         f"  <1/P_th>^-1    = {p_inv_mid:.1f} K cm^-3   (the column headed P_th,harm)",
         "  header line:  " + ref_header.strip(),
         "  data line:    " + ref_row.strip(),
         f"  <P_tot>/<1/P_th>^-1 = {ratio_mid:.2f} = <alpha_cell> ({a_cell_mid:.3f}, same line, "
-        "section 6, volume-weighted, z = 0, sg = mean)",
+        "section 6, volume-weighted, midplane slab, sg = mean)",
         "",
         f"At the median midplane I_UV = {v50:.3f}: P_min = {pmin_v50:.0f}, P_max = {pmax_v50:.0f} K cm^-3;",
         f"  midplane <P_tot> = {p_tot_mid:.0f} is {where}; <1/P_th>^-1 = {p_inv_mid:.0f}.",
@@ -388,6 +404,9 @@ def main():
         f"  (P_max x1.1 from thermal.build_pmin_pmax; for I_UV < I_UV,cross, <P_tot> > P_max)",
         f"  volume fraction of midplane gas (same slab) with I_UV < I_UV,cross: "
         f"{f_vol_below_cross:.4f}",
+        "",
+        f"STATEMENT: the midplane <P_tot> ({p_tot_mid:.0f} K cm^-3) is above P_max for "
+        f"I_UV < {iuv_cross:.3f}, which is {f_vol_below_cross:.1%} of the neutral midplane volume.",
         "",
         f"(runtime {time.time() - t0:.1f}s)",
     ]

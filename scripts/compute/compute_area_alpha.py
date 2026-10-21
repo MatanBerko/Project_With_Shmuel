@@ -126,7 +126,8 @@ from src.conventions import (  # noqa: E402
     THERMAL_PRESSURE_HEADER,
     XY_HALF_RANGE_PC,
 )
-from src.physics import gravity, hydrostatic  # noqa: E402
+from src.conventions import MIDPLANE_MODE, MIDPLANE_MODE_BALANCED  # noqa: E402
+from src.physics import gravity, hydrostatic, midplane  # noqa: E402
 from src.physics.loading import open_zarr, slab_z_indices  # noqa: E402
 from src.physics.stats import percentile_levels, weighted_stats  # noqa: E402
 
@@ -521,25 +522,21 @@ def footprint_mean_density_chunked(n_arr, z_chunk=Z_CHUNK):
     return rho_bar
 
 
-def g_for_setting(sg_key, z_pc_full, n_bar_cm3):
-    """g(z) [cm/s^2] on the full z column for one self-gravity setting.
+def g_for_setting(sg_key, z_pc_full, n_bar_cm3, midplane_mode=MIDPLANE_MODE):
+    """(g [cm/s^2], nan_fraction, z_mid [pc]) on the full z column for one
+    self-gravity setting.
 
     The cache does not store g, so it is re-derived here through
-    src.physics.gravity.g_total_cgs -- the same call pipeline/
-    compute_all.py's build stage makes -- rather than reimplemented.
-    "mean" self-gravity depends on the density cube ONLY through its
-    footprint mean per z plane, which is what n_bar_cm3 is, so passing a
-    (Nz, 1, 1) cube of that profile with a 1-cell mask reproduces the
-    build's g_gas exactly while touching one profile instead of 1.5 GB.
+    src.physics.midplane.midplane_gravity -- the same physics the build
+    stage uses -- rather than reimplemented. Both fiducial settings depend
+    on the density cube ONLY through its footprint mean per z plane, which
+    is what n_bar_cm3 is. "sun": z_mid = 0 and g from gravity.g_total_cgs
+    on a (Nz, 1, 1) cube of that profile (the pre-Step-1i call). "balanced"
+    (Step 1i): z_mid from the profile and g centred on it.
     """
     mode = SELF_GRAVITY_MODE_BY_SETTING[sg_key]
-    if mode == SELF_GRAVITY_MODE_OFF:
-        g, nan_fraction = gravity.g_total_cgs(z_pc_full, None, mode=mode)
-        return np.asarray(g, dtype=np.float64), nan_fraction
-    g, nan_fraction = gravity.g_total_cgs(
-        z_pc_full, n_bar_cm3[:, None, None], mode=mode,
-        footprint_mask=np.ones((1, 1), dtype=bool))
-    return np.asarray(g, dtype=np.float64), nan_fraction
+    z_mid, g, nan_fraction = midplane.midplane_gravity(z_pc_full, n_bar_cm3, mode, midplane_mode)
+    return np.asarray(g, dtype=np.float64), nan_fraction, z_mid
 
 
 def plane_mean_ptot_chunked(ptot_arr, z_chunk=Z_CHUNK):
@@ -554,7 +551,7 @@ def plane_mean_ptot_chunked(ptot_arr, z_chunk=Z_CHUNK):
     return out
 
 
-def validate_area_ptot(z_pc_full, n_bar_cm3, g_cgs, ptot_plane_mean):
+def validate_area_ptot(z_pc_full, n_bar_cm3, g_cgs, ptot_plane_mean, z_split=0.0):
     """Part (b): the area-average identity, checked numerically.
 
     Returns (predicted, rel_diff, max_rel_diff). `predicted` is the
@@ -563,7 +560,7 @@ def validate_area_ptot(z_pc_full, n_bar_cm3, g_cgs, ptot_plane_mean):
     convention the cache was built with.
     """
     rho_bar_cgs = MU * M_H * n_bar_cm3
-    predicted = hydrostatic.p_tot_kb_full_column(z_pc_full, rho_bar_cgs, g_cgs)
+    predicted = hydrostatic.p_tot_kb_full_column(z_pc_full, rho_bar_cgs, g_cgs, z_split=z_split)
     predicted = np.asarray(predicted, dtype=np.float64)
     denom = np.where(np.abs(ptot_plane_mean) > 0, np.abs(ptot_plane_mean), np.nan)
     rel = np.abs(predicted - ptot_plane_mean) / denom
@@ -601,7 +598,24 @@ def main():
     # ---- groups: the 4 pc signed bins, then the three 60 pc slabs ---------
     bin_groups = pipe.profile_bin_groups(z_box, use_abs=False)
     n_bins = len(bin_groups)
-    slab_groups = [(float(zc), slab_z_indices(z_box, zc)) for zc in SLAB_CENTERS_PC]
+    # Step 1i: the midplane slab follows z_mid (per self-gravity setting, as
+    # built and recorded in the cache). Both settings' z_mid select the same
+    # planes -- checked, so one set of slab groups serves both.
+    z_mid_cache = {k: float(vg[f"self_gravity_{k}"].attrs.get("z_mid_pc", 0.0))
+                   for k in SELF_GRAVITY_SETTINGS}
+    built_modes = {vg[f"self_gravity_{k}"].attrs.get("midplane_mode", "sun")
+                   for k in SELF_GRAVITY_SETTINGS}
+    if built_modes != {MIDPLANE_MODE}:
+        raise RuntimeError(f"cache built with midplane {built_modes}, MIDPLANE_MODE is "
+                           f"{MIDPLANE_MODE!r} -- rebuild first")
+    slab_by_sg = {k: [slab_z_indices(z_box, midplane.slab_center(zc, z_mid_cache[k], MIDPLANE_MODE))
+                      for zc in SLAB_CENTERS_PC] for k in SELF_GRAVITY_SETTINGS}
+    if not all(np.array_equal(a, b) for a, b in zip(*slab_by_sg.values())):
+        raise RuntimeError("the self-gravity settings' z_mid select different slab planes")
+    slab_groups = [(float(zc), idx) for zc, idx in zip(SLAB_CENTERS_PC, slab_by_sg["mean"])]
+    print(f"  midplane {MIDPLANE_MODE}: z_mid = "
+          + ", ".join(f"{k} {v:+.4f}" for k, v in z_mid_cache.items()) + " pc; midplane slab "
+          f"z = {z_box[slab_groups[0][1]].min():g}..{z_box[slab_groups[0][1]].max():g} pc")
     n_groups = n_bins + len(slab_groups)
     # A box plane can belong to one bin and (independently) to one slab.
     plane_groups = [[] for _ in range(len(z_box))]
@@ -665,7 +679,11 @@ def main():
         ptot_arr = vg[f"self_gravity_{sg_key}"]["Ptot"]
 
         # ---- (a) + (b): the plane means, and the identity check ----------
-        g_cgs, nan_fraction = g_for_setting(sg_key, z_full, n_bar)
+        g_cgs, nan_fraction, z_mid = g_for_setting(sg_key, z_full, n_bar)
+        if abs(z_mid - z_mid_cache[sg_key]) > 1e-6:
+            raise RuntimeError(f"z_mid re-derived here ({z_mid:+.6f}) != the cache's "
+                               f"({z_mid_cache[sg_key]:+.6f}) for self_gravity={sg_key}")
+        out[f"{sg_key}__z_mid_pc"] = np.array([z_mid])
         out[f"{sg_key}__g_cgs_full"] = g_cgs
         if nan_fraction is not None:
             out[f"{sg_key}__footprint_nan_fraction_full"] = np.asarray(
@@ -675,7 +693,11 @@ def main():
 
         ptot_plane_mean = plane_mean_ptot_chunked(ptot_arr)
         predicted, rel, max_rel = validate_area_ptot(
-            z_full, n_bar, g_cgs, ptot_plane_mean)
+            z_full, n_bar, g_cgs, ptot_plane_mean, z_split=z_mid)
+        if MIDPLANE_MODE == MIDPLANE_MODE_BALANCED:
+            top, bot = midplane.branch_pressures(z_full, MU * M_H * n_bar, g_cgs, z_mid)
+            out[f"{sg_key}__P_at_z_mid_branches"] = np.array([top, bot])
+            print(f"  P at z_mid: top-down {top:.3f}, bottom-up {bot:.3f} (rel {abs(top / bot - 1):.1e})")
         out[f"{sg_key}__ptot_plane_mean_full"] = ptot_plane_mean
         out[f"{sg_key}__ptot_from_rho_bar_full"] = predicted
         out[f"{sg_key}__validation_rel_diff_full"] = rel
@@ -892,7 +914,7 @@ def cell_alpha_report_lines(out, cell_checks, pct_lo, pct_hi):
             for sg in SELF_GRAVITY_SETTINGS:
                 s = f"slab__{sg}__"
                 L.append(
-                    f"{zc:>6.0f}{sg:>6}{out[s + 'Ptot_area'][i]:>14.1f}"
+                    f"{slab_label(zc):>6}{sg:>6}{out[s + 'Ptot_area'][i]:>14.1f}"
                     f"{out[s + f'Pth_neutral_{wt}'][i]:>14.1f}"
                     f"{out[s + f'Pth_harm_{wt}'][i]:>12.1f}"
                     f"{out[s + f'alpha_area_{wt}'][i]:>9.3f}"
@@ -936,7 +958,7 @@ def cell_alpha_report_lines(out, cell_checks, pct_lo, pct_hi):
     ]
     for i, zc in enumerate(out["slab_centers_pc"]):
         s = "slab__mean__"
-        L.append(f"{zc:>6.0f}{out[s + 'alpha_cell_median_vol'][i]:>16.3f}"
+        L.append(f"{slab_label(zc):>6}{out[s + 'alpha_cell_median_vol'][i]:>16.3f}"
                  f"{out[s + 'alpha_cell_perplane_median_vol'][i]:>16.3f}"
                  f"{out[s + 'alpha_cell_mean_vol'][i]:>16.3f}"
                  f"{out[s + 'alpha_cell_perplane_mean_vol'][i]:>16.3f}")
@@ -951,6 +973,12 @@ def cell_alpha_report_lines(out, cell_checks, pct_lo, pct_hi):
         "arithmetic <P_th>, by an amount set by the spread of p_th within the group.",
     ]
     return L
+
+
+def slab_label(zc):
+    """'mid' for the midplane slab in balanced mode (it is centred on z_mid,
+    not z = 0), else the slab centre in pc."""
+    return "mid" if (MIDPLANE_MODE == MIDPLANE_MODE_BALANCED and zc == 0.0) else f"{zc:.0f}"
 
 
 def write_report(out, validation, ref, pct_lo, pct_hi, t0, cell_checks):
@@ -978,7 +1006,18 @@ def write_report(out, validation, ref, pct_lo, pct_hi, t0, cell_checks):
         f"+-{SLAB_HALF_THICKNESS_PC:.0f} pc.",
         "Nothing here recomputes P_tot, alpha, p_th_phys or the HIM flag -- all are read from",
         "cache/core/alpha_core.zarr. g(z) is the only quantity re-derived, through the same",
-        "src.physics.gravity call the build stage makes, because the cache does not store it.",
+        "src.physics.midplane call the build stage makes, because the cache does not store it.",
+        "",
+        f"MIDPLANE: {MIDPLANE_MODE}" + (
+            f" (Step 1i). z_mid = {float(out['mean__z_mid_pc'][0]):+.3f} pc (self-gravity mean), "
+            f"{float(out['off__z_mid_pc'][0]):+.3f} pc (off);"
+            if MIDPLANE_MODE == MIDPLANE_MODE_BALANCED else "."),
+        *(["  P_tot is integrated toward z_mid from both cube edges with g centred on z_mid. The",
+           f"  'mid' slab is |z - z_mid| <= {SLAB_HALF_THICKNESS_PC:.0f} pc; z = 150 and 300 are unchanged.",
+           "  P at z_mid, top-down vs bottom-up (area average): "
+           + "; ".join(f"{k} {out[f'{k}__P_at_z_mid_branches'][0]:.2f} / "
+                       f"{out[f'{k}__P_at_z_mid_branches'][1]:.2f}" for k in SELF_GRAVITY_SETTINGS)]
+          if MIDPLANE_MODE == MIDPLANE_MODE_BALANCED else []),
         "",
         "-" * 100,
         "1. VALIDATION of the area-average identity",
@@ -1025,7 +1064,7 @@ def write_report(out, validation, ref, pct_lo, pct_hi, t0, cell_checks):
     for i, zc in enumerate(out["slab_centers_pc"]):
         for sg_key in SELF_GRAVITY_SETTINGS:
             L.append(
-                f"{zc:>6.0f}{sg_key:>6}"
+                f"{slab_label(zc):>6}{sg_key:>6}"
                 f"{out[f'slab__{sg_key}__Ptot_area'][i]:>14.1f}"
                 f"{out[f'slab__{sg_key}__Pth_neutral_vol'][i]:>12.1f}"
                 f"{out[f'slab__{sg_key}__Pth_neutral_mw'][i]:>12.1f}"
@@ -1065,7 +1104,7 @@ def write_report(out, validation, ref, pct_lo, pct_hi, t0, cell_checks):
         ]
         for i, zc in enumerate(out["slab_centers_pc"]):
             for sg_key in SELF_GRAVITY_SETTINGS:
-                row = (f"{zc:>6.0f}{sg_key:>6}"
+                row = (f"{slab_label(zc):>6}{sg_key:>6}"
                        f"{out[f'slab__{sg_key}__alpha_area_{weight}'][i]:>14.3f}")
                 for N in SCALE_TEST_NS:
                     stem = f"slab__{sg_key}__patch{N}__alpha_area_{weight}"

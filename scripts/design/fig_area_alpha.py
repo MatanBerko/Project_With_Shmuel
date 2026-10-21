@@ -59,7 +59,6 @@ from src.conventions import COLOR_ALPHA  # noqa: E402
 from src.plotting.style import (  # noqa: E402
     PRESSURE_COLORS,
     REFERENCE_COLOR,
-    REFERENCE_LABEL,
     REFERENCE_MARKER,
     annotate,
     apply_paper_style,
@@ -89,6 +88,11 @@ AREA_COLOR = "0.30"
 A_HEADROOM = 1.8
 B_HEADROOM = 1.30
 SG_OFF_LS = (0, (1.2, 1.6))
+# TIGRESS R8: one open marker per quantity, so each gets its own legend entry
+R8_MARKERS = {"P_tot_2p": dict(REFERENCE_MARKER),
+              "P_th_2p": dict(REFERENCE_MARKER, marker="s", markersize=5.5)}
+R8_LABELS = {"P_tot_2p": r"R8 $P_\mathrm{tot,2p}$", "P_th_2p": r"R8 $P_\mathrm{th,2p}$"}
+ZMID_KW = dict(color="0.45", lw=0.8, ls=":", zorder=2)
 
 
 def main():
@@ -118,8 +122,13 @@ def main():
     ax_a.plot(z, pth_mw, color=c_pth, linestyle=MW_LS, linewidth=1.5, zorder=5)
     ax_a.plot(z, pth_harm, color=c_pth, linestyle=HARM_LS, linewidth=1.5, zorder=5)
     for q in ("P_tot_2p", "P_th_2p"):
-        ax_a.plot([0.0], [float(d[f"ref_{q}"][0])], color=REFERENCE_COLOR,
-                  **REFERENCE_MARKER)
+        ax_a.plot([0.0], [float(d[f"ref_{q}"][0])], color=REFERENCE_COLOR, **R8_MARKERS[q])
+    # Step 1i: the balanced midplane (the fiducial self-gravity setting's)
+    if "mean__z_mid_pc" in d.files:
+        z_mid = float(d["mean__z_mid_pc"][0])
+        ax_a.axvline(z_mid, ymax=0.86, **ZMID_KW)   # stops below the legend rows
+        ax_a.text(z_mid - 4, 0.03, r"$z_\mathrm{mid}$", transform=ax_a.get_xaxis_transform(),
+                  ha="right", va="bottom", fontsize=6.5, color="0.35")
 
     ax_a.set_yscale("log")
     ax_a.set_ylabel(r"$\langle P\rangle/k_\mathrm{B}$  [K cm$^{-3}$]")
@@ -135,14 +144,15 @@ def main():
     ax_a.yaxis.set_minor_formatter(mticker.NullFormatter())
     panel_label(ax_a, "a", loc="lower left")
 
-    # ncols=3 fills column-major: P_tot pair | arithmetic P_th pair | harm + R8
+    # ncols=4 fills column-major: P_tot pair | arithmetic P_th pair | harm + R8 P_tot | R8 P_th
     handles_a = [
         Line2D([], [], color=c_ptot, linestyle=VOL_LS, linewidth=2.0),
         Line2D([], [], color=c_ptot, linestyle=SG_OFF_LS, linewidth=1.1),
         Line2D([], [], color=c_pth, linestyle=VOL_LS, linewidth=1.5),
         Line2D([], [], color=c_pth, linestyle=MW_LS, linewidth=1.5),
         Line2D([], [], color=c_pth, linestyle=HARM_LS, linewidth=1.5),
-        Line2D([], [], color=REFERENCE_COLOR, **REFERENCE_MARKER),
+        Line2D([], [], color=REFERENCE_COLOR, **R8_MARKERS["P_tot_2p"]),
+        Line2D([], [], color=REFERENCE_COLOR, **R8_MARKERS["P_th_2p"]),
     ]
     labels_a = [
         r"$\langle P_\mathrm{tot}\rangle_\mathrm{area}$, self-gravity on",
@@ -150,11 +160,12 @@ def main():
         r"$\langle P_\mathrm{th}\rangle$, vol-weighted",
         r"$\langle P_\mathrm{th}\rangle$, mass-weighted",
         r"$\langle 1/P_{\rm th}\rangle^{-1}$, vol-weighted",
-        REFERENCE_LABEL,
+        R8_LABELS["P_tot_2p"],
+        R8_LABELS["P_th_2p"],
     ]
     # anchored left of centre so the right column clears the PROVISIONAL tag
     ax_a.legend(handles_a, labels_a, loc="upper center",
-                bbox_to_anchor=(0.46, 1.00), ncols=3, columnspacing=1.0)
+                bbox_to_anchor=(0.46, 1.00), ncols=4, columnspacing=0.9)
 
     # ------------------------------------------------------------------ (b)
     a_med = d[f"{SG_FIDUCIAL}__alpha_cell_median_vol"]

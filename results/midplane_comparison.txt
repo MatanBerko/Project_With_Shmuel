@@ -1,0 +1,26 @@
+PROVISIONAL: f98 cube, n_H = 1653 A'; final cube pending
+Step 1i: Sun-centred ('sun') vs balanced midplane ('balanced'), RAW, self-gravity mean
+========================================================================================================
+balanced z_mid = -11.875 pc (self-gravity mean), -11.507 pc (off). Midplane slab: |z| <= 30 pc (sun), |z - z_mid| <= 30 pc (balanced).
+
+  slab      mode  <P_tot>_area  alpha_area  med a_cell  mean a_cell   patch500 <alpha>_i med [p15, p85]
+                     [K cm^-3]       (vol)       (vol)        (vol)
+-------------------------------------------------------------------------------------------------------
+   mid       sun        7800.3       2.324       2.722        3.291           2.761  [1.882, 3.721]
+   mid  balanced        7826.1       2.323       2.705        3.252           2.732  [1.907, 3.642]
+
+   150       sun        4849.8       2.422       3.025        3.256           2.870  [1.957, 3.667]
+   150  balanced        4963.5       2.479       3.096        3.332           2.926  [1.999, 3.761]
+
+   300       sun        3284.2       2.014       2.646        2.690           2.544  [1.810, 3.181]
+   300  balanced        3332.6       2.043       2.685        2.729           2.580  [1.836, 3.225]
+
+Fig. 3 midplane (1-D weight budget):
+  sun:      P(0+) = 7245.4, P(0-) = 8570.5 K cm^-3 (the jump)
+  balanced: P(z_mid) = 7902.7 K cm^-3 (top-down 7902.6962, bottom-up 7902.6962)
+  shares at z_mid: stars 57.0%, DM 23.0%, gas 20.0%
+
+Fig. 1 numbers (midplane slab, volume-weighted):
+                 <P_tot>  <1/P_th>^-1  I_UV,cross  vol share < cross
+           sun    7800.3       2370.5      1.0642             0.8109
+      balanced    7826.1       2406.4      1.0723             0.8140

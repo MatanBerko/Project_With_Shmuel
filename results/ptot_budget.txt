@@ -2,9 +2,10 @@ PROVISIONAL: f98 cube, n_H = 1653 A'; final cube pending
 Fig. 3 'Building P_tot': the 1-D weight budget of <P_tot>_area(z)
 ====================================================================================================
 RAW, ALL footprint cells (HIM included), |x|,|y| <= 500 pc, self-gravity footprint_mean,
-current Sun-centred midplane convention (src/physics unchanged). Because g(z) is the same
-for every column, <P_tot>_area(z) = int <rho>_area g dz exactly, and it splits exactly into
-stars + dark matter + gas self-gravity (P is linear in g).
+BALANCED midplane (Step 1i): z_mid = -11.8748 pc; P_tot integrated toward z_mid from
+both cube edges with g centred on z_mid. g(z) is the same for every column, so
+<P_tot>_area(z) = int <rho>_area g dz exactly, and it splits exactly into stars + dark
+matter + gas self-gravity (P is linear in g).
 z grid: the SOURCE cube's float64 z_pc, -750 .. 750 pc, 751 planes (spacing 2 pc).
 <n_H>_area: compute_area_alpha.footprint_mean_density_chunked over the cached RAW n_model;
   NaN fraction per plane: max 0.00e+00 (mean 0.00e+00).
@@ -13,74 +14,81 @@ Guo+20: Sigma_star = 38.4 Msun/pc^2, z_h = 413.0 pc, rho_DM = 0.0133 Msun/pc^3.
 ----------------------------------------------------------------------------------------------------
 ASSERTIONS (the script raises if any fails)
 ----------------------------------------------------------------------------------------------------
-    2.22e-16  (<= 1e-12)  g_star + g_dm == gravity.g_ext_cgs (max rel)
-    2.22e-16  (<= 1e-12)  g_star + g_dm + g_gas == gravity.g_total_cgs(footprint_mean) (max rel)
-    2.22e-16  (<= 1e-12)  g_total == compute_area_alpha.g_for_setting('mean') (max rel)
     0.00e+00  (<= 1e-15)  <n_H>_area vs area_alpha.npz n_bar_cm3_full (max rel)
-    2.42e-10  (<= 1e-06)  P_star+P_dm+P_gas vs cached <P_tot>_area (sg mean), |z|<=400 (max rel)
-    1.91e-10  (<= 1e-06)  P_star+P_dm vs cached <P_tot>_area (sg off), |z|<=400 (max rel)
-    8.88e-16  (<= 1e-12)  sum of component P == P from summed g (max rel, linearity)
-    2.22e-16  (<= 1e-12)  P_sum(z=0) from p_tot_kb_full_column == top-down branch P(0+) (rel)
-    2.22e-16  (<= 1e-12)  sum of component branches == total branch, 0+ and 0- (max rel)
-    5.19e-05  (<= 1e-02)  0.5[P_gas(0+)+P_gas(0-)] vs pi G Sigma^2/2 (rel)
-    0.00e+00  (<= 1e-10)  z_m = 0 weight imbalance == P(0+) - P(0-) from the branches (rel)
+    9.56e-04  (<= 5e-02)  official z_mid (on) vs this script's own 1-D root [pc]
+    0.00e+00  (<= 1e-06)  official z_mid (on) vs the cache's z_mid (build) [pc]
+    1.62e-03  (<= 5e-02)  official z_mid (off) vs this script's own 1-D root [pc]
+    0.00e+00  (<= 1e-06)  official z_mid (off) vs the cache's z_mid (build) [pc]
+    3.33e-16  (<= 1e-12)  g_star + g_dm == gravity.g_ext_cgs(z - z_mid) (max rel)
+    2.22e-16  (<= 1e-12)  g_star + g_dm + g_gas == midplane.centred_g_cgs (max rel)
+    2.22e-16  (<= 1e-12)  g_total == compute_area_alpha.g_for_setting('mean') (max rel)
+    2.39e-10  (<= 1e-06)  P_star+P_dm+P_gas vs cached <P_tot>_area (sg mean), |z|<=400 (max rel)
+    2.07e-10  (<= 1e-06)  P (sg off, centred on its own z_mid) vs cached <P_tot>_area (sg off), |z|<=400 (max rel)
+    7.77e-16  (<= 1e-12)  sum of component P == P from summed g (max rel, linearity)
+    6.57e-14  (<= 1e-06)  total P at z_mid: top-down vs bottom-up (rel) -- continuity
+    5.55e-16  (<= 1e-12)  sum of component branches == total branch, top and bottom (max rel)
+    4.72e-05  (<= 1e-02)  0.5[P_gas(z_mid+)+P_gas(z_mid-)] vs pi G Sigma^2/2 (rel)
 
 ----------------------------------------------------------------------------------------------------
-PROFILES  (P at z = 0 is shown on both branches; the cached profile keeps 0+ only)
+THE MIDPLANE
+----------------------------------------------------------------------------------------------------
+  z_mid: where the area-averaged weight above equals the weight below, g centred on z_mid
+  (src.physics.midplane.find_balanced_midplane); the cross-check is this script's own 1-D
+  root (approximate enclosed column at the off-grid end).
+    self-gravity on   z_mid = -11.8748 pc   (1-D cross-check -11.8739)
+    self-gravity off  z_mid = -11.5070 pc   (1-D cross-check -11.5053)
+  column-balance height (equal gas column above and below): -8.3784 pc
+
+----------------------------------------------------------------------------------------------------
+PROFILES  (z_mid-/z_mid+ = the bottom-up / top-down branch AT z_mid; they meet)
 ----------------------------------------------------------------------------------------------------
        z     <n_H>  Sig_star   Sig_DM  Sig_gas    P_star     P_DM    P_gas     P_sum
     [pc]   [cm^-3]       ---- [Msun/pc^2] ----                   ---- [K cm^-3] ----
-    -750    0.0220    32.153   19.950    6.908       0.0      0.0      0.0       0.0
-    -300    0.0798    19.828    7.980    5.883    1674.6    831.0    413.9    2919.4
-    -150    0.2862    11.695    3.990    4.655    3266.6   1418.5    959.9    5644.9
-      0-    0.7193     0.000    0.000    0.000    4895.2   1936.4   1738.8    8570.5
-      0+    0.7193     0.000    0.000    0.000    4119.5   1703.7   1422.3    7245.4
-     150    0.1187    11.695    3.990    4.655    2787.6   1285.7    766.0    4839.3
-     300    0.0506    19.828    7.980    5.883    1875.5    948.4    454.6    3278.5
-     750    0.0262    32.153   19.950    6.908       0.0      0.0      0.0       0.0
+    -750    0.0220    31.971   19.634    6.886       0.0      0.0      0.0       0.0
+    -300    0.0798    19.286    7.664    5.838    1650.6    810.4    411.8    2872.8
+    -150    0.2862    10.916    3.674    4.535    3172.8   1365.1    949.5    5487.4
+  z_mid-    0.6863     0.022    0.006    0.011    4516.6   1789.4   1596.7    7902.7
+  z_mid+    0.6863     0.022    0.006    0.011    4492.5   1845.8   1564.5    7902.7
+     150    0.1187    12.452    4.306    4.853    2849.8   1326.6    774.9    4951.3
+     300    0.0506    20.354    8.296    5.946    1899.4    970.8    456.5    3326.6
+     750    0.0262    32.330   20.266    6.908       0.0      0.0      0.0       0.0
 
 ----------------------------------------------------------------------------------------------------
-MIDPLANE: both branches (d) and component shares (h)
+MIDPLANE VALUE AND SHARES
 ----------------------------------------------------------------------------------------------------
-              P_star      P_DM     P_gas     total     star      DM     gas
-     P(0+)    4119.5    1703.7    1422.3    7245.4   56.9%   23.5%   19.6%
-     P(0-)    4895.2    1936.4    1738.8    8570.5   57.1%   22.6%   20.3%
-  0+ = integrated top-down (from z = +750), 0- = bottom-up (from z = -750); the
-  cached <P_tot>_area keeps the top-down value at z = 0 (hydrostatic.py).
-  Mean of the two branches: 7907.9 K cm^-3. (Fig. 1b's 7800 is the |z| <= 30 pc SLAB mean
-  of <P_tot>_area from area_alpha.txt, which averages planes on both sides of the jump.)
+  P(z_mid) = 7902.70 K cm^-3  (top-down 7902.6962, bottom-up 7902.6962)
+  shares (each component's mean of its two branches; the components are NOT individually
+  balanced, only their sum is):
+    stars                4504.5  (57.0%)   branches top 4492.5 / bottom 4516.6
+    dark matter          1817.6  (23.0%)   branches top 1845.8 / bottom 1789.4
+    gas self-gravity     1580.6  (20.0%)   branches top 1564.5 / bottom 1596.7
 
-  Fraction of P(0+) from gas at z > +400 pc (= P_sum(+400) / P(0+)): 0.3487
-  Fraction of P(0-) from gas at z < -400 pc (= P_sum(-400) / P(0-)): 0.2321
+  Pre-Step-1i (Sun-centred, recomputed here): P(0+) = 7245.4, P(0-) = 8570.5 K cm^-3 -- the jump
+  the balanced midplane removes. P(z_mid) is +9.1% vs P(0+) and -7.8% vs P(0-).
+
+  Share of P(z_mid) from gas at z > +400 pc (= P_sum(+400) / P(z_mid)): 0.3237
+  Share of P(z_mid) from gas at z < -400 pc (= P_sum(-400) / P(z_mid)): 0.2485
   (outside the stats box, inside the cube, which spans z = -750 .. 750 pc)
 
 ----------------------------------------------------------------------------------------------------
-CLOSED-FORM SELF-GRAVITY CHECK (e)
+CLOSED-FORM SELF-GRAVITY CHECK (about z_mid)
 ----------------------------------------------------------------------------------------------------
-  For ANY profile on a domain symmetric about 0: 0.5 [P_gas(0+) + P_gas(0-)] = pi G Sigma^2 / 2.
+  For ANY profile and ANY centre: 0.5 [P_gas top + P_gas bottom] = pi G Sigma^2 / 2.
   Sigma_gas_total (full-cube column of <rho>_area) = 6.9076 Msun/pc^2
-  0.5 [P_gas(0+) + P_gas(0-)] = 1580.58 K cm^-3
-  pi G Sigma^2 / 2 / k_B       = 1580.66 K cm^-3
-  relative difference          = 5.19e-05   (threshold 1e-02)
+  0.5 [P_gas(z_mid+) + P_gas(z_mid-)] = 1580.59 K cm^-3
+  pi G Sigma^2 / 2 / k_B             = 1580.66 K cm^-3
+  relative difference                = 4.72e-05   (threshold 1e-02)
 
   Per-column Sigma_gas map over the footprint (alpha_core.zarr RAW/Sigma_gas):
     mean   6.9076 Msun/pc^2  (vs Sigma_gas_total 6.9076: rel 1.5e-11)
     median 4.8060 Msun/pc^2  (numbers_table.txt: 4.80595)
 
 ----------------------------------------------------------------------------------------------------
-COLUMN BALANCE ABOUT z = 0 (f)
+COLUMN BALANCE
 ----------------------------------------------------------------------------------------------------
-  Sigma_above (z > 0) = 3.2513 Msun/pc^2
-  Sigma_below (z < 0) = 3.6563 Msun/pc^2
-  above / below       = 0.8892
-
-----------------------------------------------------------------------------------------------------
-BALANCED MIDPLANE -- DIAGNOSTIC PREVIEW ONLY (g); no pipeline quantity uses this
-----------------------------------------------------------------------------------------------------
-  g centred on a trial z_m (stars/DM at |z - z_m|, gas enclosed within |z' - z_m| < |z - z_m|);
-  z_m where the top-down weight equals the bottom-up weight (brentq, bracket +-100 pc):
-    self-gravity on   z_mid = -11.87 pc
-    self-gravity off  z_mid = -11.51 pc
-  column-balance height (equal gas column above and below): -8.38 pc
+  about z_mid: above 3.5369, below 3.3707 Msun/pc^2, ratio 1.0493
+  about z = 0: above 3.2513, below 3.6563 Msun/pc^2, ratio 0.8892
+  (the weights, not the columns, balance at z_mid: g grows away from the plane, so gas
+   further out weighs more)
 
 (runtime 0.8s)

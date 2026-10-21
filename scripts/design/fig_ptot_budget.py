@@ -10,11 +10,9 @@ Three stacked panels on a shared signed-z axis:
   (b) the enclosed column Sigma_enc(<|z|) of stars, dark matter and gas, and
       their total -- the gravity each term supplies, g = 2 pi G Sigma_enc.
   (c) <P_tot>_area(z) built up as a stack: stars, then DM, then gas
-      self-gravity; its top edge is the cached <P_tot>_area (red). The z = 0
-      jump (top-down 0+ vs bottom-up 0-) is the current midplane convention
-      and is left visible.
-Optionally (SHOW_ZMID_PREVIEW) a thin dotted line marks the balanced
-midplane from the compute script's 1-D DIAGNOSTIC in (a) and (c).
+      self-gravity; its top edge is the cached <P_tot>_area (red). With the
+      balanced midplane (Step 1i) the stack is continuous at z_mid.
+A thin dotted line marks z_mid in (a) and (c) (SHOW_ZMID).
 """
 
 import sys
@@ -51,14 +49,23 @@ FIG_W, FIG_H = 5.0, 5.2
 HEIGHT_RATIOS = (1.0, 1.0, 1.4)
 Z_RANGE = (-400.0, 400.0)
 Z_TICKS = (-400, -200, 0, 200, 400)
-SHOW_ZMID_PREVIEW = True
+SHOW_ZMID = True
 ZMID_KW = dict(color="0.6", lw=0.8, ls=":", zorder=2)
-ZMID_LABEL = r"balanced $z_\mathrm{mid}$ (preview)"
+ZMID_LABEL = r"$z_\mathrm{mid}$"
 COLORS = {"star": COLOR_STARS, "dm": COLOR_DM, "gas": COLOR_GAS}
 LABELS = {"star": "stars", "dm": "dark matter", "gas": "gas self-gravity"}
 TOTAL_COLOR = "0.1"
 PTOT_COLOR = PRESSURE_COLORS["Ptot"]
 TEXT_FS = 6.5
+
+
+def _shares_1dp(fracs):
+    """Percentages to one decimal that sum to exactly 100.0 (largest remainder)."""
+    tenths = np.asarray(fracs, dtype=float) * 1000.0
+    base = np.floor(tenths)
+    short = int(round(1000 - base.sum()))
+    base[np.argsort(-(tenths - base))[:short]] += 1
+    return base / 10.0
 
 
 def _round100(v):
@@ -70,7 +77,7 @@ def main():
     d = np.load(CACHE, allow_pickle=False)
     z = d["z_pc"]
     box = (z >= Z_RANGE[0]) & (z <= Z_RANGE[1])
-    zmid = float(d["z_mid_diag_on"][0])
+    zmid = float(d["z_mid"][0])
 
     fig, (ax_a, ax_b, ax_c) = plt.subplots(
         3, 1, figsize=(FIG_W, FIG_H), sharex=True,
@@ -85,7 +92,8 @@ def main():
     panel_label(ax_a, "a", loc="upper left")
     annotate(ax_a, r"$\Sigma_{\rm above}$ = " f"{float(d['sigma_above'][0]):.2f}, "
              r"$\Sigma_{\rm below}$ = " f"{float(d['sigma_below'][0]):.2f} "
-             r"M$_\odot$ pc$^{-2}$", xy=(0.97, 0.84), size=TEXT_FS)   # below PROVISIONAL
+             r"M$_\odot$ pc$^{-2}$" "\n" r"(about $z_\mathrm{mid}$)", xy=(0.12, 0.95),
+             size=TEXT_FS)   # upper left, clear of the density peak and PROVISIONAL
 
     # ------------------------------------------------------------------ (b)
     for k in ("star", "dm", "gas"):
@@ -113,13 +121,14 @@ def main():
     ax_c.set_ylim(0, float(p3[box].max()) * 1.28)
     ax_c.set_ylabel(r"$\langle P_{\rm tot}\rangle/k_{\rm B}$ [K cm$^{-3}$]")
     panel_label(ax_c, "c", loc="upper left")
-    p0p, p0m = float(d["P0_total"][0]), float(d["P0_total"][1])
-    ax_c.annotate(rf"$\approx {_round100(p0p)}$ ($0^+$), ${_round100(p0m)}$ ($0^-$)",
-                  (0.0, p0m), xytext=(6, 4), textcoords="offset points",
-                  ha="left", va="bottom", fontsize=TEXT_FS, color=PTOT_COLOR, zorder=6)
-    sh = {k: float(d[f"P0_{k}"][0]) / p0p for k in ("star", "dm", "gas")}
-    annotate(ax_c, f"at $0^+$: stars {sh['star']:.0%}, DM {sh['dm']:.0%}, "
-             f"gas {sh['gas']:.0%}", loc="upper right", size=TEXT_FS)
+    p_mid = float(d["P_zmid"][0])
+    ax_c.annotate(rf"$\approx {_round100(p_mid)}$", (zmid, p_mid), xytext=(6, 4),
+                  textcoords="offset points", ha="left", va="bottom", fontsize=TEXT_FS,
+                  color=PTOT_COLOR, zorder=6)
+    sh = _shares_1dp(d["shares_zmid"])
+    assert abs(sh.sum() - 100.0) < 1e-9
+    annotate(ax_c, rf"at $z_\mathrm{{mid}}$: stars {sh[0]:.1f}%, DM {sh[1]:.1f}%, "
+             f"gas {sh[2]:.1f}%", loc="upper right", size=TEXT_FS)
     handles_c = [Patch(facecolor=COLORS[k], lw=0) for k in ("star", "dm", "gas")]
     handles_c.append(Line2D([], [], color=PTOT_COLOR, lw=1.4))
     ax_c.legend(handles_c, ["stars", "dark matter", "gas self-gravity",
@@ -128,9 +137,9 @@ def main():
                 handlelength=1.4, columnspacing=1.0, fontsize=TEXT_FS, borderaxespad=0.3)
 
     # ---------------------------------------------------- z_mid preview
-    if SHOW_ZMID_PREVIEW:
-        for ax in (ax_a, ax_c):
-            ax.axvline(zmid, **ZMID_KW)
+    if SHOW_ZMID:
+        ax_a.axvline(zmid, ymax=0.76, **ZMID_KW)   # stops below the Sigma text
+        ax_c.axvline(zmid, **ZMID_KW)
         ax_c.text(zmid - 4, 0.03, ZMID_LABEL, transform=ax_c.get_xaxis_transform(),
                   ha="right", va="bottom", fontsize=TEXT_FS - 0.5, color="0.25")
 

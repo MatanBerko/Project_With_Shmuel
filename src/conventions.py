@@ -358,6 +358,27 @@ SELF_GRAVITY_MODE_PER_COLUMN = "per_column"
 SELF_GRAVITY_MODE_OFF = "off"
 SELF_GRAVITY_MODE_DEFAULT = SELF_GRAVITY_MODE_FOOTPRINT_MEAN
 
+# ---------------------------------------------------------------------------
+# Midplane (Step 1i, APPROVED as fiducial)
+# ---------------------------------------------------------------------------
+# Where the two hydrostatic half-columns meet and where gravity changes sign.
+#   "sun"       (old behaviour, kept exactly reproducible): the plane is z = 0,
+#               the Sun's height; g_ext uses |z| and g_gas the column within
+#               |z'| < |z|. With ~12% more gas below the Sun the area-averaged
+#               P_tot then jumps at z = 0 (P(0+) = 7245 vs P(0-) = 8571 K cm^-3).
+#   "balanced"  (NEW DEFAULT): the plane is z_mid, the height where the
+#               area-averaged weight above equals the weight below, with g
+#               centred on z_mid itself (src.physics.midplane). Computed per
+#               variant and per self-gravity setting from that run's own
+#               footprint-mean density, on the source float64 z grid.
+# In "balanced" mode the midplane slab is |z - z_mid| <= SLAB_HALF_THICKNESS_PC;
+# the other slab centres are unchanged.
+MIDPLANE_MODE_SUN = "sun"
+MIDPLANE_MODE_BALANCED = "balanced"
+MIDPLANE_MODES = (MIDPLANE_MODE_SUN, MIDPLANE_MODE_BALANCED)
+MIDPLANE_MODE = MIDPLANE_MODE_BALANCED
+MIDPLANE_BRACKET_PC = 100.0    # brentq bracket for z_mid: [-100, +100] pc
+
 
 def apply_style() -> None:
     """Apply this project's publication-quality matplotlib style."""

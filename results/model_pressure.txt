@@ -9,10 +9,10 @@ the Draine-field normalisation, not Habing G_0.
 BS19 S-curve (two dP/dn = 0 turning points) exists for I_UV in [0.001, 161.5]
   (tabulated rows 0.001 .. 158.489; upper edge refined on log-I_UV-interpolated curves)
 
-Midplane gas: RAW, non-HIM cells, |x|,|y| <= 500 pc, |z| <= 30 pc (31 planes, 4173481 cells used)
+Midplane gas: RAW, non-HIM cells, |x|,|y| <= 500 pc, |z - z_mid| <= 30 pc, z_mid = -11.875 pc (balanced, Step 1i) (30 planes, z = -40..18 pc, 4116363 cells used)
   VOLUME-weighted (equal weight per cell) -- the weighting of the area-averaged
   <P_tot> and <1/P_th>^-1; nearest-rank percentiles
-  I_UV percentiles  p15 0.385   p50 0.613   p85 1.165
+  I_UV percentiles  p15 0.392   p50 0.616   p85 1.167
   IUV_CURVES (clean values spanning p15-p85): 0.3, 0.5, 1, 2
   volume fraction with I_UV ABOVE the S-curve range (161.5): 0.0002%   (above the last tabulated S-curve row 158.489: 0.0002%)
   volume fraction with I_UV BELOW the S-curve range (0.001): 0.0000%
@@ -29,19 +29,22 @@ P_min and P_max (1.1 n T) at IUV_CURVES
    P-tabulated table; turning points from the n-tabulated curve actually plotted. The
    two tabulations differ by up to ~5% at these I_UV.)
 
-Midplane reference pressures, READ from results/area_alpha.txt (section 6, |z| <= 30 pc
-slab, self-gravity on = footprint-mean, volume-weighted), not recomputed:
-  <P_tot>_area   = 7800.3 K cm^-3
-  <1/P_th>^-1    = 2370.5 K cm^-3   (the column headed P_th,harm)
+Midplane reference pressures, READ from results/area_alpha.txt (section 6, the midplane
+slab -- |z - z_mid| <= 30 pc in balanced mode --, self-gravity on = footprint-mean,
+volume-weighted), not recomputed:
+  <P_tot>_area   = 7826.1 K cm^-3
+  <1/P_th>^-1    = 2406.4 K cm^-3   (the column headed P_th,harm)
   header line:  z    sg  <P_tot>_area  <P_th> arith   P_th,harm   a_area  <a_cell>  med a_cell        [p15, p85]
-  data line:    0  mean        7800.3        3356.5      2370.5    2.324     3.291       2.722    [1.454,  5.504]
-  <P_tot>/<1/P_th>^-1 = 3.29 = <alpha_cell> (3.291, same line, section 6, volume-weighted, z = 0, sg = mean)
+  data line:    mid  mean        7826.1        3368.3      2406.4    2.323     3.252       2.705    [1.462,  5.387]
+  <P_tot>/<1/P_th>^-1 = 3.25 = <alpha_cell> (3.252, same line, section 6, volume-weighted, midplane slab, sg = mean)
 
-At the median midplane I_UV = 0.613: P_min = 1852, P_max = 6089 K cm^-3;
-  midplane <P_tot> = 7800 is ABOVE P_max; <1/P_th>^-1 = 2370.
+At the median midplane I_UV = 0.616: P_min = 1859, P_max = 6104 K cm^-3;
+  midplane <P_tot> = 7826 is ABOVE P_max; <1/P_th>^-1 = 2406.
 
-I_UV,cross, where P_max(I_UV) = midplane <P_tot> = 7800.3: I_UV,cross = 1.0642
+I_UV,cross, where P_max(I_UV) = midplane <P_tot> = 7826.1: I_UV,cross = 1.0723
   (P_max x1.1 from thermal.build_pmin_pmax; for I_UV < I_UV,cross, <P_tot> > P_max)
-  volume fraction of midplane gas (same slab) with I_UV < I_UV,cross: 0.8109
+  volume fraction of midplane gas (same slab) with I_UV < I_UV,cross: 0.8140
 
-(runtime 2.6s)
+STATEMENT: the midplane <P_tot> (7826 K cm^-3) is above P_max for I_UV < 1.072, which is 81.4% of the neutral midplane volume.
+
+(runtime 2.5s)

@@ -66,6 +66,17 @@ LOG_HEADROOM_LEGEND = 2.4   # room above the data for the two legend rows
 LOG_HEADROOM = 1.3
 LIN_HEADROOM = 1.22
 LEGEND_GREY = "0.35"
+ZMID_KW = dict(color="0.45", lw=0.8, ls=":", zorder=7)
+
+
+def _mark_zmid(ax, d, ymax=1.0):
+    """Step 1i: the balanced midplane as a thin dotted line, labelled at the bottom."""
+    if "z_mid_pc_mean" not in d.files:
+        return
+    z_mid = float(d["z_mid_pc_mean"][0])
+    ax.axvline(z_mid, ymax=ymax, **ZMID_KW)
+    ax.text(z_mid - 4, 0.03, r"$z_\mathrm{mid}$", transform=ax.get_xaxis_transform(),
+            ha="right", va="bottom", fontsize=6.0, color="0.35", zorder=8)
 
 
 def _strip(ax, z, d, stem, color):
@@ -119,6 +130,7 @@ def make_figure(d, L):
     stem = f"{tag}__{SG}__Ptot"
     _strip(ax_a, z, d, stem, c)
     ax_a.plot(z, d[f"full__{SG}__Ptot"], color=FULL_COLOR, linewidth=FULL_LW, zorder=6)
+    _mark_zmid(ax_a, d, ymax=0.88)   # stops below the style legend
     _log_axis(ax_a, [d[stem + "__p_lo"], d[stem + "__p_hi"]], z,
               headroom=LOG_HEADROOM_LEGEND)
     ax_a.set_ylabel(r"$\langle P_{\rm tot}\rangle_i/k_{\rm B}$  [K cm$^{-3}$]")
@@ -131,6 +143,7 @@ def make_figure(d, L):
     c = PRESSURE_COLORS["Pth"]
     stem = f"{tag}__{SG}__Pth_inv_inv_vol"
     _strip(ax_b, z, d, stem, c)
+    _mark_zmid(ax_b, d)
     ax_b.plot(z, d[f"full__{SG}__Pth_inv_inv_vol"], color=FULL_COLOR, linewidth=FULL_LW,
               zorder=6)
     _log_axis(ax_b, [d[stem + "__p_lo"], d[stem + "__p_hi"]], z)

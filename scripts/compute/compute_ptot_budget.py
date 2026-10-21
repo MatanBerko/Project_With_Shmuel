@@ -10,19 +10,19 @@ results/area_alpha.txt section 1. And P_tot is linear in g, so it splits
 exactly into the three gravity components.
 
 Fiducial: RAW, ALL footprint cells (HIM-flagged included -- their mass is in
-the weight), |x|,|y| <= 500 pc, self-gravity footprint_mean, the current
-Sun-centred midplane convention (hydrostatic.py unchanged).
+the weight), |x|,|y| <= 500 pc, self-gravity footprint_mean, and the BALANCED
+midplane (Step 1i, src.physics.midplane): P_tot is integrated toward z_mid from
+both cube edges with g centred on z_mid, so <P_tot>_area is continuous there.
 
 Route (the same as scripts/compute/compute_area_alpha.py, reused not copied):
   * z grid: the SOURCE cube's float64 z_pc (open_zarr), never the float32
     copy in alpha_core.zarr -- see area_alpha.txt section 1 for why;
   * <n_H>_area(z): compute_area_alpha.footprint_mean_density_chunked over the
     cached RAW n_model (the footprint is already the +-500 pc square);
-  * every gravity term and every pressure integral through src.physics.
-Nothing in src/physics is changed.
-
-Section g (balanced midplane) is a DIAGNOSTIC preview only; Step 1i owns the
-real implementation and nothing here changes any pipeline quantity.
+  * every gravity term and every pressure integral through src.physics, with
+    z_mid from src.physics.midplane (the pipeline's own); this script's older
+    1-D root (find_zmid, below) is kept as an independent cross-check.
+The Sun-centred P(0+) / P(0-) jump is recomputed alongside, for comparison.
 
 Writes cache/ptot_budget/ptot_budget.npz and results/ptot_budget.txt.
 """
@@ -51,7 +51,8 @@ from src.conventions import (  # noqa: E402
     STATS_BOX_Z_HALF_RANGE_PC,
     Z_H_PC,
 )
-from src.physics import gravity, hydrostatic  # noqa: E402
+from src.conventions import MIDPLANE_MODE, MIDPLANE_MODE_BALANCED  # noqa: E402
+from src.physics import gravity, hydrostatic, midplane  # noqa: E402
 from src.physics.loading import open_zarr  # noqa: E402
 
 # ═══════════════════════════════════════════════════════════════════════
@@ -62,7 +63,8 @@ ALPHA_CORE_ZARR_PATH = Path("cache/core/alpha_core.zarr")
 AREA_ALPHA_NPZ_PATH = Path("cache/core/area_alpha.npz")
 OUT_NPZ_PATH = Path("cache/ptot_budget/ptot_budget.npz")
 OUT_TXT_PATH = Path("results/ptot_budget.txt")
-REPORT_Z_PC = (-300.0, -150.0, 150.0, 300.0)     # plus 0-, 0+ and the cube edges
+REPORT_Z_PC = (-300.0, -150.0, 150.0, 300.0)     # plus z_mid-, z_mid+ and the cube edges
+ZMID_CROSSCHECK_PC = 0.05     # official z_mid vs this script's own 1-D root
 G_SPLIT_RTOL = 1e-12          # stars + DM == g_ext, components == g_total
 P_CACHE_RTOL = 1e-6           # P_sum vs cached <P_tot>_area, |z| <= 400 pc
 CLOSED_FORM_RTOL = 1e-2       # self-gravity closed form: discretisation level
@@ -176,7 +178,8 @@ def main():
     if np.any(np.diff(z) <= 0):
         raise RuntimeError("source z grid is not ascending")
     core = zarr.open_group(str(ALPHA_CORE_ZARR_PATH), mode="r")
-    n_arr = core[VARIANT]["n_model"]
+    vg = core[VARIANT]
+    n_arr = vg["n_model"]
     if n_arr.shape[0] != z.size:
         raise RuntimeError("cached n_model z length != source z grid")
     nH = caa.footprint_mean_density_chunked(n_arr)            # the area-alpha route
@@ -186,107 +189,128 @@ def main():
         c = np.asarray(n_arr[lo:hi], dtype=np.float64).reshape(hi - lo, -1)
         nan_frac[lo:hi] = np.mean(~np.isfinite(c), axis=1)
     rho = gravity.RHO_PER_N * nH                               # g cm^-3 (MU * M_H * nH)
-    print(f"z grid {z[0]:g}..{z[-1]:g} pc ({z.size} planes); max NaN fraction per plane "
-          f"{nan_frac.max():.2e}")
-
-    # ---- b. gravity components ----------------------------------------------
-    sig = sigma_components(z, nH)
-    sig["total"] = sig["star"] + sig["dm"] + sig["gas"]
-    g = {k: g_from_sigma(v) for k, v in sig.items()}
-    g_ext = gravity.g_ext_cgs(z)
-    g_tot_ref, _ = gravity.g_total_cgs(z, nH[:, None, None], SELF_GRAVITY_MODE_FOOTPRINT_MEAN,
-                                       footprint_mask=np.ones((1, 1), dtype=bool))
-    nz = g_ext > 0
-    check("g_star + g_dm == gravity.g_ext_cgs (max rel)",
-          float(np.max(np.abs((g["star"] + g["dm"])[nz] / g_ext[nz] - 1))), G_SPLIT_RTOL)
-    nz = g_tot_ref > 0
-    check("g_star + g_dm + g_gas == gravity.g_total_cgs(footprint_mean) (max rel)",
-          float(np.max(np.abs(g["total"][nz] / g_tot_ref[nz] - 1))), G_SPLIT_RTOL)
-    g_caa, _ = caa.g_for_setting("mean", z, nH)
-    check("g_total == compute_area_alpha.g_for_setting('mean') (max rel)",
-          float(np.max(np.abs(g["total"][nz] / g_caa[nz] - 1))), G_SPLIT_RTOL)
-
-    # ---- c. pressure components ------------------------------------------------
-    P = {k: hydrostatic.p_tot_kb_full_column(z, rho, g[k]) for k in COMPONENTS}
-    P["sum"] = P["star"] + P["dm"] + P["gas"]
-    P["offsg"] = P["star"] + P["dm"]
+    rho_msun = nH * gravity.RHO_MSUN_PC3_PER_N
     aa = np.load(AREA_ALPHA_NPZ_PATH, allow_pickle=False)
     if not np.array_equal(aa["z_pc_full"], z):
         raise RuntimeError("area_alpha.npz z grid differs from the source grid")
     check("<n_H>_area vs area_alpha.npz n_bar_cm3_full (max rel)",
           float(np.max(np.abs(nH / aa["n_bar_cm3_full"] - 1))), 1e-15)
+    print(f"z grid {z[0]:g}..{z[-1]:g} pc ({z.size} planes); max NaN fraction per plane "
+          f"{nan_frac.max():.2e}")
+
+    # ---- the midplane: official (src.physics.midplane) vs this script's 1-D root
+    if MIDPLANE_MODE != MIDPLANE_MODE_BALANCED:
+        raise RuntimeError("Fig. 3 is built for the balanced midplane (MIDPLANE_MODE)")
+    zm = {"on": midplane.find_balanced_midplane(z, nH, self_gravity=True),
+          "off": midplane.find_balanced_midplane(z, nH, self_gravity=False)}
+    zm_diag = {"on": find_zmid(z, nH, self_gravity=True), "off": find_zmid(z, nH, self_gravity=False)}
+    for k, sg in (("on", "mean"), ("off", "off")):
+        check(f"official z_mid ({k}) vs this script's own 1-D root [pc]",
+              abs(zm[k] - zm_diag[k]), ZMID_CROSSCHECK_PC)
+        check(f"official z_mid ({k}) vs the cache's z_mid (build) [pc]",
+              abs(zm[k] - float(vg[f"self_gravity_{sg}"].attrs["z_mid_pc"])), 1e-6)
+    z_mid = zm["on"]
+    z_colbal = midplane.column_balance_height(z, nH)
+
+    # ---- b. gravity components, centred on z_mid -------------------------------
+    s = np.abs(z - z_mid)
+    sig = {"star": SIGMA_STAR_MSUN_PC2 * (1.0 - np.exp(-s / Z_H_PC)),
+           "dm": 2.0 * RHO_DM_MSUN_PC3 * s,
+           "gas": midplane.enclosed_column_about(z, rho_msun, z_mid)}
+    sig["total"] = sig["star"] + sig["dm"] + sig["gas"]
+    g = {k: g_from_sigma(v) for k, v in sig.items()}
+    g_ext = gravity.g_ext_cgs(z - z_mid)
+    nz = g_ext > 0
+    check("g_star + g_dm == gravity.g_ext_cgs(z - z_mid) (max rel)",
+          float(np.max(np.abs((g["star"] + g["dm"])[nz] / g_ext[nz] - 1))), G_SPLIT_RTOL)
+    g_ref = midplane.centred_g_cgs(z, nH, z_mid, self_gravity=True)
+    nz = g_ref > 0
+    check("g_star + g_dm + g_gas == midplane.centred_g_cgs (max rel)",
+          float(np.max(np.abs(g["total"][nz] / g_ref[nz] - 1))), G_SPLIT_RTOL)
+    g_caa, _, zm_caa = caa.g_for_setting("mean", z, nH)
+    check("g_total == compute_area_alpha.g_for_setting('mean') (max rel)",
+          float(np.max(np.abs(g["total"][nz] / g_caa[nz] - 1))), G_SPLIT_RTOL)
+
+    # ---- c. pressure components, split at z_mid -------------------------------------
+    P = {k: hydrostatic.p_tot_kb_full_column(z, rho, g[k], z_split=z_mid) for k in COMPONENTS}
+    P["sum"] = P["star"] + P["dm"] + P["gas"]
+    g_off = gravity.g_ext_cgs(z - zm["off"])                     # off: its OWN z_mid
+    P["off"] = hydrostatic.p_tot_kb_full_column(z, rho, g_off, z_split=zm["off"])
     box = np.abs(z) <= STATS_BOX_Z_HALF_RANGE_PC
     ptot_on, ptot_off = aa["mean__ptot_plane_mean_full"], aa["off__ptot_plane_mean_full"]
-    rel_on = np.abs(P["sum"][box] / ptot_on[box] - 1)
-    rel_off = np.abs(P["offsg"][box] / ptot_off[box] - 1)
     check("P_star+P_dm+P_gas vs cached <P_tot>_area (sg mean), |z|<=400 (max rel)",
-          float(rel_on.max()), P_CACHE_RTOL)
-    check("P_star+P_dm vs cached <P_tot>_area (sg off), |z|<=400 (max rel)",
-          float(rel_off.max()), P_CACHE_RTOL)
-    p_direct = hydrostatic.p_tot_kb_full_column(z, rho, g["total"])
+          float(np.max(np.abs(P["sum"][box] / ptot_on[box] - 1))), P_CACHE_RTOL)
+    check("P (sg off, centred on its own z_mid) vs cached <P_tot>_area (sg off), |z|<=400 (max rel)",
+          float(np.max(np.abs(P["off"][box] / ptot_off[box] - 1))), P_CACHE_RTOL)
+    p_direct = hydrostatic.p_tot_kb_full_column(z, rho, g["total"], z_split=z_mid)
     check("sum of component P == P from summed g (max rel, linearity)",
           float(np.nanmax(np.abs(P["sum"][p_direct > 0] / p_direct[p_direct > 0] - 1))), 1e-12)
 
-    # ---- d. both branches at z = 0 ---------------------------------------------
-    br = {k: pressure_branches(z, rho, g[k]) for k in COMPONENTS + ("total",)}
-    i0 = int(np.argmin(np.abs(z)))
-    check("P_sum(z=0) from p_tot_kb_full_column == top-down branch P(0+) (rel)",
-          abs(P["sum"][i0] / br["total"][0] - 1), 1e-12)
-    check("sum of component branches == total branch, 0+ and 0- (max rel)",
+    # ---- d. both branches AT z_mid -----------------------------------------------------
+    br = {k: midplane.branch_pressures(z, rho, g[k], z_mid) for k in COMPONENTS + ("total",)}
+    check("total P at z_mid: top-down vs bottom-up (rel) -- continuity",
+          abs(br["total"][0] / br["total"][1] - 1), 1e-6)
+    check("sum of component branches == total branch, top and bottom (max rel)",
           max(abs(sum(br[k][j] for k in COMPONENTS) / br["total"][j] - 1) for j in (0, 1)), 1e-12)
+    P_zmid = 0.5 * (br["total"][0] + br["total"][1])
+    comp_mid = {k: 0.5 * (br[k][0] + br[k][1]) for k in COMPONENTS}   # each component's mean branch
+    shares = {k: comp_mid[k] / P_zmid for k in COMPONENTS}
+    # the old Sun-centred jump, recomputed live for comparison
+    sig_sun = sigma_components(z, nH)
+    g_sun = g_from_sigma(sig_sun["star"] + sig_sun["dm"] + sig_sun["gas"])
+    sun_top, sun_bot = pressure_branches(z, rho, g_sun)
 
-    # ---- e. closed-form self-gravity check --------------------------------------
-    sigma_tot = float(sig["gas"][-1])                         # full-cube column
+    # ---- e. closed-form self-gravity check (about z_mid) ---------------------------------
+    sigma_tot = float(np.trapezoid(rho_msun, z))
     sg_mean = 0.5 * (br["gas"][0] + br["gas"][1])
     sg_closed = closed_form_sg_kb(sigma_tot)
     rel_closed = abs(sg_mean / sg_closed - 1)
-    if abs(z[0] + z[-1]) > 1e-6:
-        raise RuntimeError("cube z domain is not symmetric -- the closed form does not apply")
-    check("0.5[P_gas(0+)+P_gas(0-)] vs pi G Sigma^2/2 (rel)", rel_closed, CLOSED_FORM_RTOL)
-    sig_map = np.asarray(core[VARIANT]["Sigma_gas"][:], dtype=np.float64)
+    check("0.5[P_gas(z_mid+)+P_gas(z_mid-)] vs pi G Sigma^2/2 (rel)", rel_closed, CLOSED_FORM_RTOL)
+    sig_map = np.asarray(vg["Sigma_gas"][:], dtype=np.float64)
     sig_map_mean, sig_map_median = float(np.nanmean(sig_map)), float(np.nanmedian(sig_map))
     rel_mean_vs_total = abs(sig_map_mean / sigma_tot - 1)
 
-    # ---- f. column balance about z = 0 -------------------------------------------
-    rho_msun = nH * gravity.RHO_MSUN_PC3_PER_N
-    pos, neg = z >= 0, z <= 0
-    sigma_above = float(np.trapezoid(rho_msun[pos], z[pos]))
-    sigma_below = float(np.trapezoid(rho_msun[neg], z[neg]))
+    # ---- f. column balance about z_mid and about the Sun ------------------------------------
+    cum_at = lambda x: float(np.trapezoid(np.interp(np.r_[z[z < x], x], z, rho_msun),  # noqa: E731
+                                          np.r_[z[z < x], x]))
+    sigma_below = cum_at(z_mid)
+    sigma_above = sigma_tot - sigma_below
+    pos0, neg0 = z >= 0, z <= 0
+    sigma_above0 = float(np.trapezoid(rho_msun[pos0], z[pos0]))
+    sigma_below0 = float(np.trapezoid(rho_msun[neg0], z[neg0]))
 
-    # ---- g. balanced-midplane DIAGNOSTIC ------------------------------------------
-    zmid_on = find_zmid(z, nH, self_gravity=True)
-    zmid_off = find_zmid(z, nH, self_gravity=False)
-    z_colbal = column_balance_height(z, nH)
-    check("z_m = 0 weight imbalance == P(0+) - P(0-) from the branches (rel)",
-          abs(weight_imbalance(0.0, z, nH) / (br["total"][0] - br["total"][1]) - 1), 1e-10)
-
-    # ---- h. shares and the |z| > 400 pc contribution --------------------------------
-    shares = {j: {k: br[k][j] / br["total"][j] for k in COMPONENTS} for j in (0, 1)}
+    # ---- h. the |z| > 400 pc contribution -------------------------------------------------------
     i400p = int(np.argmin(np.abs(z - STATS_BOX_Z_HALF_RANGE_PC)))
     i400m = int(np.argmin(np.abs(z + STATS_BOX_Z_HALF_RANGE_PC)))
-    f_out_top = float(P["sum"][i400p] / br["total"][0])     # weight above +400 / P(0+)
-    f_out_bot = float(P["sum"][i400m] / br["total"][1])     # weight below -400 / P(0-)
+    f_out_top = float(P["sum"][i400p] / P_zmid)
+    f_out_bot = float(P["sum"][i400m] / P_zmid)
 
     # ---- save ---------------------------------------------------------------------------
     out = {
         "z_pc": z, "nH_area": nH, "rho_area": rho, "nan_fraction": nan_frac,
-        "P_offsg": P["offsg"], "P_sum": P["sum"],
+        "P_sum": P["sum"], "P_off": P["off"],
         "ptot_area_cached_on": ptot_on, "ptot_area_cached_off": ptot_off,
+        "midplane_mode": np.array([MIDPLANE_MODE]),
+        "z_mid": np.array([z_mid]), "z_mid_off": np.array([zm["off"]]),
+        "z_mid_diag_on": np.array([zm_diag["on"]]), "z_mid_diag_off": np.array([zm_diag["off"]]),
+        "z_colbal": np.array([z_colbal]),
+        "P_zmid": np.array([P_zmid]),
+        "shares_zmid": np.array([shares[k] for k in COMPONENTS]),
+        "P_sun_branches": np.array([sun_top, sun_bot]),
         "sigma_gas_total": np.array([sigma_tot]),
         "sigma_above": np.array([sigma_above]), "sigma_below": np.array([sigma_below]),
+        "sigma_above_sun": np.array([sigma_above0]), "sigma_below_sun": np.array([sigma_below0]),
         "sigma_map_mean": np.array([sig_map_mean]), "sigma_map_median": np.array([sig_map_median]),
         "sg_branch_mean": np.array([sg_mean]), "sg_closed_form": np.array([sg_closed]),
-        "z_mid_diag_on": np.array([zmid_on]), "z_mid_diag_off": np.array([zmid_off]),
-        "z_colbal": np.array([z_colbal]),
-        "f_ptot0p_from_above_400": np.array([f_out_top]),
-        "f_ptot0m_from_below_400": np.array([f_out_bot]),
+        "f_ptot_zmid_from_above_400": np.array([f_out_top]),
+        "f_ptot_zmid_from_below_400": np.array([f_out_bot]),
         "provisional": np.array([PROVISIONAL_CUBE_HEADER]),
         "variant": np.array([VARIANT]), "self_gravity_mode": np.array([SELF_GRAVITY_MODE_FOOTPRINT_MEAN]),
     }
     for k in COMPONENTS + ("total",):
         out[f"sigma_enc_{k}"] = sig[k]
         out[f"g_{k}"] = g[k]
-        out[f"P0_{k}"] = np.array(br[k])                       # [P(0+), P(0-)]
+        out[f"P0_{k}"] = np.array(br[k])                       # [top-down, bottom-up] AT z_mid
     for k in COMPONENTS:
         out[f"P_{k}"] = P[k]
     OUT_NPZ_PATH.parent.mkdir(parents=True, exist_ok=True)
@@ -302,9 +326,10 @@ def main():
         "=" * 100,
         f"RAW, ALL footprint cells (HIM included), |x|,|y| <= {STATS_BOX_XY_HALF_RANGE_PC:.0f} pc, "
         "self-gravity footprint_mean,",
-        "current Sun-centred midplane convention (src/physics unchanged). Because g(z) is the same",
-        "for every column, <P_tot>_area(z) = int <rho>_area g dz exactly, and it splits exactly into",
-        "stars + dark matter + gas self-gravity (P is linear in g).",
+        f"BALANCED midplane (Step 1i): z_mid = {z_mid:+.4f} pc; P_tot integrated toward z_mid from",
+        "both cube edges with g centred on z_mid. g(z) is the same for every column, so",
+        "<P_tot>_area(z) = int <rho>_area g dz exactly, and it splits exactly into stars + dark",
+        "matter + gas self-gravity (P is linear in g).",
         f"z grid: the SOURCE cube's float64 z_pc, {z[0]:g} .. {z[-1]:g} pc, {z.size} planes "
         f"(spacing {z[1] - z[0]:g} pc).",
         f"<n_H>_area: compute_area_alpha.footprint_mean_density_chunked over the cached RAW n_model;",
@@ -321,55 +346,62 @@ def main():
     L += [
         "",
         "-" * 100,
-        "PROFILES  (P at z = 0 is shown on both branches; the cached profile keeps 0+ only)",
+        "THE MIDPLANE",
+        "-" * 100,
+        "  z_mid: where the area-averaged weight above equals the weight below, g centred on z_mid",
+        "  (src.physics.midplane.find_balanced_midplane); the cross-check is this script's own 1-D",
+        "  root (approximate enclosed column at the off-grid end).",
+        f"    self-gravity on   z_mid = {zm['on']:+.4f} pc   (1-D cross-check {zm_diag['on']:+.4f})",
+        f"    self-gravity off  z_mid = {zm['off']:+.4f} pc   (1-D cross-check {zm_diag['off']:+.4f})",
+        f"  column-balance height (equal gas column above and below): {z_colbal:+.4f} pc",
+        "",
+        "-" * 100,
+        "PROFILES  (z_mid-/z_mid+ = the bottom-up / top-down branch AT z_mid; they meet)",
         "-" * 100,
         f"{'z':>8}{'<n_H>':>10}{'Sig_star':>10}{'Sig_DM':>9}{'Sig_gas':>9}"
         f"{'P_star':>10}{'P_DM':>9}{'P_gas':>9}{'P_sum':>10}",
         f"{'[pc]':>8}{'[cm^-3]':>10}{'---- [Msun/pc^2] ----':>28}{'---- [K cm^-3] ----':>38}",
     ]
     rows = [(f"{z[0]:g}", z[0], None)] + [(f"{zz:g}", zz, None) for zz in REPORT_Z_PC[:2]]
-    rows += [("0-", 0.0, 1), ("0+", 0.0, 0)]
+    rows += [("z_mid-", z_mid, 1), ("z_mid+", z_mid, 0)]
     rows += [(f"{zz:g}", zz, None) for zz in REPORT_Z_PC[2:]] + [(f"{z[-1]:g}", z[-1], None)]
     for lab, zz, branch in rows:
-        if branch is None:
-            pv = [at(P[k], zz) for k in COMPONENTS]
-        else:
-            pv = [br[k][branch] for k in COMPONENTS]
+        pv = [at(P[k], zz) for k in COMPONENTS] if branch is None else [br[k][branch] for k in COMPONENTS]
         L.append(f"{lab:>8}{at(nH, zz):>10.4f}{at(sig['star'], zz):>10.3f}{at(sig['dm'], zz):>9.3f}"
                  f"{at(sig['gas'], zz):>9.3f}{pv[0]:>10.1f}{pv[1]:>9.1f}{pv[2]:>9.1f}{sum(pv):>10.1f}")
     L += [
         "",
         "-" * 100,
-        "MIDPLANE: both branches (d) and component shares (h)",
+        "MIDPLANE VALUE AND SHARES",
         "-" * 100,
-        f"{'':>10}{'P_star':>10}{'P_DM':>10}{'P_gas':>10}{'total':>10}"
-        f"{'star':>9}{'DM':>8}{'gas':>8}",
+        f"  P(z_mid) = {P_zmid:.2f} K cm^-3  (top-down {br['total'][0]:.4f}, bottom-up {br['total'][1]:.4f})",
+        "  shares (each component's mean of its two branches; the components are NOT individually",
+        "  balanced, only their sum is):",
     ]
-    for j, lab in ((0, "P(0+)"), (1, "P(0-)")):
-        L.append(f"{lab:>10}" + "".join(f"{br[k][j]:>10.1f}" for k in COMPONENTS)
-                 + f"{br['total'][j]:>10.1f}"
-                 + "".join(f"{shares[j][k]:>8.1%}" for k in COMPONENTS))
+    for k, lab in (("star", "stars"), ("dm", "dark matter"), ("gas", "gas self-gravity")):
+        L.append(f"    {lab:<18}{comp_mid[k]:>9.1f}  ({shares[k]:.1%})   branches top {br[k][0]:.1f} / "
+                 f"bottom {br[k][1]:.1f}")
     L += [
-        f"  0+ = integrated top-down (from z = +{z[-1]:g}), 0- = bottom-up (from z = {z[0]:g}); the",
-        "  cached <P_tot>_area keeps the top-down value at z = 0 (hydrostatic.py).",
-        f"  Mean of the two branches: {0.5 * (br['total'][0] + br['total'][1]):.1f} K cm^-3. "
-        f"(Fig. 1b's 7800 is the |z| <= 30 pc SLAB mean",
-        "  of <P_tot>_area from area_alpha.txt, which averages planes on both sides of the jump.)",
         "",
-        f"  Fraction of P(0+) from gas at z > +{STATS_BOX_Z_HALF_RANGE_PC:.0f} pc "
-        f"(= P_sum(+400) / P(0+)): {f_out_top:.4f}",
-        f"  Fraction of P(0-) from gas at z < -{STATS_BOX_Z_HALF_RANGE_PC:.0f} pc "
-        f"(= P_sum(-400) / P(0-)): {f_out_bot:.4f}",
+        f"  Pre-Step-1i (Sun-centred, recomputed here): P(0+) = {sun_top:.1f}, P(0-) = {sun_bot:.1f} "
+        f"K cm^-3 -- the jump",
+        f"  the balanced midplane removes. P(z_mid) is {P_zmid / sun_top - 1:+.1%} vs P(0+) and "
+        f"{P_zmid / sun_bot - 1:+.1%} vs P(0-).",
+        "",
+        f"  Share of P(z_mid) from gas at z > +{STATS_BOX_Z_HALF_RANGE_PC:.0f} pc "
+        f"(= P_sum(+400) / P(z_mid)): {f_out_top:.4f}",
+        f"  Share of P(z_mid) from gas at z < -{STATS_BOX_Z_HALF_RANGE_PC:.0f} pc "
+        f"(= P_sum(-400) / P(z_mid)): {f_out_bot:.4f}",
         f"  (outside the stats box, inside the cube, which spans z = {z[0]:g} .. {z[-1]:g} pc)",
         "",
         "-" * 100,
-        "CLOSED-FORM SELF-GRAVITY CHECK (e)",
+        "CLOSED-FORM SELF-GRAVITY CHECK (about z_mid)",
         "-" * 100,
-        "  For ANY profile on a domain symmetric about 0: 0.5 [P_gas(0+) + P_gas(0-)] = pi G Sigma^2 / 2.",
+        "  For ANY profile and ANY centre: 0.5 [P_gas top + P_gas bottom] = pi G Sigma^2 / 2.",
         f"  Sigma_gas_total (full-cube column of <rho>_area) = {sigma_tot:.4f} Msun/pc^2",
-        f"  0.5 [P_gas(0+) + P_gas(0-)] = {sg_mean:.2f} K cm^-3",
-        f"  pi G Sigma^2 / 2 / k_B       = {sg_closed:.2f} K cm^-3",
-        f"  relative difference          = {rel_closed:.2e}   (threshold {CLOSED_FORM_RTOL:.0e})",
+        f"  0.5 [P_gas(z_mid+) + P_gas(z_mid-)] = {sg_mean:.2f} K cm^-3",
+        f"  pi G Sigma^2 / 2 / k_B             = {sg_closed:.2f} K cm^-3",
+        f"  relative difference                = {rel_closed:.2e}   (threshold {CLOSED_FORM_RTOL:.0e})",
         "",
         "  Per-column Sigma_gas map over the footprint (alpha_core.zarr RAW/Sigma_gas):",
         f"    mean   {sig_map_mean:.4f} Msun/pc^2  (vs Sigma_gas_total {sigma_tot:.4f}: rel "
@@ -377,20 +409,14 @@ def main():
         f"    median {sig_map_median:.4f} Msun/pc^2  (numbers_table.txt: {NUMBERS_TABLE_SIGMA_MEDIAN})",
         "",
         "-" * 100,
-        "COLUMN BALANCE ABOUT z = 0 (f)",
+        "COLUMN BALANCE",
         "-" * 100,
-        f"  Sigma_above (z > 0) = {sigma_above:.4f} Msun/pc^2",
-        f"  Sigma_below (z < 0) = {sigma_below:.4f} Msun/pc^2",
-        f"  above / below       = {sigma_above / sigma_below:.4f}",
-        "",
-        "-" * 100,
-        "BALANCED MIDPLANE -- DIAGNOSTIC PREVIEW ONLY (g); no pipeline quantity uses this",
-        "-" * 100,
-        "  g centred on a trial z_m (stars/DM at |z - z_m|, gas enclosed within |z' - z_m| < |z - z_m|);",
-        f"  z_m where the top-down weight equals the bottom-up weight (brentq, bracket +-{ZMID_BRACKET_PC:g} pc):",
-        f"    self-gravity on   z_mid = {zmid_on:+.2f} pc",
-        f"    self-gravity off  z_mid = {zmid_off:+.2f} pc",
-        f"  column-balance height (equal gas column above and below): {z_colbal:+.2f} pc",
+        f"  about z_mid: above {sigma_above:.4f}, below {sigma_below:.4f} Msun/pc^2, "
+        f"ratio {sigma_above / sigma_below:.4f}",
+        f"  about z = 0: above {sigma_above0:.4f}, below {sigma_below0:.4f} Msun/pc^2, "
+        f"ratio {sigma_above0 / sigma_below0:.4f}",
+        "  (the weights, not the columns, balance at z_mid: g grows away from the plane, so gas",
+        "   further out weighs more)",
         "",
         f"(runtime {time.time() - t0:.1f}s)",
     ]

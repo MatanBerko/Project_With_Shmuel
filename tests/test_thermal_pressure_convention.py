@@ -342,12 +342,45 @@ def step1c():
     return _load_table(REFERENCE_CSV)
 
 
+# Step 1i: these tests check the Step 1c -> 1d thermal-pressure conversion,
+# which is defined on the SUN-CENTRED midplane the Step 1c fixture was built
+# with. The balanced midplane (the fiducial since Step 1i) moves P_tot and the
+# z0 slab for reasons that have nothing to do with that conversion, so the
+# comparison runs against the Sun-centred table, kept as
+# results/numbers_table_sun.csv. MIDPLANE_MODE = "sun" reproduces it exactly
+# (results/midplane_sun_reproduction.txt, checked in tests/test_midplane.py),
+# and test_sun_table_is_tied_to_the_balanced_one below ties it to the live
+# balanced table through the midplane-independent rows.
+SUN_TABLE = Path(__file__).resolve().parent.parent / "results" / "numbers_table_sun.csv"
+BALANCED_TABLE = Path(__file__).resolve().parent.parent / "results" / "numbers_table.csv"
+
+
 @pytest.fixture(scope="module")
 def current():
-    path = Path(__file__).resolve().parent.parent / "results" / "numbers_table.csv"
-    if not path.exists():
-        pytest.skip("results/numbers_table.csv not present -- run pipeline/compute_all.py")
-    return _load_table(path)
+    if not SUN_TABLE.exists():
+        pytest.skip("results/numbers_table_sun.csv not present")
+    return _load_table(SUN_TABLE)
+
+
+def test_sun_table_is_tied_to_the_balanced_one(current):
+    """P_th statistics and phase fractions do not depend on the midplane, so
+    the balanced table's z0sun rows (the old |z| <= 30 pc slab, reported
+    alongside since Step 1i) must equal the Sun-centred table's z0 rows."""
+    if not BALANCED_TABLE.exists():
+        pytest.skip("results/numbers_table.csv not present")
+    balanced = _load_table(BALANCED_TABLE)
+    checked = 0
+    for key, val in current.items():
+        variant, sg, scheme, qty, wt, stat = key
+        if not stat.startswith("z0") or stat.startswith("z0sun"):
+            continue
+        if not (qty == "Pth_phys" or qty.startswith("phase_fraction_")):
+            continue
+        twin = (variant, sg, scheme, qty, wt, "z0sun" + stat[2:])
+        assert twin in balanced, twin
+        assert balanced[twin] == pytest.approx(val, rel=1e-12, abs=0.0), key
+        checked += 1
+    assert checked >= 60, checked
 
 
 # float32 round-trips through the cache, so the exactness tolerance is

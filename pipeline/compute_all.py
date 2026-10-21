@@ -166,6 +166,9 @@ import zarr
 from src.config_loader import load_resolved_config
 from src.conventions import (
     M_H,
+    MIDPLANE_MODE,
+    MIDPLANE_MODE_BALANCED,
+    MIDPLANE_MODE_SUN,
     MU,
     PERCENTILE_SCHEME_DEFAULT,
     PHASE_SCHEME_DEFAULT,
@@ -189,7 +192,7 @@ from src.conventions import (
     THERMAL_PRESSURE_HEADER_BY_CONVENTION,
     XY_HALF_RANGE_PC,
 )
-from src.physics import derived, gravity, hydrostatic, thermal
+from src.physics import derived, gravity, hydrostatic, midplane, thermal
 from src.physics.him import (
     PHASE_CNM,
     PHASE_HIM,
@@ -810,7 +813,79 @@ def _write_variant_base_arrays(variant, vg, n_raw, T, Pmin, Pmax, him_cube, z_pc
     return sigma
 
 
-def _integrate_ptot_tiled(vg, z_pc, g, sg_group_name, nan_fraction):
+def _ptot_tiled_arrays(vg, z_pc, g, z_split=0.0):
+    """(Ptot_kB, alpha) float32 cubes for one variant x self-gravity setting,
+    XY-tiled, in memory. z_split is where the half-columns meet (Step 1i;
+    0.0 = the old Sun-centred split). See _integrate_ptot_tiled."""
+    a_n = vg["n_model"]
+    a_p = vg["p_th_phys"]
+    shape = a_n.shape
+    Ptot_kB = np.empty(shape, dtype=np.float32)
+    alpha_arr = np.empty(shape, dtype=np.float32)
+    g_is_cube = np.ndim(g) > 1
+    for ysl in _xy_tiles(shape[1]):
+        n_tile = np.asarray(a_n[:, ysl, :], dtype=np.float64)
+        rho_tile = MU * M_H * n_tile
+        del n_tile
+        g_tile = g[:, ysl, :] if g_is_cube else g
+        p_tile = hydrostatic.p_tot_kb_full_column(z_pc, rho_tile, g_tile, z_split=z_split)
+        del rho_tile
+        Ptot_kB[:, ysl, :] = p_tile.astype(np.float32)
+        p_th_tile = np.asarray(a_p[:, ysl, :], dtype=np.float64)
+        alpha_arr[:, ysl, :] = derived.alpha(p_tile, p_th_tile).astype(np.float32)
+        del p_tile, p_th_tile
+    return Ptot_kB, alpha_arr
+
+
+def gravity_for_setting(core_store, vg, z_pc, sg_key, midplane_mode=MIDPLANE_MODE):
+    """(z_mid, g, nan_fraction) for one variant x self-gravity setting.
+
+    "sun": exactly the pre-Step-1i call (g_total_cgs on the full density
+    cube for "footprint_mean", nothing for "off"), z_mid = 0.
+    "balanced": z_mid from src.physics.midplane on the footprint-mean of
+    this variant's n_model (the weight density; HIM cells included), on the
+    source float64 z grid, and g centred on it. Each self-gravity setting
+    gets its own z_mid.
+    """
+    mode = SELF_GRAVITY_MODE_BY_SETTING[sg_key]
+    if midplane_mode == MIDPLANE_MODE_SUN:
+        gravity_density = None
+        footprint_for_mean = None
+        if mode != SELF_GRAVITY_MODE_OFF:
+            # The density that sources self-gravity, in float64, read
+            # straight from the cache. Already restricted to the
+            # +-500 pc square, and spanning EVERY z the cube provides
+            # -- the STATS_BOX |z| <= 400 pc bound deliberately does
+            # not apply to self-gravity (see the module docstring).
+            # "same_as_weight" (default): this variant's own n_model.
+            # "observed": the unmodified raw density, i.e. RAW's
+            # n_model, regardless of variant.
+            src_group = vg if SELF_GRAVITY_DENSITY == "same_as_weight" else core_store["RAW"]
+            gravity_density = np.asarray(src_group["n_model"][:], dtype=np.float64)
+            footprint_for_mean = np.ones(gravity_density.shape[1:], dtype=bool)
+        g, nan_fraction = gravity.g_total_cgs(z_pc, gravity_density, mode=mode,
+                                                footprint_mask=footprint_for_mean)
+        return 0.0, g, nan_fraction
+    if midplane_mode != MIDPLANE_MODE_BALANCED:
+        raise ValueError(f"Unknown midplane mode: {midplane_mode!r}")
+    if SELF_GRAVITY_DENSITY != "same_as_weight":
+        raise NotImplementedError("balanced midplane assumes self-gravity density == weight density")
+    cube = np.asarray(vg["n_model"][:], dtype=np.float64)
+    mask = np.ones(cube.shape[1:], dtype=bool)
+    n_bar, nan_fraction = gravity.footprint_mean_density(cube, mask)
+    z_mid, g, nan_sun = midplane.midplane_gravity(
+        z_pc, n_bar, mode, MIDPLANE_MODE_BALANCED, n_cube_for_sun=cube, footprint_mask=mask)
+    del cube
+    gc.collect()
+    if mode == SELF_GRAVITY_MODE_OFF:
+        nan_fraction = None
+    elif nan_sun is not None:
+        nan_fraction = nan_sun
+    return z_mid, g, nan_fraction
+
+
+def _integrate_ptot_tiled(vg, z_pc, g, sg_group_name, nan_fraction, z_split=0.0,
+                          midplane_mode=MIDPLANE_MODE_SUN):
     """P_tot and alpha for one variant x self-gravity setting, XY-tiled.
 
     g is either (Nz,) -- "off" and "footprint_mean", where gravity is the
@@ -821,34 +896,28 @@ def _integrate_ptot_tiled(vg, z_pc, g, sg_group_name, nan_fraction):
     needs several of them simultaneously) down to a tile.
 
     alpha's denominator is p_th_phys, read back from the cache per tile.
+    The group records the midplane mode and z_mid it was built with
+    (Step 1i), so a cache built under another mode is recognised as stale.
     """
-    a_n = vg["n_model"]
-    a_p = vg["p_th_phys"]
-    shape = a_n.shape
+    shape = vg["n_model"].shape
     chunks = (CHUNK_Z, shape[1], shape[2])
-    Ptot_kB = np.empty(shape, dtype=np.float32)
-    alpha_arr = np.empty(shape, dtype=np.float32)
-
-    g_is_cube = np.ndim(g) > 1
-    for ysl in _xy_tiles(shape[1]):
-        n_tile = np.asarray(a_n[:, ysl, :], dtype=np.float64)
-        rho_tile = MU * M_H * n_tile
-        del n_tile
-        g_tile = g[:, ysl, :] if g_is_cube else g
-        p_tile = hydrostatic.p_tot_kb_full_column(z_pc, rho_tile, g_tile)
-        del rho_tile
-        Ptot_kB[:, ysl, :] = p_tile.astype(np.float32)
-        p_th_tile = np.asarray(a_p[:, ysl, :], dtype=np.float64)
-        alpha_arr[:, ysl, :] = derived.alpha(p_tile, p_th_tile).astype(np.float32)
-        del p_tile, p_th_tile
+    Ptot_kB, alpha_arr = _ptot_tiled_arrays(vg, z_pc, g, z_split=z_split)
 
     sgg = vg.require_group(sg_group_name)
+    sgg.attrs["midplane_mode"] = midplane_mode
+    sgg.attrs["z_mid_pc"] = float(z_split)
     sgg.create_array("Ptot", data=Ptot_kB, chunks=chunks)
     sgg.create_array("alpha", data=alpha_arr, chunks=chunks)
     if nan_fraction is not None:
         sgg.create_array("footprint_nan_fraction", data=nan_fraction.astype(np.float32))
     del Ptot_kB, alpha_arr
     gc.collect()
+
+
+def _group_midplane_mode(sgg):
+    """Midplane mode a self-gravity group was built with; groups written
+    before Step 1i carry no attribute and were Sun-centred."""
+    return sgg.attrs.get("midplane_mode", MIDPLANE_MODE_SUN)
 
 
 def build_stage(variants):
@@ -1029,7 +1098,9 @@ def build_stage(variants):
         pending_sg = [k for k in SELF_GRAVITY_SETTINGS
                       if not (f"self_gravity_{k}" in core_store[variant]
                               and "Ptot" in core_store[variant][f"self_gravity_{k}"]
-                              and "alpha" in core_store[variant][f"self_gravity_{k}"])]
+                              and "alpha" in core_store[variant][f"self_gravity_{k}"]
+                              and _group_midplane_mode(core_store[variant][f"self_gravity_{k}"])
+                              == MIDPLANE_MODE)]
         if not pending_sg:
             print(f"\n=== Variant {variant}: all self-gravity settings complete -- skipping ===")
             continue
@@ -1044,28 +1115,14 @@ def build_stage(variants):
                 print(f"  self_gravity={sg_key}: partial group in zarr (killed mid-write?) -- discarding")
                 del vg[sg_group_name]
 
-            print(f"  self_gravity={sg_key}: g_total ({mode})...")
-            gravity_density = None
-            footprint_for_mean = None
-            if mode != SELF_GRAVITY_MODE_OFF:
-                # The density that sources self-gravity, in float64, read
-                # straight from the cache. Already restricted to the
-                # +-500 pc square, and spanning EVERY z the cube provides
-                # -- the STATS_BOX |z| <= 400 pc bound deliberately does
-                # not apply to self-gravity (see the module docstring).
-                # "same_as_weight" (default): this variant's own n_model.
-                # "observed": the unmodified raw density, i.e. RAW's
-                # n_model, regardless of variant.
-                src_group = vg if SELF_GRAVITY_DENSITY == "same_as_weight" else core_store["RAW"]
-                gravity_density = np.asarray(src_group["n_model"][:], dtype=np.float64)
-                footprint_for_mean = np.ones(gravity_density.shape[1:], dtype=bool)
-            g, nan_fraction = gravity.g_total_cgs(z_pc, gravity_density, mode=mode,
-                                                    footprint_mask=footprint_for_mean)
-            del gravity_density, footprint_for_mean
+            print(f"  self_gravity={sg_key}: g_total ({mode}), midplane {MIDPLANE_MODE}...")
+            z_mid, g, nan_fraction = gravity_for_setting(core_store, vg, z_pc, sg_key, MIDPLANE_MODE)
+            print(f"  self_gravity={sg_key}: z_mid = {z_mid:+.4f} pc")
             gc.collect()
 
             print(f"  self_gravity={sg_key}: P_tot integration, {len(_xy_tiles(len(grid.y_pc[y_lo:y_hi])))} XY tiles...")
-            _integrate_ptot_tiled(vg, z_pc, g, sg_group_name, nan_fraction)
+            _integrate_ptot_tiled(vg, z_pc, g, sg_group_name, nan_fraction,
+                                  z_split=z_mid, midplane_mode=MIDPLANE_MODE)
             del g
             gc.collect()
             print(f"  self_gravity={sg_key}: written to zarr")
@@ -1107,9 +1164,16 @@ def _box_z_slice(z_pc_full):
     return slice(lo, hi), z_pc_full[lo:hi]
 
 
-def _finalize_one_variant(variant, core_store, footprint, z_pc_full, Iuv_box):
+def _finalize_one_variant(variant, core_store, footprint, z_pc_full, Iuv_box,
+                          midplane_mode=MIDPLANE_MODE):
     """All the per-variant summary/PDF/vertical-profile/numbers-table work,
     returning (summary_partial, numbers_rows_partial) for just this variant.
+
+    midplane_mode (Step 1i): in "balanced" the z0 slab is |z - z_mid| <= 30 pc
+    with this variant's z_mid (per self-gravity setting; the fiducial "mean"
+    one for the self-gravity-independent statistics), and the old Sun-centred
+    |z| <= 30 pc slab is reported alongside as "z0sun". In "sun" everything is
+    exactly as before Step 1i.
     """
     summary = {}
     numbers_rows = []
@@ -1128,6 +1192,39 @@ def _finalize_one_variant(variant, core_store, footprint, z_pc_full, Iuv_box):
         for scheme, arr_name in PHASE_FLAG_ARRAY_BY_SCHEME.items()
     }
     sigma_gas_variant = np.asarray(vg["Sigma_gas"][:], dtype=np.float32)
+
+    # ---- Step 1i: the midplane of each self-gravity setting
+    z_mid = {}
+    for sg_key in SELF_GRAVITY_SETTINGS:
+        sgg_attrs = vg[f"self_gravity_{sg_key}"]
+        built = _group_midplane_mode(sgg_attrs)
+        if built != midplane_mode:
+            raise RuntimeError(f"{variant}/self_gravity_{sg_key} was built with midplane "
+                               f"{built!r}, finalize asked for {midplane_mode!r} -- rebuild first.")
+        z_mid[sg_key] = float(sgg_attrs.attrs.get("z_mid_pc", 0.0))
+        summary[f"{variant}__sg{sg_key}__z_mid_pc"] = np.array([z_mid[sg_key]])
+    summary[f"{variant}__midplane_mode"] = np.array([midplane_mode])
+    balanced = midplane_mode == MIDPLANE_MODE_BALANCED
+    z_mid_fid = z_mid["mean"] if "mean" in z_mid else 0.0
+
+    def _slab(zc, zm):
+        return slab_plane_indices(z_pc, midplane.slab_center(zc, zm, midplane_mode))
+
+    def _slab_where(zc, zm, tail):
+        if balanced and zc == 0.0:
+            return (f"midplane slab |z - z_mid| <= {SLAB_HALF_THICKNESS_PC:.0f}pc "
+                    f"(z_mid = {zm:+.2f}pc){tail}")
+        return f"{zc:.0f}+-{SLAB_HALF_THICKNESS_PC:.0f}pc slab{tail}"
+
+    def _sun_extra(tail):
+        # the old Sun-centred slab, reported alongside in "balanced" mode only
+        if not balanced:
+            return []
+        return [("z0sun", slab_plane_indices(z_pc, 0.0),
+                 f"0+-{SLAB_HALF_THICKNESS_PC:.0f}pc slab about the Sun (pre-Step-1i){tail}")]
+
+    print(f"  midplane {midplane_mode}: z_mid = "
+          + ", ".join(f"{k} {v:+.3f}" for k, v in z_mid.items()) + " pc")
     print(f"  STATS_BOX: {len(z_pc)} z planes, z in [{z_pc.min():.0f}, {z_pc.max():.0f}] pc, "
           f"{footprint.sum()} XY cells per plane")
 
@@ -1150,8 +1247,9 @@ def _finalize_one_variant(variant, core_store, footprint, z_pc_full, Iuv_box):
     n_weight = np.where(np.isfinite(n_model), n_model, 0.0).astype(np.float64)
     for scheme, phase_cube in phase_cubes.items():
         for label, idxs, where in (
-            *[(f"z{int(zc)}", slab_plane_indices(z_pc, zc),
-               f"{zc:.0f}+-{SLAB_HALF_THICKNESS_PC:.0f}pc slab") for zc in SLAB_CENTERS_PC],
+            *[(f"z{int(zc)}", _slab(zc, z_mid_fid), _slab_where(zc, z_mid_fid, ""))
+              for zc in SLAB_CENTERS_PC],
+            *_sun_extra(""),
             ("box", np.arange(len(z_pc)), "STATS_BOX (|x|,|y|<=500, |z|<=400pc)"),
         ):
             phase_sub = phase_cube[idxs][:, footprint]
@@ -1179,7 +1277,7 @@ def _finalize_one_variant(variant, core_store, footprint, z_pc_full, Iuv_box):
         # 1D PDFs (self-gravity independent: n, T, Iuv, Pth_phys)
         for qty, arr in (("n", n_model), ("T", T), ("Iuv", Iuv_box), ("Pth_phys", p_th_phys)):
             for zc in SLAB_CENTERS_PC:
-                idxs = slab_plane_indices(z_pc, zc)
+                idxs = _slab(zc, z_mid_fid)
                 sub = arr[idxs][:, footprint]
                 sel = selection_mask(selection, him_cube[idxs][:, footprint])
                 centers, counts = log_pdf_1d(sub[sel].ravel(), None)
@@ -1191,7 +1289,7 @@ def _finalize_one_variant(variant, core_store, footprint, z_pc_full, Iuv_box):
         for (qx, xarr, qy, yarr) in (("n", n_model, "Pth_phys", p_th_phys),
                                        ("Iuv", Iuv_box, "n", n_model)):
             for zc in SLAB_CENTERS_PC:
-                idxs = slab_plane_indices(z_pc, zc)
+                idxs = _slab(zc, z_mid_fid)
                 sel = selection_mask(selection, him_cube[idxs][:, footprint])
                 xv = xarr[idxs][:, footprint][sel]
                 yv = yarr[idxs][:, footprint][sel]
@@ -1227,7 +1325,7 @@ def _finalize_one_variant(variant, core_store, footprint, z_pc_full, Iuv_box):
 
             for qty, arr in (("Ptot", Ptot_kB), ("alpha", alpha_arr)):
                 for zc in SLAB_CENTERS_PC:
-                    idxs = slab_plane_indices(z_pc, zc)
+                    idxs = _slab(zc, z_mid[sg_key])
                     sub = arr[idxs][:, footprint]
                     sel = selection_mask(selection, him_cube[idxs][:, footprint])
                     centers, counts = log_pdf_1d(sub[sel].ravel(), None)
@@ -1264,9 +1362,10 @@ def _finalize_one_variant(variant, core_store, footprint, z_pc_full, Iuv_box):
             # computed two different ways.
             iz_mid = int(np.argmin(np.abs(z_pc)))
             for label, idxs, where in (
-                *[(f"z{int(zc)}", slab_plane_indices(z_pc, zc),
-                   f"{zc:.0f}+-{SLAB_HALF_THICKNESS_PC:.0f}pc slab, +-500pc square")
+                *[(f"z{int(zc)}", _slab(zc, z_mid[sg_key]),
+                   _slab_where(zc, z_mid[sg_key], ", +-500pc square"))
                   for zc in SLAB_CENTERS_PC],
+                *_sun_extra(", +-500pc square"),
                 ("box", np.arange(len(z_pc)), "STATS_BOX (|x|,|y|<=500, |z|<=400pc)"),
                 ("midplane", np.array([iz_mid]), "the single z=0 grid plane, +-500pc square"),
             ):
@@ -1435,6 +1534,14 @@ def finalize_merge():
         f.write(f"STATS_BOX: |x|,|y| <= {STATS_BOX_XY_HALF_RANGE_PC:.0f} pc, |z| <= {STATS_BOX_Z_HALF_PC:.0f} pc. "
                 f"Slabs: |z-z_c| <= {SLAB_HALF_THICKNESS_PC:.0f} pc. "
                 f"Percentiles: {PCT_LO:g}/{PCT_HI:g}.\n")
+        if MIDPLANE_MODE == MIDPLANE_MODE_BALANCED:
+            zm = ", ".join(f"{v}/{k}: {float(summary[f'{v}__sg{k}__z_mid_pc'][0]):+.3f}"
+                           for v in VARIANTS for k in SELF_GRAVITY_SETTINGS
+                           if f"{v}__sg{k}__z_mid_pc" in summary)
+            f.write(f"Midplane: BALANCED (Step 1i) -- P_tot integrated toward z_mid from both cube edges,\n"
+                    f"  g centred on z_mid; the z0 slab is |z - z_mid| <= {SLAB_HALF_THICKNESS_PC:.0f} pc, "
+                    f"z0sun the old |z| <= {SLAB_HALF_THICKNESS_PC:.0f} pc slab.\n"
+                    f"  z_mid [pc] -- {zm}\n")
         f.write(f"phase_scheme column: {PHASE_SCHEME_DPDN} (headline) | {PHASE_SCHEME_TEMPERATURE}; "
                 f"n/a where the quantity does not depend on the scheme.\n")
         f.write("MASKED variant: not implemented -- no MASKED definition exists in any reference script.\n")

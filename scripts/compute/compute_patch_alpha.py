@@ -68,6 +68,8 @@ from src.conventions import (  # noqa: E402
     STATS_BOX_Z_HALF_RANGE_PC,
     THERMAL_PRESSURE_HEADER,
 )
+from src.conventions import MIDPLANE_MODE, MIDPLANE_MODE_BALANCED  # noqa: E402
+from src.physics import midplane  # noqa: E402
 from src.physics.loading import open_zarr, slab_z_indices  # noqa: E402
 from src.physics.stats import percentile_levels, weighted_stats  # noqa: E402
 
@@ -261,7 +263,14 @@ def main():
 
     bin_groups = pipe.profile_bin_groups(z_box, use_abs=False)
     n_bins = len(bin_groups)
-    slab_groups = [(float(zc), slab_z_indices(z_box, zc)) for zc in SLAB_CENTERS_PC]
+    # Step 1i: the midplane slab follows z_mid (the fiducial self-gravity
+    # setting's; both settings select the same planes -- checked in
+    # compute_area_alpha.py, whose numbers this reproduces below)
+    z_mid = {k: float(vg[f"self_gravity_{k}"].attrs.get("z_mid_pc", 0.0))
+             for k in SELF_GRAVITY_SETTINGS}
+    slab_groups = [(float(zc), slab_z_indices(z_box, midplane.slab_center(zc, z_mid["mean"],
+                                                                          MIDPLANE_MODE)))
+                   for zc in SLAB_CENTERS_PC]
     groups = [idx for _, idx in bin_groups] + [idx for _, idx in slab_groups]
     n_groups = len(groups)
     n_planes = np.array([len(i) for i in groups], dtype=float)
@@ -362,6 +371,8 @@ def main():
         "bin_edges": pipe.profile_bin_edges(use_abs=False),
         "slab_centers_pc": np.array(SLAB_CENTERS_PC, dtype=float),
         "slab_half_thickness_pc": np.array([SLAB_HALF_THICKNESS_PC]),
+        "midplane_mode": np.array([MIDPLANE_MODE]),
+        "z_mid_pc_mean": np.array([z_mid["mean"]]), "z_mid_pc_off": np.array([z_mid["off"]]),
         "percentile_levels": np.array([pct_lo, pct_hi]),
         "patch_sizes_pc": np.array(PATCH_SIZES_PC),
         "patch_seed": np.array([PATCH_SEED]),
@@ -431,6 +442,11 @@ def _fmt(v, q):
     return f"{v:>9.1f}" if not q.startswith("alpha") else f"{v:>9.3f}"
 
 
+def slab_label(zc):
+    """'mid' for the midplane slab in balanced mode (centred on z_mid), else the centre."""
+    return "mid" if (MIDPLANE_MODE == MIDPLANE_MODE_BALANCED and zc == 0.0) else f"{zc:.0f}"
+
+
 def write_report(out, sizes, overlap, nan_counts, bf_max, full_max, pct_lo, pct_hi,
                  n_bins, t0):
     L_ = [
@@ -448,6 +464,11 @@ def write_report(out, sizes, overlap, nan_counts, bf_max, full_max, pct_lo, pct_
         f"Statistics ACROSS patches: mean, median, p{pct_lo:g}, p{pct_hi:g} (equal weight per",
         "patch, nearest-rank, NaN patches dropped). 'full' = the whole 1 x 1 kpc footprint,",
         "i.e. the Step 2e number.",
+        f"Midplane: {MIDPLANE_MODE}" + (
+            f" (Step 1i): z_mid = {float(out['z_mid_pc_mean'][0]):+.3f} pc (sg mean), "
+            f"{float(out['z_mid_pc_off'][0]):+.3f} pc (off); the 'mid' slab is "
+            f"|z - z_mid| <= {SLAB_HALF_THICKNESS_PC:.0f} pc."
+            if MIDPLANE_MODE == MIDPLANE_MODE_BALANCED else "."),
         "",
         f"RAW only. Footprint |x|,|y| <= {STATS_BOX_XY_HALF_RANGE_PC:.0f} pc "
         f"({int(out['n_footprint_cells_side'][0])} x {int(out['n_footprint_cells_side'][0])} "
@@ -523,7 +544,7 @@ def write_report(out, sizes, overlap, nan_counts, bf_max, full_max, pct_lo, pct_
                 for q in QUANTITIES:
                     s = f"slab__{tag}__{sg}__{q}__"
                     L_.append(
-                        f"{zc:>5.0f}  {LABELS[q]:<52}"
+                        f"{slab_label(zc):>5}  {LABELS[q]:<52}"
                         + "".join(_fmt(out[s + k][i], q) for k in ("mean", "median", "p_lo", "p_hi"))
                         + _fmt(out[f"slab__full__{sg}__{q}"][i], q)
                         + f"{int(out[s + 'n_nan'][i]):>6d}")

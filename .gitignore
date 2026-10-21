@@ -25,3 +25,6 @@ venv/
 
 # General safety net for any future local-only files
 *_local.*
+
+# Step 1i: pre-balanced-midplane snapshot kept locally for comparison
+cache/sun_reference/
