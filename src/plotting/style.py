@@ -95,6 +95,14 @@ WEIGHT_LABELS = {"vol": "volume-weighted", "mw": "mass-weighted"}
 PRESSURE_COLORS = {"Ptot": COLOR_PTOT, "Pth": COLOR_PTH,
                    "Pmin": COLOR_PMIN, "Pmax": COLOR_PMAX}
 
+# Gravity / weight components (Fig. 3, the P_tot budget): stellar disk,
+# dark-matter halo, gas self-gravity. Chosen to stay distinguishable in
+# greyscale -- relative luminance ~0.65 / ~0.55 / ~0.37.
+COLOR_STARS = "#d4a24c"   # warm muted ochre (light)
+COLOR_DM = "#8c8c8c"      # mid grey
+COLOR_GAS = "#2f6f8f"     # muted teal-blue (dark)
+GRAVITY_COLORS = {"star": COLOR_STARS, "dm": COLOR_DM, "gas": COLOR_GAS}
+
 # Reference values from a SIMULATION overlaid on observed profiles. Open
 # markers, deliberately: a hollow symbol reads as "not one of these
 # measurements" at a glance, which is the whole point of the overlay.
