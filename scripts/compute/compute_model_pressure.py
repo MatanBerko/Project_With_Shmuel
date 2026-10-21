@@ -223,6 +223,10 @@ def main():
     w = mass / mass.sum()
 
     p15, p50, p85 = (weighted_percentile(iuv_s, mass, q) for q in PCT)
+    # VOLUME-weighted (equal weight per cell) -- the weighting of the area-
+    # averaged <P_tot> and <1/P_th>^-1 the figure draws next to this gas
+    ones = np.ones_like(iuv_s)
+    v15, v50, v85 = (weighted_percentile(iuv_s, ones, q) for q in PCT)
     iuv_curves = choose_iuv_curves(p15, p85)
     print(f"mass-weighted I_UV percentiles 15/50/85: {p15:.3f} / {p50:.3f} / {p85:.3f}")
     print(f"IUV_CURVES = {iuv_curves}")
@@ -236,6 +240,8 @@ def main():
     i_edges = np.arange(np.floor(li.min() / DEX_IUV) * DEX_IUV, li.max() + DEX_IUV, DEX_IUV)
     H2, _, _ = np.histogram2d(ln, li, bins=[n_edges, i_edges], weights=w)
     H1, _ = np.histogram(li, bins=i_edges, weights=w)
+    H1_vol, _ = np.histogram(li, bins=i_edges)
+    H1_vol = H1_vol / H1_vol.sum()          # cell fraction per bin, like H1
 
     # cross-check against the pipeline's cached midplane 2-D PDF (I_UV, n)
     s = np.load(SUMMARY_NPZ_PATH)
@@ -299,6 +305,13 @@ def main():
     f_below_cross = float(w[iuv_s < iuv_cross].sum())
     out["iuv_cross_pmax_eq_ptot"] = np.array([iuv_cross])
     out["f_mass_iuv_below_cross"] = np.array([f_below_cross])
+    f_vol_below_cross = float(np.mean(iuv_s < iuv_cross))
+    pmax_v50 = F_NEUTRAL * float(pmm.p_max(v50))
+    pmin_v50 = F_NEUTRAL * float(pmm.p_min(v50))
+    out["iuv_pct_vol"] = np.array([v15, v50, v85])
+    out["slab_H1_iuv_vol"] = H1_vol
+    out["f_vol_iuv_below_cross"] = np.array([f_vol_below_cross])
+    out["P_max_at_vol_median_iuv"] = np.array([pmax_v50])
 
     OUT_NPZ_PATH.parent.mkdir(parents=True, exist_ok=True)
     np.savez_compressed(OUT_NPZ_PATH, **out)
@@ -325,7 +338,9 @@ def main():
         f"Midplane gas: RAW, non-HIM cells, |x|,|y| <= {STATS_BOX_XY_HALF_RANGE_PC:.0f} pc, "
         f"|z| <= {SLAB_HALF_PC:.0f} pc ({iz.size} planes, {int(sel.sum())} cells used)",
         "  mass-weighted (rho = 1.4 m_H n_H), nearest-rank weighted percentiles",
-        f"  I_UV percentiles  p15 {p15:.3f}   p50 {p50:.3f}   p85 {p85:.3f}",
+        f"  I_UV percentiles  p15 {p15:.3f}   p50 {p50:.3f}   p85 {p85:.3f}   (mass-weighted)",
+        f"  I_UV percentiles  p15 {v15:.3f}   p50 {v50:.3f}   p85 {v85:.3f}   "
+        "(VOLUME-weighted, equal weight per cell -- the weighting of <P_tot> and <1/P_th>^-1)",
         f"  IUV_CURVES (clean values spanning p15-p85): {', '.join(f'{v:g}' for v in iuv_curves)}",
         f"  mass fraction with I_UV ABOVE the S-curve range ({iuv_hi_edge:.4g}): {f_out_hi:.4%}"
         f"   (above the last tabulated S-curve row {row_bounds[1]:g}: {f_out_hi_grid:.4%})",
@@ -352,14 +367,16 @@ def main():
         "  header line:  " + ref_header.strip(),
         "  data line:    " + ref_row.strip(),
         "",
-        f"At the median midplane I_UV = {p50:.3f}: P_min = {pmin50:.0f}, P_max = {pmax50:.0f} K cm^-3;",
+        f"At the MASS-weighted median midplane I_UV = {p50:.3f}: P_min = {pmin50:.0f}, P_max = {pmax50:.0f} K cm^-3;",
         f"  midplane <P_tot> = {p_tot_mid:.0f} is {where}; <1/P_th>^-1 = {p_inv_mid:.0f}.",
+        f"At the VOLUME-weighted median I_UV = {v50:.3f}: P_min = {pmin_v50:.0f}, "
+        f"P_max = {pmax_v50:.0f} K cm^-3.",
         "",
         f"I_UV,cross, where P_max(I_UV) = midplane <P_tot> = {p_tot_mid:.1f}: "
         f"I_UV,cross = {iuv_cross:.4f}",
         f"  (P_max x1.1 from thermal.build_pmin_pmax; for I_UV < I_UV,cross, <P_tot> > P_max)",
-        f"  mass fraction of midplane gas (same slab, same mass weighting) with "
-        f"I_UV < I_UV,cross: {f_below_cross:.4f}",
+        f"  fraction of midplane gas (same slab) with I_UV < I_UV,cross:   "
+        f"mass {f_below_cross:.4f}   volume {f_vol_below_cross:.4f}",
         "",
         f"(runtime {time.time() - t0:.1f}s)",
     ]

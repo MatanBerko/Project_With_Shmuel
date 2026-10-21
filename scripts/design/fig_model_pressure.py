@@ -25,8 +25,9 @@ results/model_pressure.txt use thermal.build_pmin_pmax, not this.
       curve's maximum and P_min below the bottom curve's minimum.
   (b) the two-phase band P_min(I_UV) - P_max(I_UV), with the midplane
       area-averaged <P_tot> and <1/P_th>^-1 as horizontal lines; a strip
-      underneath with the mass-weighted I_UV distribution of the midplane
-      gas (15-85 percentile range marked).
+      underneath with the I_UV distribution of the midplane gas: volume-
+      weighted filled (the weighting of the two lines, 15-85 percentile range
+      shaded), mass-weighted as a thin outline.
   (c) only with --with-phase-plane (-> fig_model_pressure_phase_plane):
       P_th/k over the (n_H, I_UV) plane with the phase boundaries
       n_W,max(I_UV) and n_C,min(I_UV), and the midplane gas as contours
@@ -100,6 +101,7 @@ LABELLED_CURVE_IUV = 1.0      # the (a) curve whose dashed branch carries "unsta
 EDGE_LABEL_COLOR = "0.25"
 P_NORM_C = (1e2, 1e4)         # (c) colour range, as Fig. 2's P_th columns
 N_BAND_SMOOTH = 300
+STRIP_DATA_FRAC = 0.66        # fraction of the strip height the histograms use
 B_PMAX_LABEL_IUV = 0.18       # where along the band edges their labels sit
 B_PMIN_LABEL_IUV = 0.30
 
@@ -296,22 +298,34 @@ def panel_b(ax, ax_s, d):
                     ha="center", va=va, rotation=ang, rotation_mode="anchor",
                     fontsize=TEXT_FS, color=EDGE_LABEL_COLOR, zorder=5)
 
-    # strip: mass-weighted I_UV distribution of the midplane gas
-    e = 10 ** d["slab_logiuv_edges"]
-    h = d["slab_H1_iuv_mass"]
-    ax_s.stairs(h, e, fill=True, color="0.55", lw=0)
-    p15, _, p85 = d["iuv_pct"]
-    ax_s.axvspan(p15, p85, color=COLOR_PTH, alpha=0.12, lw=0)
-    for p in (p15, p85):
-        ax_s.axvline(p, color=COLOR_PTH, lw=0.6)
+    # strip: I_UV distribution of the midplane gas. FILLED = volume-weighted
+    # (equal weight per cell), the weighting of the area-averaged <P_tot> and
+    # <1/P_th>^-1 drawn above it, with its 15-85% range shaded; LINE = the
+    # mass-weighted distribution. Both as densities in log I_UV (each
+    # integrates to 1), so their shapes compare directly.
+    le = d["slab_logiuv_edges"]
+    e = 10 ** le
+    dlog = np.diff(le)
+    h_vol = d["slab_H1_iuv_vol"] / (d["slab_H1_iuv_vol"].sum() * dlog)
+    h_mass = d["slab_H1_iuv_mass"] / (d["slab_H1_iuv_mass"].sum() * dlog)
+    ax_s.stairs(h_vol, e, fill=True, color="0.62", lw=0, zorder=1)
+    ax_s.stairs(h_mass, e, color="0.15", lw=0.6, zorder=3)
+    v15, _, v85 = d["iuv_pct_vol"]
+    # the markers stop below the label row at the top of the strip
+    ax_s.axvspan(v15, v85, ymax=STRIP_DATA_FRAC, color=COLOR_PTH, alpha=0.12, lw=0, zorder=0)
+    for p in (v15, v85):
+        ax_s.axvline(p, ymax=STRIP_DATA_FRAC, color=COLOR_PTH, lw=0.6, zorder=2)
     log_axes(ax_s, y=False)
     ax_s.set_xlim(IUV_LIM_B)
-    ax_s.set_ylim(0, h.max() * 1.15)
+    ax_s.set_ylim(0, max(h_vol.max(), h_mass.max()) / STRIP_DATA_FRAC * 1.02)
     ax_s.set_yticks([])
     ax_s.tick_params(axis="y", which="both", left=False, right=False)
+    # no top ticks: the strip sits right under (b), whose bottom axis has them,
+    # and inward top ticks would run into the label row
+    ax_s.tick_params(axis="x", which="both", top=False)
     ax_s.set_xlabel(LABEL_IUV, fontsize=LABEL_FS)
-    ax_s.text(0.97, 0.88, "midplane gas\n15-85%", transform=ax_s.transAxes, ha="right",
-              va="top", fontsize=TEXT_FS - 1, color="0.3", linespacing=0.9)
+    ax_s.text(0.97, 0.96, "volume (filled), mass (line)", transform=ax_s.transAxes,
+              ha="right", va="top", fontsize=TEXT_FS - 1, color="0.3")
 
 
 def panel_c(fig, ax, cax, d):

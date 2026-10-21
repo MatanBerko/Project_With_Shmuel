@@ -11,7 +11,8 @@ BS19 S-curve (two dP/dn = 0 turning points) exists for I_UV in [0.001, 161.5]
 
 Midplane gas: RAW, non-HIM cells, |x|,|y| <= 500 pc, |z| <= 30 pc (31 planes, 4173481 cells used)
   mass-weighted (rho = 1.4 m_H n_H), nearest-rank weighted percentiles
-  I_UV percentiles  p15 0.328   p50 0.550   p85 1.147
+  I_UV percentiles  p15 0.328   p50 0.550   p85 1.147   (mass-weighted)
+  I_UV percentiles  p15 0.385   p50 0.613   p85 1.165   (VOLUME-weighted, equal weight per cell -- the weighting of <P_tot> and <1/P_th>^-1)
   IUV_CURVES (clean values spanning p15-p85): 0.3, 0.5, 1, 2
   mass fraction with I_UV ABOVE the S-curve range (161.5): 0.0007%   (above the last tabulated S-curve row 158.489: 0.0007%)
   mass fraction with I_UV BELOW the S-curve range (0.001): 0.0000%
@@ -35,11 +36,12 @@ slab, self-gravity on = footprint-mean, volume-weighted), not recomputed:
   header line:  z    sg  <P_tot>_area  <P_th> arith   P_th,harm   a_area  <a_cell>  med a_cell        [p15, p85]
   data line:    0  mean        7800.3        3356.5      2370.5    2.324     3.291       2.722    [1.454,  5.504]
 
-At the median midplane I_UV = 0.550: P_min = 1690, P_max = 5738 K cm^-3;
+At the MASS-weighted median midplane I_UV = 0.550: P_min = 1690, P_max = 5738 K cm^-3;
   midplane <P_tot> = 7800 is ABOVE P_max; <1/P_th>^-1 = 2370.
+At the VOLUME-weighted median I_UV = 0.613: P_min = 1852, P_max = 6089 K cm^-3.
 
 I_UV,cross, where P_max(I_UV) = midplane <P_tot> = 7800.3: I_UV,cross = 1.0642
   (P_max x1.1 from thermal.build_pmin_pmax; for I_UV < I_UV,cross, <P_tot> > P_max)
-  mass fraction of midplane gas (same slab, same mass weighting) with I_UV < I_UV,cross: 0.8222
+  fraction of midplane gas (same slab) with I_UV < I_UV,cross:   mass 0.8222   volume 0.8109
 
-(runtime 1.6s)
+(runtime 2.7s)
