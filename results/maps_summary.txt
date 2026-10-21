@@ -1,0 +1,37 @@
+PROVISIONAL: f98 cube, n_H = 1653 A'; final cube pending
+P_th = 1.1 n_H k T (physical)
+Fig. 2 maps: two planes in TRUE Galactic orientation
+================================================================================================
+cube axis order [z, y, x]; orientation mapping 'neg_swap' (src.conventions.CUBE_XY_MAPPING):
+  the true field at (x, y, z) is the cube value at (x_c = -y, y_c = -x, z_c = z)
+  (results/orientation_check.txt). Applied ONLY to these maps.
+
+Planes actually used
+  XY: cube z plane 375, z = 0 pc; |x|,|y| <= 500 pc (501 x 501 cells of 2 pc)
+  XZ: cube x_c plane 500, x_c = 0 pc  ->  true y = 0 pc; true x = -y_c over |x| <= 500 pc, z = -400..400 pc (401 planes)
+
+Independent check: log10 n_H vs log10 A' (Edenhofer2023Query(integrated=False))
+  2000 random points of the z = 0 pc plane in TRUE coordinates (seed 20261021); 1959 usable
+  re-oriented plane    r = 0.960
+  un-reoriented plane  r = -0.013   (cube read as if x_c = x, y_c = y)
+  required: re-oriented r >= 0.85  ->  PASS
+
+Percentiles over every cell of each plane (equal weight per cell)
+ plane           quantity          p1         p15         p50         p85         p99
+    XY        n_H [cm^-3]    0.002134      0.0159      0.1675       1.293       7.648
+    XY         I_UV [G_0]      0.2855      0.4561        0.79       1.375       4.101
+    XY              T [K]       177.5        3065        8641        9677        9816
+    XY   P_th/k [K cm^-3]       23.04       169.3        1316        4232        9060
+    XZ        n_H [cm^-3]     0.00533     0.01836     0.05454      0.3599       4.411
+    XZ         I_UV [G_0]      0.3635      0.4554      0.6218      0.9389       1.963
+    XZ              T [K]       451.7        8237        9053        9591        9816
+    XZ   P_th/k [K cm^-3]       57.53       193.7       543.3        2864        7294
+
+Phase AREA fractions in the z = 0 pc plane (fraction of cells)
+                                  scheme      CNM      UNM      WNM      HIM
+          dPdn (fiducial, HIM separated)   0.0248   0.1724   0.3352   0.4676
+  T cuts 300/6000 K, no HIM (Shelest+26)   0.0304   0.1608   0.8087   0.0000
+  dPdn: non-HIM cells with no finite phase boundary (left UNM): XY 0.0000%, XZ 0.0000%
+  HIM-flagged fraction: XY 0.4676, XZ 0.6564
+
+(runtime 1.7s)

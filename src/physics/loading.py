@@ -28,7 +28,13 @@ import numpy as np
 import zarr
 
 from src.config_loader import load_resolved_config
-from src.conventions import SLAB_HALF_THICKNESS_PC, STATS_BOX_Z_HALF_RANGE_PC
+from src.conventions import (
+    CUBE_XY_MAPPING,
+    CUBE_XY_MAPPING_IDENTITY,
+    CUBE_XY_MAPPING_NEG_SWAP,
+    SLAB_HALF_THICKNESS_PC,
+    STATS_BOX_Z_HALF_RANGE_PC,
+)
 
 RHO_FIELD = "density"
 IUV_FIELD = "Iuv_final"
@@ -157,3 +163,63 @@ def iter_z_planes(grid: ZarrGrid, field: str, half_range_pc: float = 500.0):
     for iz, z_val in enumerate(grid.z_pc):
         plane = np.asarray(field_arr[iz, y_lo:y_hi, x_lo:x_hi], dtype=np.float64)
         yield iz, float(z_val), plane
+
+
+def _assert_symmetric(coord, name):
+    c = np.asarray(coord, dtype=float)
+    if not (np.all(np.diff(c) > 0) and np.allclose(c, -c[::-1], atol=1e-6)):
+        raise ValueError(f"{name} must be ascending and symmetric about 0 "
+                         f"(c == -c[::-1]); got {c[0]:g}..{c[-1]:g} ({c.size} points).")
+
+
+def galactic_xy_coords(x_c, y_c, mapping=CUBE_XY_MAPPING):
+    """(x, y) TRUE coordinate arrays of the array to_galactic_xy() returns.
+
+    Under "neg_swap" true x = -y_c and true y = -x_c, which on symmetric
+    grids are the cube's y_c and x_c arrays themselves (ascending).
+    """
+    x_c = np.asarray(x_c, dtype=float)
+    y_c = np.asarray(y_c, dtype=float)
+    if mapping == CUBE_XY_MAPPING_IDENTITY:
+        return x_c, y_c
+    if mapping == CUBE_XY_MAPPING_NEG_SWAP:
+        _assert_symmetric(x_c, "x_c")
+        _assert_symmetric(y_c, "y_c")
+        return -y_c[::-1], -x_c[::-1]
+    raise ValueError(f"Unknown CUBE_XY_MAPPING {mapping!r}")
+
+
+def to_galactic_xy(arr, x_c, y_c, mapping=CUBE_XY_MAPPING):
+    """Re-index a cube array [..., y_c, x_c] into TRUE Galactic [..., y, x].
+
+    The cube's axis order is [z, y, x] (load_subcube slices
+    [:, y_lo:y_hi, x_lo:x_hi]; check_orientation.py reads rho[jz, jy, jx]),
+    so the last two axes of any slice of it are (y_c, x_c).
+
+    "identity": returned unchanged.
+    "neg_swap": the true field at (x, y) is the cube at (x_c = -y, y_c = -x)
+      (results/orientation_check.txt). With symmetric ascending grids the
+      value -y[j] sits at x_c index N-1-j, so
+          true[..., j_y, i_x] = cube[..., N_y_c-1-i_x, N_x_c-1-j_y],
+      i.e. swap the last two axes and reverse both. The returned array is
+      indexed [..., y, x] with x and y ascending; its coordinates are
+      galactic_xy_coords(x_c, y_c). A view, not a copy, and no loops.
+
+    Grids must be symmetric about 0 (x_c == -x_c[::-1], likewise y_c),
+    which is asserted: on an off-centre sub-grid the flip would land on
+    the wrong cells. A single-plane x_c = [0.0] is symmetric, so the true
+    y = 0 plane is cube[..., :, [i(x_c=0)]] through this same function.
+    """
+    a = np.asarray(arr)
+    x_c = np.asarray(x_c, dtype=float)
+    y_c = np.asarray(y_c, dtype=float)
+    if a.shape[-2:] != (y_c.size, x_c.size):
+        raise ValueError(f"array's last two axes {a.shape[-2:]} do not match "
+                         f"(len(y_c), len(x_c)) = {(y_c.size, x_c.size)}")
+    if mapping == CUBE_XY_MAPPING_IDENTITY:
+        return a
+    if mapping == CUBE_XY_MAPPING_NEG_SWAP:
+        _assert_symmetric(x_c, "x_c")
+        _assert_symmetric(y_c, "y_c")
+        return np.swapaxes(a, -1, -2)[..., ::-1, ::-1]
+    raise ValueError(f"Unknown CUBE_XY_MAPPING {mapping!r}")

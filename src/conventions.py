@@ -101,6 +101,23 @@ PHASE_SCHEMES = (PHASE_SCHEME_DPDN, PHASE_SCHEME_TEMPERATURE)
 R_MAX_PC = 500
 XY_HALF_RANGE_PC = 500.0
 
+# How the cube's XY axes relate to TRUE heliocentric Galactic coordinates
+# (x toward l = 0, y toward l = 90, z toward the NGP). results/
+# orientation_check.txt (scripts/validation/check_orientation.py) found the
+# best of all 48 axis mappings to be (-y,-x,+z), r = 0.941 against the
+# Edenhofer map vs r = 0.289 for the identity: the true field at (x, y, z)
+# is the cube value at (x_c = -y, y_c = -x, z_c = z).
+#   "neg_swap"  the f98 cube as it is now
+#   "identity"  a cube already in true coordinates (the re-oriented cube,
+#               once it arrives -- then this becomes a one-line switch)
+# Used ONLY by src.physics.loading.to_galactic_xy() and the Fig. 2 map
+# scripts; no statistic, profile or alpha depends on it (every one of them
+# is invariant under this mapping -- see results/README.md).
+CUBE_XY_MAPPING_NEG_SWAP = "neg_swap"
+CUBE_XY_MAPPING_IDENTITY = "identity"
+CUBE_XY_MAPPINGS = (CUBE_XY_MAPPING_NEG_SWAP, CUBE_XY_MAPPING_IDENTITY)
+CUBE_XY_MAPPING = CUBE_XY_MAPPING_NEG_SWAP
+
 # STATS_BOX (Shelest+26, confirmed by the lead author): the ANALYSIS VOLUME
 # is a 1 kpc x 1 kpc x 800 pc box centred on the Sun --
 #     |x| <= 500 pc, |y| <= 500 pc, |z| <= 400 pc.
