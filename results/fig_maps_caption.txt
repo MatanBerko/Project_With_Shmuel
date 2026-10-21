@@ -1,0 +1,19 @@
+DRAFT caption for Fig. 2 (figures/fig_maps.{png,pdf}) -- PROVISIONAL: f98 cube, n_H = 1653 A'; final cube pending.
+Numbers from results/maps_summary.txt and results/him_mass_fraction.txt.
+
+Figure 2. Maps of the local ISM in two planes through the Sun: the Galactic midplane z = 0 (top row,
+panels a-d) and the vertical plane y = 0 (bottom row, panels e-h). The maps span 1 kpc x 1 kpc in
+the midplane and 1 kpc x 0.8 kpc in the vertical plane (|x|, |y| <= 500 pc, |z| <= 400 pc), in
+heliocentric Galactic coordinates with the Sun at the origin: +x points toward the Galactic centre,
++y toward l = 90 deg, and +z toward the North Galactic Pole. Columns, left to right: hydrogen
+density n_H; FUV intensity I_UV in Habing units (G_0); thermal pressure P_th/k = 1.1 n_H T; and the
+gas phase. Phases follow the dP/dn scheme: at each cell's I_UV, gas below the warm-branch turning
+point of the thermal-equilibrium curve, n_H < n_W,max(I_UV), is WNM; gas above the cold-branch
+turning point, n_H > n_C,min(I_UV), is CNM; gas in between is UNM. Cells with n_H T < 0.5 P_min(I_UV),
+where P_min is the minimum pressure of the two-phase equilibrium curve, are flagged as HIM (light
+purple) and are drawn separately from the neutral phases. The HIM flag covers 46.8% of the AREA of
+the z = 0 plane and 65.6% of the y = 0 plane, but these cells are mostly of low density: within the z = 0 slab
+(|z| <= 30 pc) they hold only 3.15% of the gas MASS. Colour bars with arrows extend beyond the
+plotted range. The radial streaks pointing at the Sun are line-of-sight artefacts of the 3D dust
+reconstruction from which the density is derived; the reconstruction also has no data within
+~69 pc of the Sun, so the structure at the origin is not constrained.

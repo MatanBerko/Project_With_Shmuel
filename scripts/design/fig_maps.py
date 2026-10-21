@@ -16,9 +16,18 @@ is placed by hand in inches (no layout engine): equal-aspect image panels
 leave gaps a layout engine cannot close, and placing them explicitly is
 what makes the colourbars exactly as wide as their columns.
 
-Colour ranges: the 1st and 99th percentiles over BOTH planes, rounded
-outward to half-decades (the same percentiles results/maps_summary.txt
-prints, recomputed here from the same cached arrays).
+Colour ranges: n_H and I_UV use the 1st and 99th percentiles over BOTH
+planes, rounded outward to half-decades (the same percentiles
+results/maps_summary.txt prints, recomputed here from the same cached
+arrays), with extend="both" since values exist beyond them. P_th/k is
+fixed at 10^2-10^4 (extend="min"): the 1-99 range reaches down to 10^1,
+which spends a decade of the colour scale on the rare lowest-pressure
+cells.
+
+Phase: HIM is drawn as a light tint of the project HIM colour so the
+neutral phases read first; it is a flag (n_H T < 0.5 P_min), not a
+measured hot phase. There is no Sun marker: the axes are heliocentric and
+the caption (results/fig_maps_caption.txt) says so.
 """
 
 import sys
@@ -31,7 +40,7 @@ import matplotlib.patheffects as pe  # noqa: E402
 import matplotlib.pyplot as plt  # noqa: E402
 import matplotlib.ticker as mticker  # noqa: E402
 import numpy as np  # noqa: E402
-from matplotlib.colors import BoundaryNorm, ListedColormap, LogNorm  # noqa: E402
+from matplotlib.colors import BoundaryNorm, ListedColormap, LogNorm, to_rgb  # noqa: E402
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
@@ -55,9 +64,15 @@ COLUMNS = (
     ("P_th", "cividis", r"$P_{\rm th}/k$ [K cm$^{-3}$]"),
     ("phase_dpdn", None, "phase"),
 )
-PHASE_CMAP = ListedColormap([CNM, UNM, WNM, HIM])
+# HIM blended with white (35% colour / 65% white) so the neutral phases read first
+HIM_TINT_FRACTION = 0.35
+HIM_TINT = tuple(HIM_TINT_FRACTION * c + (1.0 - HIM_TINT_FRACTION)
+                 for c in to_rgb(HIM))
+PHASE_CMAP = ListedColormap([CNM, UNM, WNM, HIM_TINT])
 PHASE_NORM = BoundaryNorm([-0.5, 0.5, 1.5, 2.5, 3.5], 4)
-PHASE_LABELS = ("CNM", "UNM", "WNM", "HIM")
+PHASE_LABELS = ("CNM", "UNM", "WNM", "HIM (flag)")
+P_TH_RANGE = (1e2, 1e4)
+CB_EXTEND = {"n_H": "both", "I_UV": "both", "P_th": "min", "phase_dpdn": "neither"}
 
 # geometry [inches]
 FIG_W = 7.1
@@ -68,7 +83,6 @@ BOTTOM = 0.40                  # x tick labels + x label of row 2
 CB_GAP = 0.05                  # colourbar to row 1
 CB_H = 0.07                    # colourbar thickness
 CB_TOP = 0.40                  # colourbar ticks + label above the bar
-STAR = dict(marker="*", ms=6.5, mfc="white", mec="black", mew=0.55, zorder=8)
 
 
 def half_decade_range(*arrays):
@@ -115,6 +129,8 @@ def main():
     norms, ranges = {}, {}
     for key, _, _ in COLUMNS[:3]:
         vmin, vmax, p1, p99 = half_decade_range(d[f"xy__{key}"], d[f"xz__{key}"])
+        if key == "P_th":
+            vmin, vmax = P_TH_RANGE
         norms[key] = LogNorm(vmin, vmax)
         ranges[key] = (vmin, vmax, p1, p99)
         print(f"  {key:5s} p1 {p1:.4g}  p99 {p99:.4g}  ->  colour range {vmin:.4g} .. {vmax:.4g}")
@@ -162,13 +178,14 @@ def main():
                 ax.set_ylabel(r"$y$ [pc]" if tag == "xy" else r"$z$ [pc]", labelpad=1)
             if row == 1:
                 ax.set_xlabel(r"$x$ [pc]", labelpad=1)
-            ax.plot(0, 0, **STAR)
             # (a)-(d) across row 1, (e)-(h) across row 2
             panel_label(ax, "abcdefgh"[4 * row + col], loc="upper left", size=7.5, pad=0.03)
             annotate(ax, plane_coord[tag], loc="upper right", size=6.0, pad=0.03)
         # ---- one colourbar per column, above row 1 ------------------------
         cax = fig.add_axes(rect(x0, y_cb, pw, CB_H))
-        cb = fig.colorbar(im, cax=cax, orientation="horizontal")
+        # the extend triangles are drawn INSIDE cax, so the bar including
+        # them stays exactly as wide as its column
+        cb = fig.colorbar(im, cax=cax, orientation="horizontal", extend=CB_EXTEND[key])
         cax.xaxis.set_ticks_position("top")
         cax.xaxis.set_label_position("top")
         cax.tick_params(which="both", direction="out", labelsize=6.5, pad=1)
@@ -177,7 +194,9 @@ def main():
         cb.outline.set_linewidth(0.5)
         if key == "phase_dpdn":
             cb.set_ticks(range(4))
-            cb.set_ticklabels(PHASE_LABELS)
+            # slightly smaller than the decade labels: four categories,
+            # one of them two words, in a 1.6 in bar
+            cb.set_ticklabels(PHASE_LABELS, fontsize=6.0)
             cax.tick_params(which="major", length=0)
             cax.xaxis.set_minor_locator(mticker.NullLocator())
             cb.set_label("phase (dP/dn)", fontsize=7.5, labelpad=2)
