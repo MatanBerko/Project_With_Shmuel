@@ -21,12 +21,14 @@ results/model_pressure.txt use thermal.build_pmin_pmax, not this.
 
   (a) P_th/k vs n_H at four I_UV spanning the midplane gas: stable branches
       solid, the unstable branch between the dP/dn = 0 turning points
-      dashed, P_max and P_min marked with dots.
+      dashed, turning points marked with dots; P_max labelled above the top
+      curve's maximum and P_min below the bottom curve's minimum.
   (b) the two-phase band P_min(I_UV) - P_max(I_UV), with the midplane
       area-averaged <P_tot> and <1/P_th>^-1 as horizontal lines; a strip
       underneath with the mass-weighted I_UV distribution of the midplane
       gas (15-85 percentile range marked).
-  (c) P_th/k over the (n_H, I_UV) plane with the phase boundaries
+  (c) only with --with-phase-plane (-> fig_model_pressure_phase_plane):
+      P_th/k over the (n_H, I_UV) plane with the phase boundaries
       n_W,max(I_UV) and n_C,min(I_UV), and the midplane gas as contours
       enclosing 50/80/95% of its mass.
 
@@ -34,8 +36,10 @@ Base style: the Extended Data Fig. 1 script's (as in
 fig_bs19_curves_iuv1e3.py): serif / dejavuserif, axes.linewidth 0.8,
 inward ticks mirrored on all four sides, log minor ticks.
 
-LAYOUT "row" (kept): 1 x 3 at 7.1 in. LAYOUT "2+1": (a)|(b) on top, (c)
-full width underneath. Run with --layout 2+1 to see the alternative.
+Layout: (a) | (b) sharing the P_th/k axis, 5 in wide (--width to change).
+7.1 in was tried and reads worse at print size: each panel comes out over
+3 in wide with the same text, so the labels shrink relative to the data
+and (b) is mostly empty.
 """
 
 import argparse
@@ -66,7 +70,9 @@ from src.plotting.style import (  # noqa: E402
 
 CACHE = Path("cache/model/model_pressure.npz")
 NAME = "fig_model_pressure"
-FIG_W = 7.1
+FIG_W = 7.1                   # the three-panel row (--with-phase-plane)
+TWO_PANEL_WIDTH = 5.0         # the default two-panel figure
+TWO_PANEL_ASPECT = 0.85       # main-panel height / width
 
 # ---- axis ranges -----------------------------------------------------------
 P_LIM = (1.5e2, 3e4)          # shared by (a) and (b)
@@ -90,12 +96,10 @@ YLABEL_P = r"$P_{\rm th}/k$ [K cm$^{-3}$]"
 # I_UV is dimensionless: F_UV / F_UV,sun (Shelest+26), so no unit in brackets
 LABEL_IUV = r"$I_{\rm UV}$"
 PMAX_TXT, PMIN_TXT = r"$P_{\rm max}$", r"$P_{\rm min}$"
-LABELLED_CURVE_IUV = 1.0      # the (a) curve whose turning points are labelled
+LABELLED_CURVE_IUV = 1.0      # the (a) curve whose dashed branch carries "unstable"
 EDGE_LABEL_COLOR = "0.25"
 P_NORM_C = (1e2, 1e4)         # (c) colour range, as Fig. 2's P_th columns
 N_BAND_SMOOTH = 300
-A_PMAX_LABEL_AT = (0.6, 2.0e4)   # (n, P) of the (a) turning-point labels, in
-A_PMIN_LABEL_AT = (20.0, 5.0e2)   # the empty space above / below the curves
 B_PMAX_LABEL_IUV = 0.18       # where along the band edges their labels sit
 B_PMIN_LABEL_IUV = 0.30
 
@@ -208,31 +212,33 @@ def panel_a(ax, d):
         del stable
         handles.append(Line2D([], [], color=c, lw=1.3, label=rf"$I_{{\rm UV}} = {iv:g}$"))
         if np.isclose(iv, LABELLED_CURVE_IUV):
-            labelled = (c, nw, nc, pw, pc, P)
+            labelled = (c, nw, nc, P)
+        if k == k_n - 1:
+            top_max = (nw, pw)          # highest-I_UV curve: nothing above its P_max dot
+        if k == 0:
+            bottom_min = (nc, pc)       # lowest-I_UV curve: nothing below its P_min dot
     log_axes(ax)
     ax.set_xlim(N_LIM_A)
     ax.set_ylim(P_LIM)
+    # no label on the last decade: at the right edge it runs under (b)
+    ax.set_xticks([10.0 ** k for k in range(-2, 4)],
+                  labels=[rf"$10^{{{k}}}$" if k < 3 else "" for k in range(-2, 4)])
     ax.set_xlabel(XLABEL_N, fontsize=LABEL_FS)
     ax.set_ylabel(YLABEL_P, fontsize=LABEL_FS)
     # upper left, under the panel letter: the space above the rising warm
-    # branch is empty, and the lower right is kept for the P_min label
+    # branch is empty
     ax.legend(handles=handles, loc="upper left", bbox_to_anchor=(0.0, 0.89), frameon=False,
               fontsize=TEXT_FS - 0.5, handlelength=1.0, handletextpad=0.4,
               labelspacing=0.15, borderaxespad=0.3)
-    # turning points and the unstable branch, labelled on ONE curve
-    c, nw, nc, pw, pc, P = labelled
+    # P_max / P_min on the outermost curves, where the space beyond the dot
+    # is empty -- no leader needed, and no neighbouring dot to confuse it with
+    ax.annotate(PMAX_TXT, top_max, xytext=(0, 3.5), textcoords="offset points",
+                ha="center", va="bottom", fontsize=TEXT_FS, color=EDGE_LABEL_COLOR, zorder=6)
+    ax.annotate(PMIN_TXT, bottom_min, xytext=(0, -3.5), textcoords="offset points",
+                ha="center", va="top", fontsize=TEXT_FS, color=EDGE_LABEL_COLOR, zorder=6)
+    # "unstable" along the dashed branch of the I_UV = 1 curve
+    c, nw, nc, P = labelled
     dark = tuple(0.75 * np.asarray(c[:3]))          # same hue, legible on white
-    # The turning points sit where all four curves crowd together, so the
-    # two labels go in the empty space above and below the family, each with
-    # a thin leader to ITS dot (a label right beside a dot reads as belonging
-    # to whichever neighbouring curve's dot happens to be closest).
-    leader = dict(arrowstyle="-", color=dark, lw=0.5, shrinkA=1.5, shrinkB=2.5)
-    ax.annotate(PMAX_TXT, (nw, pw), xytext=A_PMAX_LABEL_AT, textcoords="data",
-                ha="center", va="bottom", fontsize=TEXT_FS, color=dark, zorder=6,
-                arrowprops=leader)
-    ax.annotate(PMIN_TXT, (nc, pc), xytext=A_PMIN_LABEL_AT, textcoords="data",
-                ha="center", va="top", fontsize=TEXT_FS, color=dark, zorder=6,
-                arrowprops=leader)
     n = d["n_grid"]
     # mid-branch, on its LOWER side: the gap down to the I_UV = 0.5 dashed
     # branch is wider there than the gap up to I_UV = 2
@@ -289,15 +295,6 @@ def panel_b(ax, ax_s, d):
         ax.annotate(txt, (iuv[k], arr[k]), xytext=(0, dy), textcoords="offset points",
                     ha="center", va=va, rotation=ang, rotation_mode="anchor",
                     fontsize=TEXT_FS, color=EDGE_LABEL_COLOR, zorder=5)
-
-    # where P_max = <P_tot>
-    x_cross = float(d["iuv_cross_pmax_eq_ptot"][0])
-    p_tot = float(d["midplane_Ptot_area"][0])
-    ax.plot([x_cross, x_cross], [p_tot / 1.18, p_tot * 1.18], color=COLOR_PTOT, lw=0.9,
-            zorder=5)
-    ax.annotate(rf"{PMAX_TXT} = $\langle P_{{\rm tot}}\rangle$", (x_cross, p_tot * 1.18),
-                xytext=(-2, 0), textcoords="offset points", ha="right", va="bottom",
-                fontsize=TEXT_FS - 1, color=COLOR_PTOT, zorder=6)
 
     # strip: mass-weighted I_UV distribution of the midplane gas
     e = 10 ** d["slab_logiuv_edges"]
@@ -383,62 +380,81 @@ def panel_c(fig, ax, cax, d):
 
 
 # ---------------------------------------------------------------------------
-def build(layout):
+def _two_panel_axes(fig_w):
+    """(fig, ax_a, ax_b, ax_strip): (a) | (b) sharing y, the strip under (b)."""
+    L, GAP_AB, R = 0.50, 0.07, 0.10
+    w = (fig_w - L - GAP_AB - R) / 2
+    hm, hs, gs = TWO_PANEL_ASPECT * w, 0.17 * TWO_PANEL_ASPECT * w, 0.03
+    B, T = 0.36, 0.17           # T: room for PROVISIONAL above the panels
+    fig_h = B + hs + gs + hm + T
+    fig = plt.figure(figsize=(fig_w, fig_h))
+
+    def r(x, y, ww, hh):
+        return (x / fig_w, y / fig_h, ww / fig_w, hh / fig_h)
+    xb = L + w + GAP_AB
+    ax_a = fig.add_axes(r(L, B + hs + gs, w, hm))
+    ax_b = fig.add_axes(r(xb, B + hs + gs, w, hm))
+    ax_s = fig.add_axes(r(xb, B, w, hs))
+    return fig, ax_a, ax_b, ax_s
+
+
+def _three_panel_axes():
+    """(fig, ax_a, ax_b, ax_strip, ax_c, cax): the 1 x 3 row with the phase plane."""
+    L, GAP_AB, GAP_BC, CBW, CBGAP, R = 0.50, 0.07, 0.56, 0.07, 0.05, 0.50
+    w = (FIG_W - L - GAP_AB - GAP_BC - CBGAP - CBW - R) / 3
+    hm, hs, gs = w, 0.17 * w, 0.03
+    B, T = 0.36, 0.17
+    fig_h = B + hs + gs + hm + T
+    fig = plt.figure(figsize=(FIG_W, fig_h))
+
+    def r(x, y, ww, hh):
+        return (x / FIG_W, y / fig_h, ww / FIG_W, hh / fig_h)
+    xb = L + w + GAP_AB
+    xc = xb + w + GAP_BC
+    ax_a = fig.add_axes(r(L, B + hs + gs, w, hm))
+    ax_b = fig.add_axes(r(xb, B + hs + gs, w, hm))
+    ax_s = fig.add_axes(r(xb, B, w, hs))
+    ax_c = fig.add_axes(r(xc, B, w, hm + gs + hs))
+    cax = fig.add_axes(r(xc + w + CBGAP, B, CBW, hm + gs + hs))
+    return fig, ax_a, ax_b, ax_s, ax_c, cax
+
+
+def build(with_phase_plane=False, fig_w=TWO_PANEL_WIDTH):
     ed_style()
     d = np.load(CACHE, allow_pickle=False)
-    if layout == "row":
-        L, GAP_AB, GAP_BC, CBW, CBGAP, R = 0.50, 0.07, 0.56, 0.07, 0.05, 0.50
-        w = (FIG_W - L - GAP_AB - GAP_BC - CBGAP - CBW - R) / 3
-        hm, hs, gs = w, 0.17 * w, 0.03
-        B, T = 0.36, 0.17       # T: room for PROVISIONAL above the colourbar
-        fig_h = B + hs + gs + hm + T
-        fig = plt.figure(figsize=(FIG_W, fig_h))
-
-        def r(x, y, ww, hh):
-            return (x / FIG_W, y / fig_h, ww / FIG_W, hh / fig_h)
-        xa, xb = L, L + w + GAP_AB
-        xc = xb + w + GAP_BC
-        ax_a = fig.add_axes(r(xa, B + hs + gs, w, hm))
-        ax_b = fig.add_axes(r(xb, B + hs + gs, w, hm))
-        ax_s = fig.add_axes(r(xb, B, w, hs))
-        ax_c = fig.add_axes(r(xc, B, w, hm + gs + hs))
-        cax = fig.add_axes(r(xc + w + CBGAP, B, CBW, hm + gs + hs))
-    else:   # "2+1"
-        L, GAP_AB, R, CBW, CBGAP = 0.55, 0.07, 0.55, 0.08, 0.06
-        w = (FIG_W - L - GAP_AB - R) / 2
-        hm, hs, gs = 0.75 * w, 0.15 * 0.75 * w, 0.03
-        wc = FIG_W - L - R - CBGAP - CBW + 0.0
-        hc = 2.2
-        B, MID, T = 0.38, 0.62, 0.08
-        fig_h = B + hc + MID + hs + gs + hm + T
-        fig = plt.figure(figsize=(FIG_W, fig_h))
-
-        def r(x, y, ww, hh):
-            return (x / FIG_W, y / fig_h, ww / FIG_W, hh / fig_h)
-        yt = B + hc + MID
-        ax_a = fig.add_axes(r(L, yt + hs + gs, w, hm))
-        ax_b = fig.add_axes(r(L + w + GAP_AB, yt + hs + gs, w, hm))
-        ax_s = fig.add_axes(r(L + w + GAP_AB, yt, w, hs))
-        ax_c = fig.add_axes(r(L, B, wc, hc))
-        cax = fig.add_axes(r(L + wc + CBGAP, B, CBW, hc))
-
+    if with_phase_plane:
+        fig, ax_a, ax_b, ax_s, ax_c, cax = _three_panel_axes()
+    else:
+        fig, ax_a, ax_b, ax_s = _two_panel_axes(fig_w)
     panel_a(ax_a, d)
     panel_b(ax_b, ax_s, d)
-    xlim, ylim = panel_c(fig, ax_c, cax, d)
-    for ax, letter in ((ax_a, "a"), (ax_b, "b"), (ax_c, "c")):
+    panels = [(ax_a, "a"), (ax_b, "b")]
+    if with_phase_plane:
+        xlim, ylim = panel_c(fig, ax_c, cax, d)
+        panels.append((ax_c, "c"))
+        print(f"  (c) ranges: n_H {xlim[0]:.3g} .. {xlim[1]:.3g} cm^-3, "
+              f"I_UV {ylim[0]:.3g} .. {ylim[1]:.3g}")
+    for ax, letter in panels:
         panel_label(ax, letter, loc="upper left", size=8.5, pad=0.035)
     provisional_label(fig, loc="upper right")
-    print(f"  (c) ranges: n_H {xlim[0]:.3g} .. {xlim[1]:.3g} cm^-3, "
-          f"I_UV {ylim[0]:.3g} .. {ylim[1]:.3g}")
     return fig
 
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--layout", choices=("row", "2+1"), default="row")
+    ap.add_argument("--with-phase-plane", action="store_true",
+                    help="add panel (c), P_th/k over (n_H, I_UV) -> fig_model_pressure_phase_plane")
+    ap.add_argument("--width", type=float, default=TWO_PANEL_WIDTH,
+                    help="two-panel figure width [in]")
     args = ap.parse_args()
-    fig = build(args.layout)
-    save_figure(fig, NAME if args.layout == "row" else NAME + "_2plus1")
+    fig = build(args.with_phase_plane, args.width)
+    if args.with_phase_plane:
+        name = NAME + "_phase_plane"
+    elif args.width != TWO_PANEL_WIDTH:
+        name = f"{NAME}_w{args.width:g}"
+    else:
+        name = NAME
+    save_figure(fig, name)
 
 
 if __name__ == "__main__":
