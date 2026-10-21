@@ -120,6 +120,12 @@ def main():
         xy_cube[key] = np.asarray(arr[iz0, y_lo:y_hi, x_lo:x_hi], dtype=np.float64)
         xz_cube[key] = np.asarray(arr[z_lo:z_hi, y_lo:y_hi, ixc0:ixc0 + 1], dtype=np.float64)
 
+    # ---- the cube AS STORED, for the Shelest+26 comparison only: the z = 0
+    #      plane above, unchanged, and the cube plane y_c = 0 (x_c horizontal)
+    iyc0 = int(np.argmin(np.abs(yc)))
+    asis_xz = {key: np.asarray(grid.store[field][z_lo:z_hi, iyc0, x_lo:x_hi], dtype=np.float64)
+               for key, field in FIELDS.items()}
+
     # ---- re-orient: [y_c, x_c] -> [y, x], and [z, y_c, x_c=0] -> [z, y=0, x]
     x_true, y_true = galactic_xy_coords(xc_fp, yc_fp)
     xy = {k: np.ascontiguousarray(to_galactic_xy(v, xc_fp, yc_fp)) for k, v in xy_cube.items()}
@@ -180,6 +186,16 @@ def main():
         out[f"{tag}__him"] = plane["him"]
         out[f"{tag}__phase_dpdn"] = plane["phase_dpdn"]
         out[f"{tag}__phase_tcut"] = plane["phase_tcut"]
+    # as stored (mapping "identity"): cube coordinates, NO reorientation.
+    # Only for testing whether a published figure read the cube this way.
+    out["asis_x_c_pc"], out["asis_y_c_pc"] = xc_fp, yc_fp
+    out["asis_z_xz_pc"] = z_xz
+    out["asis_y_c_of_xz_plane"] = np.array([yc[iyc0]])
+    for tag, plane in (("xy", xy_cube), ("xz", asis_xz)):
+        for k in ("n_H", "I_UV", "T"):
+            out[f"asis_{tag}__{k}"] = plane[k].astype(np.float32)
+        out[f"asis_{tag}__phase_tcut"] = phase_flag_temperature(
+            plane["T"], np.zeros(plane["T"].shape, dtype=bool))
     OUT_NPZ_PATH.parent.mkdir(parents=True, exist_ok=True)
     np.savez_compressed(OUT_NPZ_PATH, **out)
     print(f"Saved {OUT_NPZ_PATH}")
