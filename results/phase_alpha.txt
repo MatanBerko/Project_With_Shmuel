@@ -57,4 +57,35 @@ NaN BINS (fewer than 100 cells of the phase), 4 pc signed bins in |z| <= 400 pc
   ('first NaN' = the bin centre nearest the midplane that is NaN; bins beyond it may
    recover where the phase reappears -- the full arrays are in phase_alpha.npz)
 
-(runtime 2.6s)
+----------------------------------------------------------------------------------------------------
+DIAGNOSTIC: where each phase sits on its own S-curve, z = 0 slab (-30..30 pc),
+volume-weighted, median [p15, p85] over the phase's cells
+----------------------------------------------------------------------------------------------------
+  P_min, P_max = 1.1 x thermal.build_pmin_pmax(I_UV) at each cell's own I_UV (I_UV re-read
+  from the source zarr for this slab; cells matched to the cache by an exact n_H check).
+  The table's two tabulations differ by up to ~5%, so a ratio within ~0.95-1.05 of a
+  limit is ON it, not past it.
+
+ phase                    I_UV               n_H [cm^-3]                     T [K]
+   CNM    0.356 [0.261, 0.712]         6.73 [4.53, 11.8]            186 [121, 239]
+   UNM    0.484 [0.341, 0.993]        1.66 [0.985, 3.13]          1538 [467, 4646]
+   WNM    0.700 [0.449, 1.246]      0.332 [0.166, 0.652]         8276 [7619, 8616]
+
+ phase        p_th / (1.1 P_min)        p_th / (1.1 P_max)     cells
+   CNM      1.008 [0.977, 1.157]      0.273 [0.237, 0.349]    176315
+   UNM      1.597 [1.037, 2.762]      0.491 [0.290, 0.884]   1375798
+   WNM      1.358 [0.678, 2.631]      0.455 [0.237, 0.850]   2621368
+
+                                            past the limit   past it by > 5%
+  CNM cells with p_th < 1.1 P_min(I_UV):            0.4484            0.0123
+  WNM cells with p_th > 1.1 P_max(I_UV):            0.0190            0.0000
+  UNM cells outside [1.1 P_min, 1.1 P_max]:         0.1155            0.0021
+
+  Reading: CNM cells have the LOWEST I_UV of the three phases and sit ON P_min of that
+  I_UV (median p_th / 1.1 P_min ~ 1), the lowest pressure a cold phase can have there.
+  UNM and WNM sit at higher I_UV and well above their own P_min (medians ~1.6 and
+  ~1.4 x P_min; WNM also extends below P_min, into the WNM-only regime). That is why
+  the CNM harmonic-mean P_th is the lowest; it is the S-curve, not a selection or
+  weighting artefact.
+
+(runtime 4.6s)

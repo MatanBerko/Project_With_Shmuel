@@ -51,8 +51,16 @@ from src.conventions import (  # noqa: E402
     STATS_BOX_Z_HALF_RANGE_PC,
     THERMAL_PRESSURE_HEADER,
 )
+from src.config_loader import load_resolved_config  # noqa: E402
+from src.physics import thermal  # noqa: E402
 from src.physics.him import PHASE_CNM, PHASE_HIM, PHASE_UNM, PHASE_WNM  # noqa: E402
-from src.physics.loading import open_zarr, slab_z_indices  # noqa: E402
+from src.physics.loading import (  # noqa: E402
+    IUV_FIELD,
+    RHO_FIELD,
+    open_zarr,
+    slab_z_indices,
+    xy_index_range,
+)
 from src.physics.stats import percentile_levels, weighted_stats  # noqa: E402
 
 ALPHA_CORE_ZARR_PATH = Path("cache/core/alpha_core.zarr")
@@ -106,6 +114,67 @@ def nan_onset(z, values):
         bad = side & ~np.isfinite(values)
         out.append(float(np.min(np.abs(z[bad]))) if bad.any() else None)
     return tuple(out)
+
+
+F_NEUTRAL = 1.1       # P_min/P_max are tabulated in n*T; p_th_phys = 1.1 n T
+DIAG_QUANTITIES = ("I_UV", "n_H", "T", "pth_over_pmin", "pth_over_pmax")
+TABULATION_TOL = 0.05  # BS19 P- vs n-tabulated turning points differ by up to ~5%
+
+
+def _med_lo_hi(v, scheme=PERCENTILE_SCHEME_DEFAULT):
+    st = weighted_stats(v, np.ones(np.size(v)), scheme)
+    return st.median, st.p_lo, st.p_hi
+
+
+def midplane_phase_diagnostic(zsl, z_box, core_vg):
+    """Why is the CNM harmonic-mean P_th the lowest? Per phase, z = 0 slab.
+
+    Volume-weighted median and 15/85 of I_UV, n_H, T, p_th/(1.1 P_min(I_UV))
+    and p_th/(1.1 P_max(I_UV)), plus the fraction of each phase on the
+    "wrong" side of its own stability limit. I_UV is not cached, so it is
+    re-read from the source zarr for the slab only; the cached n_model is
+    checked against the source density on the same cells, so the two reads
+    are guaranteed to be the same cells.
+    """
+    grid = open_zarr()
+    idx = slab_z_indices(z_box, 0.0)
+    zs = slice(zsl.start + int(idx.min()), zsl.start + int(idx.max()) + 1)
+    if zs.stop - zs.start != idx.size:
+        raise RuntimeError("z = 0 slab planes are not contiguous")
+    x_lo, x_hi = xy_index_range(grid.x_pc, STATS_BOX_XY_HALF_RANGE_PC)
+    y_lo, y_hi = xy_index_range(grid.y_pc, STATS_BOX_XY_HALF_RANGE_PC)
+    iuv = np.asarray(grid.store[IUV_FIELD][zs, y_lo:y_hi, x_lo:x_hi], dtype=np.float64)
+    rho_src = np.asarray(grid.store[RHO_FIELD][zs, y_lo:y_hi, x_lo:x_hi], dtype=np.float32)
+    n_h = np.asarray(core_vg["n_model"][zs], dtype=np.float32)
+    if n_h.shape != rho_src.shape or not np.array_equal(n_h, rho_src):
+        raise RuntimeError("cached n_model != source density on the z = 0 slab -- the I_UV "
+                           "re-read would not line up with the cached cells. STOPPING.")
+    n_h = n_h.astype(np.float64)
+    T = np.asarray(core_vg["T"][zs], dtype=np.float64)
+    pth = np.asarray(core_vg["p_th_phys"][zs], dtype=np.float64)
+    ph = np.asarray(core_vg["phase_flag_dpdn"][zs])
+    pmm = thermal.build_pmin_pmax(load_resolved_config()["bs19_mat_path"])
+    pmin = F_NEUTRAL * pmm.p_min(iuv)
+    pmax = F_NEUTRAL * pmm.p_max(iuv)
+
+    out = {}
+    for name, code in NEUTRAL:
+        m = ph == code
+        vals = {"I_UV": iuv[m], "n_H": n_h[m], "T": T[m],
+                "pth_over_pmin": pth[m] / pmin[m], "pth_over_pmax": pth[m] / pmax[m]}
+        for q, v in vals.items():
+            out[(name, q)] = _med_lo_hi(v)
+        r_min, r_max = vals["pth_over_pmin"], vals["pth_over_pmax"]
+        out[(name, "n")] = int(m.sum())
+        out[(name, "below_pmin")] = float(np.mean(r_min < 1.0))
+        out[(name, "above_pmax")] = float(np.mean(r_max > 1.0))
+        out[(name, "outside_band")] = float(np.mean((r_min < 1.0) | (r_max > 1.0)))
+        # the same, beyond the ~5% the table's two tabulations disagree by
+        out[(name, "below_pmin_5pct")] = float(np.mean(r_min < 1.0 - TABULATION_TOL))
+        out[(name, "above_pmax_5pct")] = float(np.mean(r_max > 1.0 + TABULATION_TOL))
+        out[(name, "outside_band_5pct")] = float(np.mean((r_min < 1.0 - TABULATION_TOL)
+                                                         | (r_max > 1.0 + TABULATION_TOL)))
+    return out, (float(grid.z_pc[zs][0]), float(grid.z_pc[zs][-1]))
 
 
 def read_him_fraction_z0(path=NUMBERS_TABLE_CSV):
@@ -233,6 +302,15 @@ def main():
         for key in STAT_KEYS:
             out[f"{name}__{key}"] = res[name][key][:n_bins]
             out[f"slab__{name}__{key}"] = res[name][key][n_bins:]
+    # ---- diagnostic: where each phase sits relative to P_min / P_max -------
+    diag, (dz0, dz1) = midplane_phase_diagnostic(zsl, z_box, vg)
+    for name, _ in NEUTRAL:
+        for q in DIAG_QUANTITIES:
+            out[f"diag_z0__{name}__{q}__med_lo_hi"] = np.array(diag[(name, q)])
+        for q in ("below_pmin", "above_pmax", "outside_band",
+                  "below_pmin_5pct", "above_pmax_5pct", "outside_band_5pct"):
+            out[f"diag_z0__{name}__frac_{q}"] = np.array([diag[(name, q)]])
+
     OUT_NPZ_PATH.parent.mkdir(parents=True, exist_ok=True)
     np.savez_compressed(OUT_NPZ_PATH, **out)
     print(f"Saved {OUT_NPZ_PATH}")
@@ -304,6 +382,45 @@ def main():
     L += [
         "  ('first NaN' = the bin centre nearest the midplane that is NaN; bins beyond it may",
         "   recover where the phase reappears -- the full arrays are in phase_alpha.npz)",
+        "",
+        "-" * 100,
+        f"DIAGNOSTIC: where each phase sits on its own S-curve, z = 0 slab ({dz0:g}..{dz1:g} pc),",
+        "volume-weighted, median [p15, p85] over the phase's cells",
+        "-" * 100,
+        "  P_min, P_max = 1.1 x thermal.build_pmin_pmax(I_UV) at each cell's own I_UV (I_UV re-read",
+        "  from the source zarr for this slab; cells matched to the cache by an exact n_H check).",
+        "  The table's two tabulations differ by up to ~5%, so a ratio within ~0.95-1.05 of a",
+        "  limit is ON it, not past it.",
+        "",
+        f"{'phase':>6}{'I_UV':>24}{'n_H [cm^-3]':>26}{'T [K]':>26}",
+    ]
+    fmt3 = lambda t, f: f"{t[0]:{f}} [{t[1]:{f}}, {t[2]:{f}}]"  # noqa: E731
+    for name, _ in NEUTRAL:
+        L.append(f"{name:>6}{fmt3(diag[(name, 'I_UV')], '.3f'):>24}"
+                 f"{fmt3(diag[(name, 'n_H')], '.3g'):>26}{fmt3(diag[(name, 'T')], '.0f'):>26}")
+    L += [
+        "",
+        f"{'phase':>6}{'p_th / (1.1 P_min)':>26}{'p_th / (1.1 P_max)':>26}{'cells':>10}",
+    ]
+    for name, _ in NEUTRAL:
+        L.append(f"{name:>6}{fmt3(diag[(name, 'pth_over_pmin')], '.3f'):>26}"
+                 f"{fmt3(diag[(name, 'pth_over_pmax')], '.3f'):>26}{diag[(name, 'n')]:>10d}")
+    L += [
+        "",
+        f"{'':42}{'past the limit':>16}{'past it by > 5%':>18}",
+        f"  CNM cells with p_th < 1.1 P_min(I_UV):  {diag[('CNM', 'below_pmin')]:>16.4f}"
+        f"{diag[('CNM', 'below_pmin_5pct')]:>18.4f}",
+        f"  WNM cells with p_th > 1.1 P_max(I_UV):  {diag[('WNM', 'above_pmax')]:>16.4f}"
+        f"{diag[('WNM', 'above_pmax_5pct')]:>18.4f}",
+        f"  UNM cells outside [1.1 P_min, 1.1 P_max]:{diag[('UNM', 'outside_band')]:>15.4f}"
+        f"{diag[('UNM', 'outside_band_5pct')]:>18.4f}",
+        "",
+        "  Reading: CNM cells have the LOWEST I_UV of the three phases and sit ON P_min of that",
+        "  I_UV (median p_th / 1.1 P_min ~ 1), the lowest pressure a cold phase can have there.",
+        "  UNM and WNM sit at higher I_UV and well above their own P_min (medians ~1.6 and",
+        "  ~1.4 x P_min; WNM also extends below P_min, into the WNM-only regime). That is why",
+        "  the CNM harmonic-mean P_th is the lowest; it is the S-curve, not a selection or",
+        "  weighting artefact.",
         "",
         f"(runtime {time.time() - t0:.1f}s)",
     ]
