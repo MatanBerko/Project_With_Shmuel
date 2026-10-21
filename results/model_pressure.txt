@@ -1,0 +1,41 @@
+PROVISIONAL: f98 cube, n_H = 1653 A'; final cube pending
+Fig. 1 (pressure-framed BS19 model) -- inputs and reference numbers
+================================================================================================
+Every pressure is P_th/k = 1.1 n_H T [K cm^-3], including the BS19 curves, P_min and
+P_max (the table's n*T x 1.1), so they share an axis with P_tot.
+I_UV is F_UV / F_UV,sun with F_UV,sun = 2.7e-3 erg cm^-2 s^-1 (Shelest+26, Methods) --
+the Draine-field normalisation, not Habing G_0.
+
+BS19 S-curve (two dP/dn = 0 turning points) exists for I_UV in [0.001, 161.5]
+  (tabulated rows 0.001 .. 158.489; upper edge refined on log-I_UV-interpolated curves)
+
+Midplane gas: RAW, non-HIM cells, |x|,|y| <= 500 pc, |z| <= 30 pc (31 planes, 4173481 cells used)
+  mass-weighted (rho = 1.4 m_H n_H), nearest-rank weighted percentiles
+  I_UV percentiles  p15 0.328   p50 0.550   p85 1.147
+  IUV_CURVES (clean values spanning p15-p85): 0.3, 0.5, 1, 2
+  mass fraction with I_UV ABOVE the S-curve range (161.5): 0.0007%   (above the last tabulated S-curve row 158.489: 0.0007%)
+  mass fraction with I_UV BELOW the S-curve range (0.001): 0.0000%
+  cached HIM flag == recomputed flag in every slab cell; slab 2-D histogram reproduces summary.npz's midplane PDF to 0.0e+00
+
+P_min and P_max (1.1 n T) at IUV_CURVES
+    I_UV       P_min       P_max   curve turning points: P_min, P_max at n_C,min, n_W,max
+           [K cm^-3]   [K cm^-3]
+     0.3      1013.7      4195.8     1006.1,   4054.7   at n = 3.68, 0.542 cm^-3
+     0.5      1560.7      5449.2     1561.7,   5332.9   at n = 5.41, 0.723 cm^-3
+       1      2835.4      7592.7     2689.2,   7909.9   at n = 7.47, 1.1 cm^-3
+       2      4719.9     10360.9     4586.5,  10422.0   at n = 10.8, 1.48 cm^-3
+  (P_min/P_max from thermal.build_pmin_pmax -- the functions the HIM flag uses, from the
+   P-tabulated table; turning points from the n-tabulated curve actually plotted. The
+   two tabulations differ by up to ~5% at these I_UV.)
+
+Midplane reference pressures, READ from results/area_alpha.txt (section 6, |z| <= 30 pc
+slab, self-gravity on = footprint-mean, volume-weighted), not recomputed:
+  <P_tot>_area   = 7800.3 K cm^-3
+  <1/P_th>^-1    = 2370.5 K cm^-3   (the column headed P_th,harm)
+  header line:  z    sg  <P_tot>_area  <P_th> arith   P_th,harm   a_area  <a_cell>  med a_cell        [p15, p85]
+  data line:    0  mean        7800.3        3356.5      2370.5    2.324     3.291       2.722    [1.454,  5.504]
+
+At the median midplane I_UV = 0.550: P_min = 1690, P_max = 5738 K cm^-3;
+  midplane <P_tot> = 7800 is ABOVE P_max; <1/P_th>^-1 = 2370.
+
+(runtime 1.6s)
