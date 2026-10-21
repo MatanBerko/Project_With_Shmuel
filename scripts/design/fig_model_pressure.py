@@ -8,8 +8,16 @@ PRESSURE CONVENTION: every pressure is the physical P_th/k = 1.1 n_H T
 (helium included), INCLUDING the BS19 curves, P_min and P_max (the table's
 n*T times 1.1), so that they share an axis with P_tot.
 
-I_UV is F_UV / F_UV,sun with F_UV,sun = 2.7e-3 erg cm^-2 s^-1 (Shelest+26,
-Methods) -- the Draine-field normalisation -- and is labelled that way.
+I_UV is dimensionless, F_UV / F_UV,sun with F_UV,sun = 2.7e-3 erg cm^-2 s^-1
+(Shelest+26, Methods), and is labelled without a unit.
+
+Display-only smoothing: the BS19 table has 31 I_UV rows 0.2 dex apart.
+The (c) image is drawn from log P interpolated linearly in log I_UV between
+rows. The (b) band edges are the dP/dn = 0 turning-point pressures of the
+table rows (src.physics.thermal.locate_scurve_turning_points, the peak read
+with a 3-point parabola) joined by a monotone cubic in log-log -- see
+smooth_band() for why not from the interpolated curves. Numbers in
+results/model_pressure.txt use thermal.build_pmin_pmax, not this.
 
   (a) P_th/k vs n_H at four I_UV spanning the midplane gas: stable branches
       solid, the unstable branch between the dP/dn = 0 turning points
@@ -37,6 +45,7 @@ from pathlib import Path
 import matplotlib
 matplotlib.use("Agg")
 
+import matplotlib.patheffects as pe  # noqa: E402
 import matplotlib.pyplot as plt  # noqa: E402
 import numpy as np  # noqa: E402
 from matplotlib.colors import LogNorm  # noqa: E402
@@ -47,6 +56,7 @@ from scipy.ndimage import gaussian_filter  # noqa: E402
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 from src.conventions import COLOR_PTH, COLOR_PTOT  # noqa: E402
+from src.physics.thermal import locate_scurve_turning_points  # noqa: E402
 from src.plotting.style import (  # noqa: E402
     apply_paper_style,
     panel_label,
@@ -77,7 +87,17 @@ TEXT_FS = 6.5
 LABEL_FS = 8.5
 XLABEL_N = r"$n_{\rm H}$ [cm$^{-3}$]"
 YLABEL_P = r"$P_{\rm th}/k$ [K cm$^{-3}$]"
-LABEL_IUV = r"$I_{\rm UV}$ [$F_{\rm UV,\odot}$]"
+# I_UV is dimensionless: F_UV / F_UV,sun (Shelest+26), so no unit in brackets
+LABEL_IUV = r"$I_{\rm UV}$"
+PMAX_TXT, PMIN_TXT = r"$P_{\rm max}$", r"$P_{\rm min}$"
+LABELLED_CURVE_IUV = 1.0      # the (a) curve whose turning points are labelled
+EDGE_LABEL_COLOR = "0.25"
+P_NORM_C = (1e2, 1e4)         # (c) colour range, as Fig. 2's P_th columns
+N_BAND_SMOOTH = 300
+A_PMAX_LABEL_AT = (0.6, 2.0e4)   # (n, P) of the (a) turning-point labels, in
+A_PMIN_LABEL_AT = (20.0, 5.0e2)   # the empty space above / below the curves
+B_PMAX_LABEL_IUV = 0.18       # where along the band edges their labels sit
+B_PMIN_LABEL_IUV = 0.30
 
 
 def ed_style():
@@ -112,6 +132,60 @@ def enclosing_levels(H, fractions):
     return [float(v[min(np.searchsorted(c, f), v.size - 1)]) for f in fractions]
 
 
+def _vertex_logP(log_n, log_p, x0):
+    """log P at the extremum nearest x0, from a parabola through 3 samples.
+
+    locate_scurve_turning_points() finds WHERE dP/dn = 0 well, but reads P
+    there by linear interpolation between n samples, which shaves a few
+    per cent off a peak and, along a smooth sequence of curves, shows as a
+    sawtooth. A parabola through the three samples around the extremum
+    gives its value without that.
+    """
+    j = int(np.clip(np.searchsorted(log_n, x0), 1, log_n.size - 2))
+    j = j - 1 + int(np.argmin(np.abs(log_n[j - 1:j + 2] - x0)))
+    j = int(np.clip(j, 1, log_n.size - 2))
+    a, b, c = np.polyfit(log_n[j - 1:j + 2], log_p[j - 1:j + 2], 2)
+    return c - b * b / (4 * a)
+
+
+def row_turning_pressures(d):
+    """(log I_UV, log P_min, log P_max) at every table row that has an S-curve."""
+    n = d["n_grid"]
+    log_n = np.log10(n)
+    rows = []
+    for iv, P in zip(d["iuv_grid"], d["P_grid"]):
+        tp = locate_scurve_turning_points(n, P / n)     # P/n: the factor 1.1 rides along
+        if tp is not None:
+            lp = np.log10(P)
+            rows.append((np.log10(iv),
+                         _vertex_logP(log_n, lp, np.log10(tp[1])),    # P_min at n_C,min
+                         _vertex_logP(log_n, lp, np.log10(tp[0]))))   # P_max at n_W,max
+    return np.array(rows).T
+
+
+def smooth_band(d, iuv_out):
+    """(P_min, P_max) at iuv_out for DISPLAY, without kinks at the table rows.
+
+    Not from curves blended between rows: blending two rows' P(n) does not
+    move the peak smoothly -- the blend's maximum stays near one row's peak
+    and then hands over to the next -- so their turning points trace a
+    staircase. Instead the turning-point pressures of the table rows
+    themselves are joined by a monotone cubic (PCHIP) in log-log, which
+    passes exactly through every row's value.
+    """
+    from scipy.interpolate import PchipInterpolator
+    li, lpmin, lpmax = row_turning_pressures(d)
+    x = np.log10(np.atleast_1d(iuv_out))
+    return np.vstack([10 ** PchipInterpolator(li, lpmin)(x),
+                      10 ** PchipInterpolator(li, lpmax)(x)])
+
+
+def text_angle(ax, x0, y0, x1, y1):
+    """Screen angle [deg] of the data segment (x0, y0) -> (x1, y1)."""
+    (a, b), (c, e) = ax.transData.transform([(x0, y0), (x1, y1)])
+    return float(np.degrees(np.arctan2(e - b, c - a)))
+
+
 def round100(v):
     return f"{int(round(v / 100.0) * 100):,}".replace(",", r"\,")
 
@@ -133,21 +207,56 @@ def panel_a(ax, d):
                 mew=0.4, zorder=4)
         del stable
         handles.append(Line2D([], [], color=c, lw=1.3, label=rf"$I_{{\rm UV}} = {iv:g}$"))
+        if np.isclose(iv, LABELLED_CURVE_IUV):
+            labelled = (c, nw, nc, pw, pc, P)
     log_axes(ax)
     ax.set_xlim(N_LIM_A)
     ax.set_ylim(P_LIM)
     ax.set_xlabel(XLABEL_N, fontsize=LABEL_FS)
     ax.set_ylabel(YLABEL_P, fontsize=LABEL_FS)
-    ax.legend(handles=handles, loc="upper left", bbox_to_anchor=(0.0, 0.90), frameon=False,
-              fontsize=TEXT_FS, handlelength=1.6, labelspacing=0.25, borderaxespad=0.3)
-    ax.text(0.97, 0.04, r"dots: $P_{\rm max}$, $P_{\rm min}$" "\n" "dashed: unstable",
-            transform=ax.transAxes, ha="right", va="bottom", fontsize=TEXT_FS - 0.5,
-            color="0.3")
+    # upper left, under the panel letter: the space above the rising warm
+    # branch is empty, and the lower right is kept for the P_min label
+    ax.legend(handles=handles, loc="upper left", bbox_to_anchor=(0.0, 0.89), frameon=False,
+              fontsize=TEXT_FS - 0.5, handlelength=1.0, handletextpad=0.4,
+              labelspacing=0.15, borderaxespad=0.3)
+    # turning points and the unstable branch, labelled on ONE curve
+    c, nw, nc, pw, pc, P = labelled
+    dark = tuple(0.75 * np.asarray(c[:3]))          # same hue, legible on white
+    # The turning points sit where all four curves crowd together, so the
+    # two labels go in the empty space above and below the family, each with
+    # a thin leader to ITS dot (a label right beside a dot reads as belonging
+    # to whichever neighbouring curve's dot happens to be closest).
+    leader = dict(arrowstyle="-", color=dark, lw=0.5, shrinkA=1.5, shrinkB=2.5)
+    ax.annotate(PMAX_TXT, (nw, pw), xytext=A_PMAX_LABEL_AT, textcoords="data",
+                ha="center", va="bottom", fontsize=TEXT_FS, color=dark, zorder=6,
+                arrowprops=leader)
+    ax.annotate(PMIN_TXT, (nc, pc), xytext=A_PMIN_LABEL_AT, textcoords="data",
+                ha="center", va="top", fontsize=TEXT_FS, color=dark, zorder=6,
+                arrowprops=leader)
+    n = d["n_grid"]
+    # mid-branch, on its LOWER side: the gap down to the I_UV = 0.5 dashed
+    # branch is wider there than the gap up to I_UV = 2
+    nm = 10 ** (0.5 * np.log10(nw) + 0.5 * np.log10(nc))
+    j0, j1 = np.searchsorted(n, nm / 1.3), np.searchsorted(n, nm * 1.3)
+    ang = text_angle(ax, n[j0], P[j0], n[j1], P[j1])
+    pm = float(np.interp(np.log10(nm), np.log10(n), P))
+    ax.annotate("unstable", (nm, pm), xytext=(-1.0, -1.5), textcoords="offset points",
+                ha="center", va="top", rotation=ang, rotation_mode="anchor",
+                fontsize=TEXT_FS - 1, style="italic", color=dark, zorder=6)
 
 
 def panel_b(ax, ax_s, d):
-    iuv = d["iuv_fine"]
-    pmin, pmax = d["P_min_fine"], d["P_max_fine"]
+    iuv = np.logspace(np.log10(IUV_LIM_B[0]), np.log10(IUV_LIM_B[1]), N_BAND_SMOOTH)
+    pmin, pmax = smooth_band(d, iuv)
+    # report: smoothed vs build_pmin_pmax at the (a) curves
+    lf = np.log10(d["iuv_fine"])
+    for iv in d["iuv_curves"]:
+        sm_min, sm_max = smooth_band(d, [iv])[:, 0]
+        bp_min = 10 ** np.interp(np.log10(iv), lf, np.log10(d["P_min_fine"]))
+        bp_max = 10 ** np.interp(np.log10(iv), lf, np.log10(d["P_max_fine"]))
+        print(f"  band smoothing at I_UV = {iv:g}: P_min {sm_min:.0f} vs {bp_min:.0f} "
+              f"({sm_min / bp_min - 1:+.1%}), P_max {sm_max:.0f} vs {bp_max:.0f} "
+              f"({sm_max / bp_max - 1:+.1%})")
     ax.fill_between(iuv, pmin, pmax, color=BAND_FILL, lw=0, zorder=1)
     for p in (pmin, pmax):
         ax.plot(iuv, p, color=BAND_EDGE, lw=0.6, zorder=2)
@@ -171,6 +280,24 @@ def panel_b(ax, ax_s, d):
     ax.set_xlim(IUV_LIM_B)
     ax.set_ylim(P_LIM)
     ax.tick_params(labelbottom=False, labelleft=False)
+
+    # the band edges, labelled along themselves, outside the band
+    for txt, arr, x_at, dy, va in ((PMAX_TXT, pmax, B_PMAX_LABEL_IUV, 2, "bottom"),
+                                   (PMIN_TXT, pmin, B_PMIN_LABEL_IUV, -2, "top")):
+        k = np.searchsorted(iuv, x_at)
+        ang = text_angle(ax, iuv[k - 8], arr[k - 8], iuv[k + 8], arr[k + 8])
+        ax.annotate(txt, (iuv[k], arr[k]), xytext=(0, dy), textcoords="offset points",
+                    ha="center", va=va, rotation=ang, rotation_mode="anchor",
+                    fontsize=TEXT_FS, color=EDGE_LABEL_COLOR, zorder=5)
+
+    # where P_max = <P_tot>
+    x_cross = float(d["iuv_cross_pmax_eq_ptot"][0])
+    p_tot = float(d["midplane_Ptot_area"][0])
+    ax.plot([x_cross, x_cross], [p_tot / 1.18, p_tot * 1.18], color=COLOR_PTOT, lw=0.9,
+            zorder=5)
+    ax.annotate(rf"{PMAX_TXT} = $\langle P_{{\rm tot}}\rangle$", (x_cross, p_tot * 1.18),
+                xytext=(-2, 0), textcoords="offset points", ha="right", va="bottom",
+                fontsize=TEXT_FS - 1, color=COLOR_PTOT, zorder=6)
 
     # strip: mass-weighted I_UV distribution of the midplane gas
     e = 10 ** d["slab_logiuv_edges"]
@@ -203,7 +330,8 @@ def panel_c(fig, ax, cax, d):
     in_x, in_y = (n >= xlim[0]) & (n <= xlim[1]), (iv >= ylim[0] / 2) & (iv <= ylim[1] * 2)
     P = d["P_grid"]
     vis = P[np.ix_(in_y, in_x)]
-    norm = LogNorm(10 ** np.floor(np.log10(np.nanmin(vis))), 10 ** np.ceil(np.log10(np.nanmax(vis))))
+    norm = LogNorm(*P_NORM_C)
+    del vis
     # The table has 31 I_UV rows 0.2 dex apart; drawn as-is they show as
     # horizontal bands. Resample log P linearly in log I_UV (the same
     # interpolation the curves in (a) use) onto a fine grid for display.
@@ -220,8 +348,11 @@ def panel_c(fig, ax, cax, d):
     nc = 10 ** (0.5 * (ln_e[:-1] + ln_e[1:]))
     ic = 10 ** (0.5 * (li_e[:-1] + li_e[1:]))
     levels = enclosing_levels(H, GAS_LEVELS)
-    ax.contour(nc, ic, H.T, levels=levels, colors=GAS_COLOR, linewidths=(0.5, 0.7, 0.9),
-               zorder=4)
+    cs = ax.contour(nc, ic, H.T, levels=levels, colors=GAS_COLOR,
+                    linewidths=(0.5, 0.7, 0.9), zorder=4)
+    # a thin dark edge keeps the light contours visible on the saturated
+    # (>= 10^4) part of the colour scale
+    cs.set_path_effects([pe.Stroke(linewidth=1.6, foreground="0.15"), pe.Normal()])
     log_axes(ax)
     ax.set_xlim(xlim)
     ax.set_ylim(ylim)
@@ -236,14 +367,15 @@ def panel_c(fig, ax, cax, d):
     x_unm = 10 ** (0.4 * np.log10(nw) + 0.6 * np.log10(ncm))
     for x, lab in ((np.sqrt(xlim[0] * nw), "WNM"), (x_unm, "UNM"),
                    (np.sqrt(ncm * xlim[1]), "CNM")):
-        ax.text(x, y_lab, lab, ha="center", va="center", fontsize=TEXT_FS, color="white",
-                fontweight="bold", zorder=6)
+        ax.text(x, y_lab, lab, ha="center", va="center", fontsize=TEXT_FS, color="0.1",
+                fontweight="bold", zorder=6,
+                path_effects=[pe.withStroke(linewidth=1.8, foreground="white")])
     ax.legend(handles=[Line2D([], [], color=GAS_COLOR, lw=0.8)],
               labels=[r"midplane gas, $|z| \leq 30$ pc" "\n" "(50, 80, 95% of mass)"],
               loc="lower right", frameon=True, fontsize=TEXT_FS - 0.5, handlelength=1.4,
               facecolor="0.35", edgecolor="none", framealpha=0.8, labelcolor="white",
               borderpad=0.35)
-    cb = fig.colorbar(im, cax=cax)
+    cb = fig.colorbar(im, cax=cax, extend="both")
     cb.set_label(YLABEL_P, fontsize=LABEL_FS - 0.5, labelpad=2)
     cb.ax.tick_params(labelsize=7, direction="in", which="both")
     cb.outline.set_linewidth(0.6)

@@ -8,7 +8,7 @@ whose planes are already re-oriented through
 src.physics.loading.to_galactic_xy.
 
 2 rows x 4 columns at full AAS two-column width:
-  columns  n_H [cm^-3] | I_UV [G_0] | P_th/k [K cm^-3] | phase (dPdn, HIM separate)
+  columns  n_H [cm^-3] | I_UV (dimensionless) | P_th/k [K cm^-3] | phase (dPdn, HIM separate)
   row 1    the z = 0 plane (x-y)
   row 2    the y = 0 plane (x-z)
 Equal aspect everywhere, so row 2 is 0.8x the height of row 1. The layout
@@ -60,7 +60,8 @@ TICKS = (-400, -200, 0, 200, 400)
 # column specs: (cache key, colormap, colourbar label)
 COLUMNS = (
     ("n_H", "magma", r"$n_{\rm H}$ [cm$^{-3}$]"),
-    ("I_UV", "viridis", r"$I_{\rm UV}$ [$G_0$]"),
+    # dimensionless: F_UV / F_UV,sun, F_UV,sun = 2.7e-3 erg cm^-2 s^-1 (Shelest+26)
+    ("I_UV", "viridis", r"$I_{\rm UV}$"),
     ("P_th", "cividis", r"$P_{\rm th}/k$ [K cm$^{-3}$]"),
     ("phase_dpdn", None, "phase"),
 )

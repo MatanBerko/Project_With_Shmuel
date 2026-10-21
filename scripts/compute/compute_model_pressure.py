@@ -283,6 +283,23 @@ def main():
     out["midplane_Ptot_area"] = np.array([p_tot_mid])
     out["midplane_Pth_inv_inv"] = np.array([p_inv_mid])
 
+    # I_UV,cross: where P_max(I_UV) (x1.1, build_pmin_pmax -- the P_max the
+    # HIM flag and the table in this file use) equals the midplane <P_tot>.
+    # Below it <P_tot> > P_max, i.e. the total pressure is above the whole
+    # two-phase band. P_max rises monotonically with I_UV over the S-curve
+    # range, which is checked rather than assumed.
+    pmax_fine = F_NEUTRAL * pmm.p_max(iuv_fine)
+    if np.any(np.diff(pmax_fine) < 0):
+        raise RuntimeError("P_max(I_UV) is not monotonic -- the crossing is not unique")
+    lo, hi = np.log10(iuv_fine[0]), np.log10(iuv_fine[-1])
+    for _ in range(60):
+        mid = 0.5 * (lo + hi)
+        lo, hi = (mid, hi) if F_NEUTRAL * float(pmm.p_max(10 ** mid)) < p_tot_mid else (lo, mid)
+    iuv_cross = 10 ** (0.5 * (lo + hi))
+    f_below_cross = float(w[iuv_s < iuv_cross].sum())
+    out["iuv_cross_pmax_eq_ptot"] = np.array([iuv_cross])
+    out["f_mass_iuv_below_cross"] = np.array([f_below_cross])
+
     OUT_NPZ_PATH.parent.mkdir(parents=True, exist_ok=True)
     np.savez_compressed(OUT_NPZ_PATH, **out)
     print(f"Saved {OUT_NPZ_PATH}")
@@ -337,6 +354,12 @@ def main():
         "",
         f"At the median midplane I_UV = {p50:.3f}: P_min = {pmin50:.0f}, P_max = {pmax50:.0f} K cm^-3;",
         f"  midplane <P_tot> = {p_tot_mid:.0f} is {where}; <1/P_th>^-1 = {p_inv_mid:.0f}.",
+        "",
+        f"I_UV,cross, where P_max(I_UV) = midplane <P_tot> = {p_tot_mid:.1f}: "
+        f"I_UV,cross = {iuv_cross:.4f}",
+        f"  (P_max x1.1 from thermal.build_pmin_pmax; for I_UV < I_UV,cross, <P_tot> > P_max)",
+        f"  mass fraction of midplane gas (same slab, same mass weighting) with "
+        f"I_UV < I_UV,cross: {f_below_cross:.4f}",
         "",
         f"(runtime {time.time() - t0:.1f}s)",
     ]

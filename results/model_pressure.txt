@@ -38,4 +38,8 @@ slab, self-gravity on = footprint-mean, volume-weighted), not recomputed:
 At the median midplane I_UV = 0.550: P_min = 1690, P_max = 5738 K cm^-3;
   midplane <P_tot> = 7800 is ABOVE P_max; <1/P_th>^-1 = 2370.
 
+I_UV,cross, where P_max(I_UV) = midplane <P_tot> = 7800.3: I_UV,cross = 1.0642
+  (P_max x1.1 from thermal.build_pmin_pmax; for I_UV < I_UV,cross, <P_tot> > P_max)
+  mass fraction of midplane gas (same slab, same mass weighting) with I_UV < I_UV,cross: 0.8222
+
 (runtime 1.6s)

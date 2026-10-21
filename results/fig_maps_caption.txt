@@ -6,7 +6,8 @@ panels a-d) and the vertical plane y = 0 (bottom row, panels e-h). The maps span
 the midplane and 1 kpc x 0.8 kpc in the vertical plane (|x|, |y| <= 500 pc, |z| <= 400 pc), in
 heliocentric Galactic coordinates with the Sun at the origin: +x points toward the Galactic centre,
 +y toward l = 90 deg, and +z toward the North Galactic Pole. Columns, left to right: hydrogen
-density n_H; FUV intensity I_UV in Habing units (G_0); thermal pressure P_th/k = 1.1 n_H T; and the
+density n_H; FUV intensity I_UV, dimensionless, I_UV = F_UV / F_UV,sun with
+F_UV,sun = 2.7e-3 erg cm^-2 s^-1 (Shelest+26); thermal pressure P_th/k = 1.1 n_H T; and the
 gas phase. Phases follow the dP/dn scheme: at each cell's I_UV, gas below the warm-branch turning
 point of the thermal-equilibrium curve, n_H < n_W,max(I_UV), is WNM; gas above the cold-branch
 turning point, n_H > n_C,min(I_UV), is CNM; gas in between is UNM. Cells with n_H T < 0.5 P_min(I_UV),
