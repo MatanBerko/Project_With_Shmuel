@@ -131,7 +131,7 @@ def make_figure(d, L):
     _mark_zmid(ax_a, d, ymax=0.88)   # stops below the style legend
     _log_axis(ax_a, [d[stem + "__p_lo"], d[stem + "__p_hi"]], z,
               headroom=LOG_HEADROOM_LEGEND)
-    ax_a.set_ylabel(r"$\langle P_{\rm tot}\rangle_i/k_{\rm B}$  [K cm$^{-3}$]")
+    ax_a.set_ylabel(r"$\langle W\rangle_i/k_{\rm B}$  [K cm$^{-3}$]")
     _style_legend(ax_a)
     panel_label(ax_a, "a", loc="lower left")
     annotate(ax_a, f"{n_patch} random {L} × {L} pc patches (overlapping)",
@@ -156,7 +156,7 @@ def make_figure(d, L):
     guide_line(ax_c, 1.0, label=r"$\alpha=1$", label_x=0.42, label_loc="below")
     top = float(np.nanmax(d[stem + "__p_hi"]))
     ax_c.set_ylim(0.0, top * LIN_HEADROOM)
-    ax_c.set_ylabel(r"$\langle\alpha\rangle_i = \langle P_{\rm tot}\rangle_i"
+    ax_c.set_ylabel(r"$\langle\alpha\rangle_i = \langle W\rangle_i"
                     r"\,\langle 1/P_{\rm th}\rangle_i$")
     panel_label(ax_c, "c", loc="lower left")
     annotate(ax_c, "self-gravity on (fiducial), volume-weighted", loc="lower right", size=6.5)

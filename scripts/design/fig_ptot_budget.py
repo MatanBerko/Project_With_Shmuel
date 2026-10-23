@@ -119,7 +119,7 @@ def main():
     ax_c.fill_between(z, p2, p3, color=COLOR_GAS, lw=0, zorder=1)
     ax_c.plot(z, d["ptot_area_cached_on"], color=PTOT_COLOR, lw=1.4, zorder=4)
     ax_c.set_ylim(0, float(p3[box].max()) * 1.42)   # room for the shares line above the peak labels
-    ax_c.set_ylabel(r"$\langle P_{\rm tot}\rangle/k_{\rm B}$ [K cm$^{-3}$]")
+    ax_c.set_ylabel(r"$\langle W\rangle/k_\mathrm{B}$ [K cm$^{-3}$]")
     panel_label(ax_c, "c", loc="upper left")
     # the paper's "midplane" convention: the |z - z_mid| <= 30 pc slab mean
     # (the same slab as Figs. 1 and 4), anchored just above the stack's peak
@@ -138,7 +138,7 @@ def main():
     handles_c = [Patch(facecolor=COLORS[k], lw=0) for k in ("star", "dm", "gas")]
     handles_c.append(Line2D([], [], color=PTOT_COLOR, lw=1.4))
     ax_c.legend(handles_c, ["stars", "dark matter", "gas self-gravity",
-                            r"$\langle P_{\rm tot}\rangle_{\rm area}$"],
+                            r"$\langle W\rangle$"],
                 loc="lower left", bbox_to_anchor=(0.0, 0.62), ncols=2, frameon=False,
                 handlelength=1.4, columnspacing=1.0, fontsize=TEXT_FS, borderaxespad=0.3)
 

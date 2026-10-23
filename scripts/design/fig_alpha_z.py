@@ -153,7 +153,7 @@ def main(headline=HEADLINE, out_name=NAME, directory=None):
     ax_a.set_yscale("log")
     lo, hi = robust_log_ylim([ptot, pth_line, pth_band_lo, pth_band_hi], z=z, z_range=Z_RANGE)
     ax_a.set_ylim(lo, hi * LOG_HEADROOM)
-    ax_a.set_ylabel(r"$P/k_\mathrm{B}$ [K cm$^{-3}$]")
+    ax_a.set_ylabel(r"$W/k_\mathrm{B}$, $P_\mathrm{th}/k_\mathrm{B}$ [K cm$^{-3}$]")
     ax_a.axvline(z_mid, ymax=0.88, **ZMID_KW)   # stops below the legend row
     ax_a.text(z_mid - 6, 0.04, ZMID_LABEL, transform=ax_a.get_xaxis_transform(),
               ha="right", va="bottom", fontsize=TEXT_FS, color="0.35", zorder=6)
@@ -161,7 +161,7 @@ def main(headline=HEADLINE, out_name=NAME, directory=None):
     ax_a.legend([Line2D([], [], color=PTOT_COLOR, lw=PTOT_LW),
                  Line2D([], [], color=PTH_COLOR, lw=PTH_LW),
                  Patch(facecolor=PTH_COLOR, alpha=PTH_BAND_ALPHA, lw=0)],
-                [r"$\langle P_\mathrm{tot}\rangle$", pth_label, r"$P_\mathrm{th}$, 15–85%"],
+                [r"$\langle W\rangle$", pth_label, r"$P_\mathrm{th}$, 15–85%"],
                 loc="upper right", bbox_to_anchor=(1.0, 0.96),   # clear of PROVISIONAL
                 ncols=3, frameon=False, fontsize=TEXT_FS + 0.5,
                 handlelength=1.8, columnspacing=1.2, borderaxespad=0.3)

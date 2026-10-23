@@ -274,7 +274,7 @@ def panel_b(ax, ax_s, d):
     ax.text(0.96, 0.04, "WNM only", transform=ax.transAxes, ha="right", va="bottom",
             fontsize=TEXT_FS, style="italic", color="0.45")
     for val, c, lab in ((float(d["midplane_Ptot_area"][0]), COLOR_PTOT,
-                         r"$\langle P_{\rm tot}\rangle$"),
+                         r"$\langle W\rangle$"),
                         (float(d["midplane_Pth_inv_inv"][0]), COLOR_PTH,
                          r"$\langle 1/P_{\rm th}\rangle^{-1}$")):
         ax.axhline(val, color=c, lw=1.2, zorder=4)

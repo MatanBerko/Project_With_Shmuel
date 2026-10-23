@@ -1,14 +1,15 @@
 DRAFT caption for Fig. 4 (figures/fig_alpha_z.{png,pdf}) -- PROVISIONAL: f98 cube, n_H = 1653 A'; final cube pending.
 Numbers from cache/core/area_alpha.npz (results/area_alpha.txt, section 6, volume-weighted, self-gravity on).
 
-Figure 4. Vertical profiles of the total and thermal pressure and of their ratio alpha, in 4 pc bins
-of height z over the 1 kpc x 1 kpc footprint (RAW density, footprint-mean self-gravity, balanced
-midplane z_mid = -11.9 pc, marked by the dotted line). (a) The area-averaged total pressure <P_tot>,
-the plain mean of the per-column hydrostatic P_tot over all cells of the bin (HIM-flagged cells
-included), and the harmonic-mean thermal pressure <1/P_th>^-1 over the non-HIM cells, with the shaded
-band spanning the 15th-85th percentiles of the cells' P_th. (b) The headline <alpha_cell> =
-<P_tot> <1/P_th> (thick line), the median of the per-cell alpha_cell = <P_tot>/P_th (dashed) and
-its 15th-85th percentile range (shaded); the grey line marks alpha = 1. All statistics are
-volume-weighted (equal weight per cell). In the midplane slab |z - z_mid| <= 30 pc, <P_tot> = 7826
-K cm^-3, <1/P_th>^-1 = 2406 K cm^-3, <alpha_cell> = 3.25, and the median alpha_cell is 2.71
-(15-85%: 1.46-5.39).
+Figure 4. Vertical profiles of the gas weight and the thermal pressure and of their ratio alpha, in
+4 pc bins of height z over the 1 kpc x 1 kpc footprint (RAW density, footprint-mean self-gravity,
+balanced midplane z_mid = -11.9 pc, marked by the dotted line). (a) The area-averaged gas weight <W>,
+the plain mean of the per-column hydrostatic weight W (the integral of rho g from z to the top of the
+column) over all cells of the bin (HIM-flagged cells included), and the harmonic-mean thermal
+pressure <1/P_th>^-1 over the non-HIM cells, with the shaded band spanning the 15th-85th percentiles
+of the cells' P_th. (b) The headline <alpha_cell> = <W> <1/P_th> (thick line), the median of the
+per-cell alpha_cell = <W>/P_th (dashed) and its 15th-85th percentile range (shaded); the grey line
+marks alpha = 1. All statistics are volume-weighted (equal weight per cell). In vertical dynamical
+equilibrium the weight equals the total midplane pressure, W = P_tot, so alpha measures P_tot/P_th.
+In the midplane slab |z - z_mid| <= 30 pc, <W> = 7826 K cm^-3, <1/P_th>^-1 = 2406 K cm^-3,
+<alpha_cell> = 3.25, and the median alpha_cell is 2.71 (15-85%: 1.46-5.39).
