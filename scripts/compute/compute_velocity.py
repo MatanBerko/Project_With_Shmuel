@@ -115,15 +115,25 @@ Z_CHUNK = 64                                  # a whole number of the cache's 32
 ALPHA_IDENTITY_RTOL = 1e-10                   # assertion (i)
 W_IDENTITY_RTOL = 1e-12                       # assertion (ii), and W vs the cached Ptot_area
 
-# Literature reference values, converted to our 1D isothermal convention below.
-HT03_MT = 3.0                  # Heiles & Troland 2003, CNM turbulent Mach number (3D,
-                               # C_s^2 = kT / (1.4 m_H))
-MM21_SIGMA_TOTAL = (8.0, 0.6)  # Marchal & Miville-Deschenes 2021, WNM, line of sight [km/s]
-MM21_SIGMA_TH = (7.0, 0.7)
-MM21_SIGMA_TURB = (3.8, 0.4)
-MM21_MS = (0.87, 0.15)         # 3D, ADIABATIC sound speed (gamma = 5/3)
+# Literature reference values, converted to our 1D isothermal convention below:
+# M^2 = sigma_turb,1D^2 / c_s^2 with c_s^2 = P_th/rho = 1.1 kT / (1.4 m_H).
+# CNM, Heiles & Troland 2003, Eq. 26: M_t(T_s) = 3.3 ((T_s/40)^0.32 - 0.40)^0.5,
+# 3D with the isothermal C_s^2 = kT / (1.4 m_H) -> M^2 = M_t^2 / (3 x 1.1).
+HT03_TS_K = (120.0, 186.0, 240.0)       # CNM temperatures found here
+HT03_EXPECTED_MT = (3.335, 3.668, 3.869)
+HT03_EXPECTED_M2 = (3.37, 4.08, 4.53)
+HT03_ATOL = 0.01
+# WNM, Marchal & Miville-Deschenes 2021 (North Ecliptic Pole, 130 pc scale):
+# Ms 3D with the ADIABATIC sound speed -> M^2 = Ms^2 gamma / (3 x 1.1) = Ms^2 / 1.98.
+# Their 8.0 / 7.0 km/s total / thermal widths are hydrogen-atom Doppler widths
+# sqrt(kT/m_H), not c_s, and are not used.
+MM21_MS = (0.72, 0.87, 1.02)            # 0.87 +- 0.15
+MM21_EXPECTED_M2 = (0.262, 0.382, 0.525)
+MM21_ATOL = 0.001
+MM21_SIGMA_TURB = (3.8, 0.4)            # line of sight [km/s]
+MM21_TK = (6000.0, 1300.0)              # [K]
 GAMMA_ADIABATIC = 5.0 / 3.0
-F_NEUTRAL = 1.1                # particles per H in p_th_phys = 1.1 n_H k T
+F_NEUTRAL = 1.1                         # particles per H in p_th_phys = 1.1 n_H k T
 # ═══════════════════════════════════════════════════════════════════════
 
 PHASES = (("CNM", PHASE_CNM), ("UNM", PHASE_UNM), ("WNM", PHASE_WNM))
@@ -137,21 +147,29 @@ PCT_PHASES = ("CNM", "WNM", "NEUTRAL")
 PCT_QUANTITIES = ("sigma_eff_cell", "cs_cell", "M2_cell")
 
 
+def ht03_mt(t_s):
+    """Heiles & Troland 2003 Eq. 26: the CNM turbulent Mach number (3D) at T_s [K]."""
+    return 3.3 * ((np.asarray(t_s, dtype=float) / 40.0) ** 0.32 - 0.40) ** 0.5
+
+
 def literature_conversions():
-    """The reference values in our 1D isothermal convention, with their formulas."""
-    mm21_ms_lo = MM21_MS[0] - MM21_MS[1]
-    mm21_ms_hi = MM21_MS[0] + MM21_MS[1]
-    to_m2 = lambda ms: ms ** 2 * GAMMA_ADIABATIC / 3.0  # noqa: E731
+    """The reference values in our 1D isothermal convention. Asserts the expected values."""
+    mt = ht03_mt(HT03_TS_K)
+    ht_m2 = mt ** 2 / (3.0 * F_NEUTRAL)
+    mm_m2 = np.asarray(MM21_MS) ** 2 * GAMMA_ADIABATIC / (3.0 * F_NEUTRAL)
+    for got, want, tol, what in ((mt, HT03_EXPECTED_MT, HT03_ATOL, "HT03 M_t"),
+                                 (ht_m2, HT03_EXPECTED_M2, HT03_ATOL, "HT03 M^2"),
+                                 (mm_m2, MM21_EXPECTED_M2, MM21_ATOL, "MM21 M^2")):
+        if np.max(np.abs(got - np.asarray(want))) > tol:
+            raise RuntimeError(f"{what} = {got} differs from the expected {want} by > {tol}")
     return {
-        "HT03_M2": HT03_MT ** 2 / 3.0,
-        "HT03_M2_corrected": HT03_MT ** 2 / (3.0 * F_NEUTRAL),
-        "MM21_M2": to_m2(MM21_MS[0]),
-        "MM21_M2_lo": to_m2(mm21_ms_lo),
-        "MM21_M2_hi": to_m2(mm21_ms_hi),
-        "MM21_sigma_total": np.array(MM21_SIGMA_TOTAL),
-        "MM21_sigma_th": np.array(MM21_SIGMA_TH),
-        "MM21_sigma_turb": np.array(MM21_SIGMA_TURB),
+        "HT03_Ts_K": np.array(HT03_TS_K),
+        "HT03_Mt": mt,
+        "HT03_M2": ht_m2,
         "MM21_Ms": np.array(MM21_MS),
+        "MM21_M2": mm_m2,
+        "MM21_sigma_turb": np.array(MM21_SIGMA_TURB),
+        "MM21_Tk": np.array(MM21_TK),
     }
 
 
@@ -519,19 +537,24 @@ def write_report(out, lit, w_check, max_i, mid_i, a_mid_here, a_mid_cached, max_
         "LITERATURE REFERENCE VALUES, converted to our 1D isothermal convention",
         "-" * 100,
         "  Our convention: M^2 = sigma_turb,1D^2 / c_s^2, c_s^2 = P_th/rho = 1.1 kT / (1.4 m_H).",
-        "  CNM, Heiles & Troland 2003: M_t ~ 3, 3D, with C_s^2 = kT / (1.4 m_H).",
-        f"    M^2 (1D) = M_t^2 / 3                = {HT03_MT:g}^2 / 3       = {lit['HT03_M2']:.3f}",
-        f"    with our 1.1 in P_th: M_t^2/(3*1.1) = {HT03_MT:g}^2 / 3.3     = "
-        f"{lit['HT03_M2_corrected']:.3f}",
-        "  WNM, Marchal & Miville-Deschenes 2021: line-of-sight sigma_total = "
-        f"{MM21_SIGMA_TOTAL[0]} +- {MM21_SIGMA_TOTAL[1]},",
-        f"    sigma_th = {MM21_SIGMA_TH[0]} +- {MM21_SIGMA_TH[1]}, sigma_turb = "
-        f"{MM21_SIGMA_TURB[0]} +- {MM21_SIGMA_TURB[1]} km/s (used as-is: already 1D);",
-        f"    Ms = {MM21_MS[0]} +- {MM21_MS[1]}, 3D, ADIABATIC sound speed (gamma = 5/3).",
-        "    M^2 (1D isothermal) = Ms^2 * gamma / 3 = Ms^2 * 5/9:",
-        f"      central (Ms = {MM21_MS[0]:.2f}) {lit['MM21_M2']:.3f};  range Ms = "
-        f"{MM21_MS[0] - MM21_MS[1]:.2f} .. {MM21_MS[0] + MM21_MS[1]:.2f} -> "
-        f"{lit['MM21_M2_lo']:.3f} .. {lit['MM21_M2_hi']:.3f}",
+        "  CNM, Heiles & Troland 2003: M_t for CNM components, 3D, isothermal sound speed",
+        "    C_s^2 = kT / (1.4 m_H), increasing with T_s; their Eq. 26:",
+        "      M_t(T_s) = 3.3 ((T_s/40)^0.32 - 0.40)^0.5",
+        "      M^2 (1D, with our 1.1 in P_th) = M_t^2 / (3 * 1.1) = M_t^2 / 3.3",
+        f"    {'T_s [K]':>12}{'M_t':>8}{'M^2':>8}",
+    ] + [f"    {t:>12.0f}{m:>8.3f}{q:>8.3f}"
+         for t, m, q in zip(lit["HT03_Ts_K"], lit["HT03_Mt"], lit["HT03_M2"])] + [
+        f"    (asserted against M_t = {HT03_EXPECTED_MT}, M^2 = {HT03_EXPECTED_M2} to {HT03_ATOL})",
+        "  WNM, Marchal & Miville-Deschenes 2021 (North Ecliptic Pole, 130 pc scale):",
+        f"    turbulent line-of-sight dispersion {MM21_SIGMA_TURB[0]} +- {MM21_SIGMA_TURB[1]} km/s, "
+        f"T_k = {MM21_TK[0]:.0f} +- {MM21_TK[1]:.0f} K,",
+        "    Ms = 0.87 +- 0.15, 3D, ADIABATIC sound speed (gamma = 5/3):",
+        "      M^2 (1D isothermal) = Ms^2 * gamma / (3 * 1.1) = Ms^2 / 1.98",
+        f"    {'Ms':>12}{'M^2':>8}",
+    ] + [f"    {ms:>12.2f}{q:>8.3f}" for ms, q in zip(lit["MM21_Ms"], lit["MM21_M2"])] + [
+        f"    (asserted against M^2 = {MM21_EXPECTED_M2} to {MM21_ATOL})",
+        "    Their 8.0 and 7.0 km/s total and thermal widths are Doppler widths of hydrogen",
+        "    atoms, sqrt(kT/m_H), not the gas sound speed c_s; they are not compared with c_s.",
         "",
         f"Runtime: {runtime:.1f} s",
     ]

@@ -100,21 +100,25 @@ PER-CELL DISTRIBUTIONS, midplane slab: MASS-weighted (w = rho) p15 / p85
 LITERATURE REFERENCE VALUES, converted to our 1D isothermal convention
 ----------------------------------------------------------------------------------------------------
   Our convention: M^2 = sigma_turb,1D^2 / c_s^2, c_s^2 = P_th/rho = 1.1 kT / (1.4 m_H).
-  CNM, Heiles & Troland 2003: M_t ~ 3 for CNM components, 3D, isothermal sound speed
-    C_s^2 = kT / (1.4 m_H), with M_t increasing with T_s. Evaluated at the CNM
-    temperatures found here (T_s = 120-240 K), their Eq. 26 fit gives
-      M_t = 3.35 .. 3.77
-    M^2 (1D, with our 1.1 in P_th) = M_t^2 / (3 * 1.1) = M_t^2 / 3.3 = 3.4 .. 4.3
+  CNM, Heiles & Troland 2003: M_t for CNM components, 3D, isothermal sound speed
+    C_s^2 = kT / (1.4 m_H), increasing with T_s; their Eq. 26:
+      M_t(T_s) = 3.3 ((T_s/40)^0.32 - 0.40)^0.5
+      M^2 (1D, with our 1.1 in P_th) = M_t^2 / (3 * 1.1) = M_t^2 / 3.3
+         T_s [K]     M_t     M^2
+             120   3.335   3.370
+             186   3.668   4.076
+             240   3.869   4.535
+    (asserted against M_t = (3.335, 3.668, 3.869), M^2 = (3.37, 4.08, 4.53) to 0.01)
   WNM, Marchal & Miville-Deschenes 2021 (North Ecliptic Pole, 130 pc scale):
-    turbulent line-of-sight dispersion sigma_turb = 3.8 +- 0.4 km/s, T_k = 6000 +- 1300 K,
-    Ms = 0.87 +- 0.15, 3D, ADIABATIC sound speed (gamma = 5/3).
-    M^2 (1D isothermal) = Ms^2 * gamma / (3 * 1.1) = Ms^2 / 1.98:
-      central (Ms = 0.87) 0.382;  range Ms = 0.72 .. 1.02 -> 0.262 .. 0.525
-    Their sigma_total = 8.0 +- 0.6 and sigma_th = 7.0 +- 0.7 km/s are Doppler widths of
-    hydrogen atoms, sqrt(kT / m_H), NOT the gas sound speed c_s; they are not compared
-    with c_s or sigma_th here.
-  NOTE: corrected by hand in this file. The ref__* entries in cache/velocity/velocity.npz
-    and the strings in compute_velocity.py still carry the earlier conversions
-    (HT03 M^2 = 3.0 / 2.73; MM21 M^2 = Ms^2 * 5/9 = 0.42, 0.29 .. 0.58).
+    turbulent line-of-sight dispersion 3.8 +- 0.4 km/s, T_k = 6000 +- 1300 K,
+    Ms = 0.87 +- 0.15, 3D, ADIABATIC sound speed (gamma = 5/3):
+      M^2 (1D isothermal) = Ms^2 * gamma / (3 * 1.1) = Ms^2 / 1.98
+              Ms     M^2
+            0.72   0.262
+            0.87   0.382
+            1.02   0.525
+    (asserted against M^2 = (0.262, 0.382, 0.525) to 0.001)
+    Their 8.0 and 7.0 km/s total and thermal widths are Doppler widths of hydrogen
+    atoms, sqrt(kT/m_H), not the gas sound speed c_s; they are not compared with c_s.
 
-Runtime: 17.3 s
+Runtime: 17.1 s
