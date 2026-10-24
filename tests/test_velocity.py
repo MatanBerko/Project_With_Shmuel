@@ -111,3 +111,31 @@ def test_overpressured_cell_negative_M2():
     np.testing.assert_allclose(st2["CNM"]["M2"], -0.5, rtol=1e-12)
     assert np.isnan(st2["CNM"]["sqrt_M2"])
     assert st2["CNM"]["sigma_nt"] == 0.0 and st2["CNM"]["sigma_nt2_unclipped"] < 0
+
+
+def test_mass_weighted_percentiles_known_answer():
+    # values 1..5 with mass weights 1, 1, 1, 1, 16 (total 20): the cumulative
+    # weight reaches 15% (= 3) at the third value and 85% (= 17) only at the fifth
+    n_H = np.array([1.0, 1.0, 1.0, 1.0, 16.0])
+    W = 1000.0
+    p_th = W / (np.arange(1.0, 6.0) + 1.0)          # M2_cell = 1, 2, 3, 4, 5
+    out = cv.cell_percentiles(n_H, p_th, W, n_min=1)
+    assert out["M2_cell_p_lo"] == 3.0 and out["M2_cell_p_hi"] == 5.0
+    # sigma_eff,cell decreases with rho: the heavy cell is the LOW end
+    s = np.sqrt(K_B * W / (MU * M_H * n_H)) / 1e5
+    assert out["sigma_eff_cell_p_lo"] == s[4] and out["sigma_eff_cell_p_hi"] == s[0]
+    # NaN under the cell threshold
+    assert np.isnan(cv.cell_percentiles(n_H, p_th, W)["M2_cell_p_lo"])
+
+
+def test_equal_weights_reproduce_unweighted_percentiles():
+    # uniform density -> equal mass weights -> the plain nearest-rank percentiles
+    rng = np.random.default_rng(5)
+    p_th = rng.uniform(1000.0, 9000.0, 1001)
+    W = 6000.0
+    out = cv.cell_percentiles(np.full(p_th.size, 0.5), p_th, W, n_min=1)
+    m2 = W / p_th - 1.0
+    cs = np.sqrt(K_B * p_th / (MU * M_H * 0.5)) / 1e5
+    for q, v in (("M2_cell", m2), ("cs_cell", cs)):
+        lo, hi = np.percentile(v, (15.0, 85.0), method="inverted_cdf")
+        assert out[f"{q}_p_lo"] == lo and out[f"{q}_p_hi"] == hi

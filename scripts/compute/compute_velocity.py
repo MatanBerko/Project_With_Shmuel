@@ -25,6 +25,21 @@ non-HIM}, using the cells of phase k in the group:
   f_m(alpha<1)      mass fraction of phase-k cells with W/p_th_phys < 1
   f_vol             N_k / N_cells of the group (HIM included in N_cells)
 
+Per-cell distributions, for k in {CNM, WNM, NEUTRAL}: the MASS-weighted
+(weights = rho) 15th and 85th percentiles of
+
+  sigma_eff,cell    sqrt(k_B W / rho)          [km/s]
+  c_s,cell          sqrt(k_B p_th_phys / rho)  [km/s]
+  M2_cell           W / p_th_phys - 1
+
+with src.physics.stats.weighted_stats (nearest rank on the weighted
+cumulative distribution, PERCENTILE_SCHEME_DEFAULT = 15/85), the estimator
+every other percentile in the project uses. The group means above are the
+mass-weighted means of the squares of the first two (sigma_eff^2 =
+k_B W sum(1/rho * rho)/sum(rho), sigma_th^2 likewise) and of M2_cell itself,
+so a mean is not a percentile of the same distribution and can sit outside
+the 15-85 band when the distribution is skewed.
+
 and for ALL GAS (every cell, HIM included): sigma_eff,all = sqrt(k_B W /
 <rho>_all). All velocities are 1D (vertical / line of sight). Mass
 weighting follows Ostriker & Kim (2022): sigma^2 = sum(P) / sum(rho).
@@ -67,6 +82,7 @@ import zarr
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 from src.conventions import (  # noqa: E402
+    PERCENTILE_SCHEME_DEFAULT,
     K_B,
     M_H,
     MIDPLANE_MODE,
@@ -81,6 +97,7 @@ from src.conventions import (  # noqa: E402
 from src.physics import midplane  # noqa: E402
 from src.physics.him import PHASE_CNM, PHASE_HIM, PHASE_UNM, PHASE_WNM  # noqa: E402
 from src.physics.loading import open_zarr, slab_z_indices  # noqa: E402
+from src.physics.stats import percentile_levels, weighted_stats  # noqa: E402
 
 # ═══════════════════════════════════════════════════════════════════════
 # ██  CONTROL BLOCK
@@ -116,6 +133,8 @@ SUM_KEYS = ("n", "s_n", "s_p", "s_n_m2", "s_n_sub1")
 STAT_KEYS = ("n_cells", "vol_frac", "rho_mean", "sigma_eff", "sigma_th", "sigma_nt",
              "sigma_nt2_unclipped", "M2", "sqrt_M2", "mass_frac_alpha_lt1")
 KMS = 1.0e5
+PCT_PHASES = ("CNM", "WNM", "NEUTRAL")
+PCT_QUANTITIES = ("sigma_eff_cell", "cs_cell", "M2_cell")
 
 
 def literature_conversions():
@@ -206,6 +225,30 @@ def velocity_stats(s, W, n_total, n_min=N_MIN_CELLS):
     return thr, raw
 
 
+def cell_percentiles(n_H, p_th, W, n_min=N_MIN_CELLS, scheme=PERCENTILE_SCHEME_DEFAULT):
+    """Mass-weighted (w = rho) low/high percentiles of the per-cell quantities.
+
+    n_H, p_th: the cells of one phase in one group; W: the group's weight.
+    Returns {f"{q}_p_lo" / f"{q}_p_hi": value} over PCT_QUANTITIES, NaN when
+    fewer than n_min cells.
+    """
+    n = np.asarray(n_H, dtype=np.float64).ravel()
+    p = np.asarray(p_th, dtype=np.float64).ravel()
+    out = {f"{q}_{e}": np.nan for q in PCT_QUANTITIES for e in ("p_lo", "p_hi")}
+    if n.size < n_min:
+        return out
+    rho = MU * M_H * n
+    cell = {
+        "sigma_eff_cell": np.sqrt(K_B * W / rho) / KMS,
+        "cs_cell": np.sqrt(K_B * p / rho) / KMS,
+        "M2_cell": W / p - 1.0,
+    }
+    for q, v in cell.items():
+        st = weighted_stats(v, rho, scheme)
+        out[f"{q}_p_lo"], out[f"{q}_p_hi"] = st.p_lo, st.p_hi
+    return out
+
+
 def sigma_eff_all(s_all, W):
     """sigma_eff over ALL gas [km/s] and the <rho>_all it used."""
     rho_mean = MU * M_H * s_all["s_n"] / s_all["n"]
@@ -267,6 +310,11 @@ def main():
     n_arr, p_arr, ph_arr, him_arr = (vg["n_model"], vg["p_th_phys"],
                                      vg["phase_flag_dpdn"], vg["him"])
     n_bad = 0
+    # neutral cells per group, held until the group's last plane is read
+    last_plane = np.array([g.max() for g in groups])
+    pending = {g: [] for g in range(n_groups)}
+    pct = {k: {f"{q}_{e}": np.full(n_groups, np.nan) for q in PCT_QUANTITIES
+               for e in ("p_lo", "p_hi")} for k in PCT_PHASES}
     print(f"Reducing {len(z_box)} box planes in chunks of {Z_CHUNK}...")
     for lo in range(0, len(z_box), Z_CHUNK):
         hi = min(lo + Z_CHUNK, len(z_box))
@@ -283,6 +331,15 @@ def main():
                 s = phase_sums(n_c[k], p_c[k], ph_c[k], W[g])
                 for key in SUM_KEYS:
                     acc[key][g] += s[key]
+                neu = ph_c[k] != PHASE_HIM
+                pending[g].append((n_c[k][neu], p_c[k][neu], ph_c[k][neu]))
+                if last_plane[g] == lo + k:          # group complete: percentiles, then free
+                    n_g, p_g, ph_g = (np.concatenate(a) for a in zip(*pending[g]))
+                    for name, sel in (("CNM", ph_g == PHASE_CNM), ("WNM", ph_g == PHASE_WNM),
+                                      ("NEUTRAL", slice(None))):
+                        for key, v in cell_percentiles(n_g[sel], p_g[sel], W[g]).items():
+                            pct[name][key][g] = v
+                    pending[g] = None
         del n_c, p_c, ph_c, him_c
     if n_bad:
         raise RuntimeError(f"{n_bad} box cells have non-finite or non-positive n_H or p_th")
@@ -348,6 +405,11 @@ def main():
         for key in STAT_KEYS:
             out[f"{name}__{key}"] = stats[name][key][:n_bins]
             out[f"slab__{name}__{key}"] = stats[name][key][n_bins:]
+    out["percentile_levels"] = np.array(percentile_levels(PERCENTILE_SCHEME_DEFAULT))
+    for name in PCT_PHASES:
+        for key, arr in pct[name].items():
+            out[f"{name}__{key}"] = arr[:n_bins]
+            out[f"slab__{name}__{key}"] = arr[n_bins:]
     for k, v in lit.items():
         out[f"ref__{k}"] = np.atleast_1d(np.asarray(v, dtype=float))
     OUT_NPZ_PATH.parent.mkdir(parents=True, exist_ok=True)
@@ -429,8 +491,29 @@ def write_report(out, lit, w_check, max_i, mid_i, a_mid_here, a_mid_cached, max_
                  f"{'':>7}{'':>10}{1.0:>8.4f}{out['slab__ALL__rho_mean'][i] / M_H:>11.4f}"
                  f"{int(out['slab__ALL__n_cells'][i]):>10d}")
         L.append("")
+    pl, ph_ = out["percentile_levels"]
+    i_mid = int(np.where(out["slab_offsets_pc"] == 0.0)[0][0])
     L += [
         "  (<rho>/m_H includes the factor 1.4: it is 1.4 <n_H>.)",
+        "",
+        "-" * 100,
+        f"PER-CELL DISTRIBUTIONS, midplane slab: MASS-weighted (w = rho) p{pl:g} / p{ph_:g}",
+        "-" * 100,
+        "  sigma_eff,cell = sqrt(k_B W / rho), c_s,cell = sqrt(k_B p_th_phys / rho) [km/s],",
+        "  M2_cell = W / p_th_phys - 1; nearest rank on the mass-weighted cumulative distribution",
+        "  (src.physics.stats.weighted_stats). The group mean is shown alongside: sigma_eff and",
+        "  sigma_th are the RMS (mass-weighted) of the per-cell values, <M^2> their mass-weighted",
+        "  mean. All bins and slabs are in the npz.",
+        f"{'phase':>8}{'sig_eff':>9}{f'[p{pl:g}, p{ph_:g}]':>18}{'sig_th':>9}"
+        f"{f'c_s [p{pl:g}, p{ph_:g}]':>20}{'<M^2>':>8}{f'M2 [p{pl:g}, p{ph_:g}]':>20}",
+    ]
+    for name in PCT_PHASES:
+        g = lambda q: out[f"slab__{name}__{q}"][i_mid]  # noqa: E731
+        L.append(f"{name:>8}{g('sigma_eff'):>9.3f}   [{g('sigma_eff_cell_p_lo'):>6.3f}, "
+                 f"{g('sigma_eff_cell_p_hi'):>6.3f}]{g('sigma_th'):>9.3f}      "
+                 f"[{g('cs_cell_p_lo'):>6.3f}, {g('cs_cell_p_hi'):>6.3f}]{g('M2'):>8.3f}      "
+                 f"[{g('M2_cell_p_lo'):>6.3f}, {g('M2_cell_p_hi'):>6.3f}]")
+    L += [
         "",
         "-" * 100,
         "LITERATURE REFERENCE VALUES, converted to our 1D isothermal convention",

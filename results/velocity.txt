@@ -84,6 +84,19 @@ z_mid +300 (z_c = +288.13 pc): W = 3422.2 K cm^-3, HIM f_vol = 0.8615
   (<rho>/m_H includes the factor 1.4: it is 1.4 <n_H>.)
 
 ----------------------------------------------------------------------------------------------------
+PER-CELL DISTRIBUTIONS, midplane slab: MASS-weighted (w = rho) p15 / p85
+----------------------------------------------------------------------------------------------------
+  sigma_eff,cell = sqrt(k_B W / rho), c_s,cell = sqrt(k_B p_th_phys / rho) [km/s],
+  M2_cell = W / p_th_phys - 1; nearest rank on the mass-weighted cumulative distribution
+  (src.physics.stats.weighted_stats). The group mean is shown alongside: sigma_eff and
+  sigma_th are the RMS (mass-weighted) of the per-cell values, <M^2> their mass-weighted
+  mean. All bins and slabs are in the npz.
+   phase  sig_eff        [p15, p85]   sig_th      c_s [p15, p85]   <M^2>       M2 [p15, p85]
+     CNM    2.317   [ 1.498,  2.953]    1.037      [ 0.776,  1.237]   4.025      [ 1.713,  6.606]
+     WNM   10.794   [ 7.321, 13.648]    7.138      [ 6.834,  7.396]   1.216      [ 0.128,  2.413]
+ NEUTRAL    6.238   [ 2.356,  8.352]    4.092      [ 1.079,  7.035]   2.660      [ 0.480,  5.381]
+
+----------------------------------------------------------------------------------------------------
 LITERATURE REFERENCE VALUES, converted to our 1D isothermal convention
 ----------------------------------------------------------------------------------------------------
   Our convention: M^2 = sigma_turb,1D^2 / c_s^2, c_s^2 = P_th/rho = 1.1 kT / (1.4 m_H).
@@ -96,4 +109,4 @@ LITERATURE REFERENCE VALUES, converted to our 1D isothermal convention
     M^2 (1D isothermal) = Ms^2 * gamma / 3 = Ms^2 * 5/9:
       central (Ms = 0.87) 0.421;  range Ms = 0.72 .. 1.02 -> 0.288 .. 0.578
 
-Runtime: 3.3 s
+Runtime: 17.3 s
