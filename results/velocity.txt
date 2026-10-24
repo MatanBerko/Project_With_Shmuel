@@ -1,0 +1,99 @@
+PROVISIONAL: f98 cube, n_H = 1653 A'; final cube pending
+P_th = 1.1 n_H k T (physical)
+Fig. 7: the missing support as VELOCITY
+====================================================================================================
+RAW, self-gravity mean (fiducial), balanced midplane z_mid = -11.875 pc, footprint |x|,|y| <= 500 pc, box |z| <= 400 pc.
+Phases: cached dP/dn flag (CNM = 0, UNM = 1, WNM = 2, HIM = 3); NEUTRAL = CNM+UNM+WNM.
+rho = 1.4 m_H n_H;  p_th_phys = 1.1 n_H k T;  all velocities 1D (vertical / line of sight).
+
+DEFINITIONS (per 4 pc bin or +-30 pc slab; cells of phase k in the group):
+  W               the group's area-averaged gas weight <P_tot>_area / k_B [K cm^-3], ONE
+                  number shared by every phase (mean of the cached per-plane values)
+  <rho>_k         plain (volume) mean of rho over phase k
+  sigma_eff,k     sqrt(k_B W / <rho>_k)
+  sigma_th,k      sqrt(sum(k_B p_th_phys) / sum(rho))   (mass-weighted c_s^2 = P_th/rho)
+  sigma_nt,k      sqrt(max(sigma_eff^2 - sigma_th^2, 0)); 'dsig2' = the unclipped
+                  sigma_eff^2 - sigma_th^2 [km^2 s^-2]
+  <M^2>_k         sum(rho (W/p_th_phys - 1)) / sum(rho): mass-weighted mean of the per-cell
+                  M^2 = alpha_cell - 1; cells with alpha_cell < 1 contribute negative M^2
+  sqrt<M^2>       where <M^2> > 0
+  f_m(a<1)        mass fraction of phase-k cells with alpha_cell = W/p_th_phys < 1
+  f_vol           cell (volume) fraction of the group
+  sigma_eff,all   sqrt(k_B W / <rho>_all) over every cell, HIM included
+All of alpha - 1 is assigned to motions, so these are UPPER LIMITS on turbulent
+velocities (magnetic and cosmic-ray support also contribute).
+Phase statistics are NaN where the group holds fewer than 100 cells of the phase.
+Slabs: |z - z_c| <= 30 pc at z_c = z_mid + {-300, -150, 0, +150, +300} pc.
+
+----------------------------------------------------------------------------------------------------
+ASSERTIONS (the script raises if any fails)
+----------------------------------------------------------------------------------------------------
+  (i)  <M^2>_NEUTRAL + 1 == cached mass-weighted <alpha_cell> (area_alpha.npz,
+       mean__alpha_cell_mean_mw and slab__mean__alpha_cell_mean_mw[mid]):
+       max |rel diff| 3.77e-15 over 201 groups (all bins with neutral cells +
+       the midplane slab); midplane slab 3.659955 vs 3.659955
+       (rel 1.11e-16); threshold 1e-10.  PASS
+       The cached +150/+300 slabs are centred on z = 150/300 pc, not z_mid +- 150/300,
+       so no cached value exists for the shifted slabs; they are not part of (i).
+  (ii) sigma_eff,all^2 <rho>_all / k_B == W: max |rel diff| 6.66e-16, threshold
+       1e-12.  PASS
+  input checks: W per group vs cached Ptot_area (bins + midplane slab) max rel
+       2.22e-16; phase flag HIM == him flag cell for cell; group cell counts ==
+       Step 2e n_cells; no non-positive n_H or p_th in the box.
+
+----------------------------------------------------------------------------------------------------
+SLAB TABLE (+-30 pc slabs)
+----------------------------------------------------------------------------------------------------
+   phase  sig_eff  sig_th  sig_nt    dsig2   <M^2>   sqrt  f_m(a<1)   f_vol  <rho>/m_H     cells
+           [km/s]  [km/s]  [km/s] [km2/s2]          <M^2>                      [cm^-3]
+z_mid -300 (z_c = -311.87 pc): W = 2746.1 K cm^-3, HIM f_vol = 0.8194
+     CNM    1.396   0.997   0.978     0.96   0.928  0.963    0.0000  0.0003    11.6183      2609
+     UNM    3.391   3.704   0.000    -2.23   0.186  0.432    0.4303  0.0129     1.9707     97328
+     WNM    9.147   7.310   5.499    30.24   0.519  0.720    0.3837  0.1673     0.2708   1259999
+ NEUTRAL    7.396   6.090   4.196    17.61   0.428  0.654    0.3789  0.1806     0.4142   1359936
+     ALL   14.411                                                    1.0000     0.1091   7530030
+
+z_mid -150 (z_c = -161.87 pc): W = 5252.8 K cm^-3, HIM f_vol = 0.6004
+     CNM    1.860   0.959   1.594     2.54   2.738  1.655    0.0041  0.0050    12.5217     37309
+     UNM    4.239   3.379   2.560     6.55   1.430  1.196    0.0893  0.0463     2.4118    348846
+     WNM   11.251   7.261   8.594    73.86   1.326  1.151    0.1253  0.3483     0.3424   2622675
+ NEUTRAL    7.687   5.099   5.753    33.09   1.664  1.290    0.0859  0.3996     0.7333   3008830
+     ALL   11.494                                                    1.0000     0.3280   7530030
+
+z_mid (z_c = -11.87 pc): W = 7826.1 K cm^-3, HIM f_vol = 0.4533
+     CNM    2.317   1.037   2.072     4.29   4.025  2.006    0.0004  0.0194    12.0246    146005
+     UNM    4.840   3.218   3.616    13.07   2.586  1.608    0.0416  0.1734     2.7557   1305749
+     WNM   10.794   7.138   8.097    65.56   1.216  1.103    0.0960  0.3539     0.5541   2664609
+ NEUTRAL    6.238   4.092   4.708    22.16   2.660  1.631    0.0428  0.5467     1.6593   4116363
+     ALL    8.293                                                    1.0000     0.9388   7530030
+
+z_mid +150 (z_c = +138.13 pc): W = 5109.0 K cm^-3, HIM f_vol = 0.7303
+     CNM    2.093   0.919   1.880     3.53   4.080  2.020    0.0000  0.0048     9.6257     36183
+     UNM    4.715   3.456   3.207    10.28   2.058  1.435    0.0459  0.0304     1.8962    228989
+     WNM   11.519   7.256   8.946    80.03   1.445  1.202    0.0663  0.2345     0.3177   1765958
+ NEUTRAL    7.983   5.105   6.137    37.66   2.326  1.525    0.0425  0.2697     0.6614   2031130
+     ALL   14.193                                                    1.0000     0.2092   7530030
+
+z_mid +300 (z_c = +288.13 pc): W = 3422.2 K cm^-3, HIM f_vol = 0.8615
+     CNM    1.936   1.141   1.564     2.45   1.878  1.371    0.0000  0.0000     7.5297       214
+     UNM    4.127   3.997   1.026     1.05   0.527  0.726    0.3195  0.0061     1.6579     45665
+     WNM   10.613   7.323   7.681    59.00   1.039  1.019    0.2316  0.1324     0.2507    996766
+ NEUTRAL    9.485   6.683   6.731    45.31   0.925  0.962    0.2508  0.1385     0.3138   1042645
+     ALL   19.297                                                    1.0000     0.0758   7530030
+
+  (<rho>/m_H includes the factor 1.4: it is 1.4 <n_H>.)
+
+----------------------------------------------------------------------------------------------------
+LITERATURE REFERENCE VALUES, converted to our 1D isothermal convention
+----------------------------------------------------------------------------------------------------
+  Our convention: M^2 = sigma_turb,1D^2 / c_s^2, c_s^2 = P_th/rho = 1.1 kT / (1.4 m_H).
+  CNM, Heiles & Troland 2003: M_t ~ 3, 3D, with C_s^2 = kT / (1.4 m_H).
+    M^2 (1D) = M_t^2 / 3                = 3^2 / 3       = 3.000
+    with our 1.1 in P_th: M_t^2/(3*1.1) = 3^2 / 3.3     = 2.727
+  WNM, Marchal & Miville-Deschenes 2021: line-of-sight sigma_total = 8.0 +- 0.6,
+    sigma_th = 7.0 +- 0.7, sigma_turb = 3.8 +- 0.4 km/s (used as-is: already 1D);
+    Ms = 0.87 +- 0.15, 3D, ADIABATIC sound speed (gamma = 5/3).
+    M^2 (1D isothermal) = Ms^2 * gamma / 3 = Ms^2 * 5/9:
+      central (Ms = 0.87) 0.421;  range Ms = 0.72 .. 1.02 -> 0.288 .. 0.578
+
+Runtime: 3.3 s
