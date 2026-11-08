@@ -5,9 +5,9 @@ Reads ONLY cache/turbulence_pdf/turbulence_pdf.npz
 (scripts/compute/compute_turbulence_pdf.py).
 
   (a) sigma_s(z) = std ln(n_H / <n>_V) per 4 pc bin for CNM, WNM (phase
-      colours) and all neutral (black); solid = native 2 pc cells, dashed =
-      after 2 x 2 x 2 block averaging (sigma_s_4pc). Drawn over the
-      fig_velocity visibility run.
+      colours) and all neutral (black), native 2 pc cells. Drawn over the
+      fig_velocity visibility run. (The 4 pc block-averaged sigma_s_4pc is in
+      the cache and quoted in the caption of Fig. 6; it is not drawn.)
   (b)-(e) the volume-weighted PDF of s at |z - z_mid| = 0, 100, 200, 300 pc
       (the union of the 4 pc bins containing z_mid +- d), per sample, with a
       Gaussian of the same <s> and sigma_s (thin dotted) for reference.
@@ -50,7 +50,6 @@ COLORS = {**fv.PHASE_COLORS, "NEUTRAL": "black"}
 LW = {"CNM": fv.LINE_LW, "WNM": fv.LINE_LW, "NEUTRAL": 0.9}
 SAMPLES = ("CNM", "WNM", "NEUTRAL")
 LABELS = {"CNM": "CNM", "WNM": "WNM", "NEUTRAL": "all neutral"}
-DASH = (0, (4.0, 2.0))
 GAUSS_KW = dict(lw=0.6, ls=":")
 S_RANGE = (-6.0, 5.0)
 PDF_YLIM = (1e-4, 40.0)            # headroom above the peaks for the labels
@@ -72,8 +71,6 @@ def main():
     ax = fig.add_subplot(gs[0, :])
     for k in SAMPLES:
         ax.plot(z, np.where(run[k], d[f"{k}__sigma_s"], np.nan), color=COLORS[k], lw=LW[k])
-        ax.plot(z, np.where(run[k], d[f"{k}__sigma_s_4pc"], np.nan), color=COLORS[k], lw=LW[k],
-                ls=DASH)
     ax.axvline(z_mid, **fv.ZMID_KW)
     ax.text(z_mid + 6, 0.97, fv.ZMID_LABEL, transform=ax.get_xaxis_transform(), ha="left",
             va="top", fontsize=TEXT_FS, color="0.35")
@@ -83,10 +80,9 @@ def main():
     ax.set_xlabel(r"$z$ [pc]")
     ax.set_ylabel(r"$\sigma_s$")
     panel_label(ax, "a", loc="upper left")
-    handles = [Line2D([], [], color=COLORS[k], lw=LW[k]) for k in SAMPLES] + [
-        Line2D([], [], color="0.3", lw=1.0), Line2D([], [], color="0.3", lw=1.0, ls=DASH)]
-    ax.legend(handles, [LABELS[k] for k in SAMPLES] + ["2 pc cells", "4 pc blocks"],
-              loc="lower center", ncols=5, frameon=False, fontsize=TEXT_FS, handlelength=2.0,
+    handles = [Line2D([], [], color=COLORS[k], lw=LW[k]) for k in SAMPLES]
+    ax.legend(handles, [LABELS[k] for k in SAMPLES],
+              loc="lower center", ncols=3, frameon=False, fontsize=TEXT_FS, handlelength=2.0,
               columnspacing=1.0)
 
     edges = d["s_edges"]
