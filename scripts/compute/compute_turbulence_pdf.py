@@ -50,7 +50,12 @@ the line it is drawn behind.
 Phase histograms (for Fig. 5): per 4 pc bin and per slab, the cell
 (= volume, all cells are 2 pc cubes) counts of log10(n_H) in
 LOG_N_EDGES for CNM, UNM, WNM, HIM, plus the counts below and above the
-edges, so that counts + under + over = cells of the phase.
+edges, so that counts + under + over = cells of the phase. Alongside, the
+MASS-weighted histograms on the same bins: per bin and phase the sum of n_H
+over the cells in each log10(n_H) bin (mass is proportional to n_H: every
+cell is a 2 pc cube and rho = 1.4 m_H n_H), with the n_H sums below and above
+the edges, and the phase's total sum of n_H (compute_velocity's own s_n), so
+that mass + under + over = total n_H of the phase (checked to MASS_SUM_RTOL).
 
 s-PDFs (appendix): for |z - z_mid| = d in PDF_OFFSETS_PC, the union of the
 4 pc bin(s) containing z_mid + d and z_mid - d (one bin at d = 0), with
@@ -129,6 +134,7 @@ LOG_N_EDGES = np.round(np.arange(-4.0, 3.0 + 1e-9, 0.05), 10)   # log10 n_H [cm^
 S_EDGES = np.round(np.arange(-10.0, 8.0 + 1e-9, 0.1), 10)       # s = ln(n/<n>)
 PDF_OFFSETS_PC = (0.0, 100.0, 200.0, 300.0)   # |z - z_mid| of the appendix PDFs
 CS_IDENTITY_RTOL = 1e-14                      # c_s / <M^2> vs velocity.npz
+MASS_SUM_RTOL = 1e-12                         # mass histograms vs sum n_H (summation order)
 # ═══════════════════════════════════════════════════════════════════════
 
 SAMPLES = ("CNM", "UNM", "WNM", "NEUTRAL")
@@ -243,6 +249,23 @@ def phase_histograms(log10_n, ph, edges=LOG_N_EDGES):
     return counts, under, over
 
 
+def phase_mass_histograms(log10_n, n_H, ph, edges=LOG_N_EDGES):
+    """Sum of n_H in log10 n_H bins per phase code: (mass (4, nb), under (4,), over (4,))."""
+    x = np.asarray(log10_n, dtype=np.float64).ravel()
+    n = np.asarray(n_H, dtype=np.float64).ravel()
+    ph = np.asarray(ph).ravel()
+    mass = np.zeros((len(HIST_PHASES), len(edges) - 1))
+    under = np.zeros(len(HIST_PHASES))
+    over = np.zeros(len(HIST_PHASES))
+    for j, (_, code) in enumerate(HIST_PHASES):
+        sel = ph == code
+        v, w = x[sel], n[sel]
+        mass[j] = np.histogram(v, bins=edges, weights=w)[0]
+        under[j] = np.sum(w[v < edges[0]])
+        over[j] = np.sum(w[v > edges[-1]])
+    return mass, under, over
+
+
 def sigma_nt_cell_band(n_H, p_th, W, n_min=N_MIN_CELLS, scheme=PERCENTILE_SCHEME_DEFAULT):
     """Mass-weighted low/high percentiles of sqrt(max(k_B (W - p_th)/rho, 0)) [km/s]."""
     n = np.asarray(n_H, dtype=np.float64).ravel()
@@ -326,6 +349,9 @@ def main():
     hist = np.zeros((n_full, len(HIST_PHASES), nb_n))
     hist_under = np.zeros((n_full, len(HIST_PHASES)))
     hist_over = np.zeros((n_full, len(HIST_PHASES)))
+    mhist = np.zeros((n_full, len(HIST_PHASES), nb_n))
+    mhist_under = np.zeros((n_full, len(HIST_PHASES)))
+    mhist_over = np.zeros((n_full, len(HIST_PHASES)))
     res = {k: {q: np.full(n_groups, np.nan) for q in
                ("n", "sigma_s", "sigma_s_robust", "mean_s", "n_blocks", "sigma_s_4pc",
                 "sigma_nt_cell_p_lo", "sigma_nt_cell_p_hi")} for k in SAMPLES}
@@ -380,7 +406,9 @@ def main():
             gs = plane_groups[lo + k]
             if not gs:
                 continue
-            h = phase_histograms(np.log10(n_c[k]), ph_c[k])
+            log_n_k = np.log10(n_c[k])
+            h = phase_histograms(log_n_k, ph_c[k])
+            hm = phase_mass_histograms(log_n_k, n_c[k], ph_c[k])
             # copies, so a pending group does not keep the whole chunk alive
             planes_k = (n_c[k].reshape(plane_shape).copy(), ph_c[k].reshape(plane_shape).copy(),
                         p_c[k].copy())
@@ -392,6 +420,9 @@ def main():
                     hist[g] += h[0]
                     hist_under[g] += h[1]
                     hist_over[g] += h[2]
+                    mhist[g] += hm[0]
+                    mhist_under[g] += hm[1]
+                    mhist_over[g] += hm[2]
                 pending[g][lo + k] = planes_k
                 if last_plane[g] == lo + k:
                     finish(g)
@@ -431,6 +462,11 @@ def main():
     hist_total = hist.sum(axis=2) + hist_under + hist_over
     if not np.array_equal(hist_total, acc["n"]):
         raise RuntimeError("phase histogram counts do not sum to the phase cell counts")
+    mass_total = mhist.sum(axis=2) + mhist_under + mhist_over
+    mass_rel = float(np.max(np.abs(mass_total - acc["s_n"]) / np.maximum(acc["s_n"], 1e-300)))
+    print(f"mass histograms vs sum n_H: max rel {mass_rel:.2e}")
+    if mass_rel > MASS_SUM_RTOL:
+        raise RuntimeError(f"mass histograms differ from sum n_H by {mass_rel:.3e}")
 
     # ---- save ----------------------------------------------------------------
     out = {
@@ -450,6 +486,13 @@ def main():
         "slab__hist_log_n": hist[n_bins:], "slab__hist_log_n_under": hist_under[n_bins:],
         "slab__hist_log_n_over": hist_over[n_bins:],
         "hist_n_cells": acc["n"][:n_bins], "slab__hist_n_cells": acc["n"][n_bins:],
+        "hist_mass_log_n": mhist[:n_bins], "hist_mass_log_n_under": mhist_under[:n_bins],
+        "hist_mass_log_n_over": mhist_over[:n_bins],
+        "slab__hist_mass_log_n": mhist[n_bins:],
+        "slab__hist_mass_log_n_under": mhist_under[n_bins:],
+        "slab__hist_mass_log_n_over": mhist_over[n_bins:],
+        "hist_sum_n_H": acc["s_n"][:n_bins], "slab__hist_sum_n_H": acc["s_n"][n_bins:],
+        "check_mass_hist_max_rel": np.array([mass_rel]),
         "pdfz__offsets_pc": np.array(PDF_OFFSETS_PC),
         "pdfz__bins": np.array([sel + [sel[0]] * (2 - len(sel)) for sel in pdf_bins]),
         "check_cs_max_rel": np.array([cs_max]), "check_M2_max_rel": np.array([m2_max]),
