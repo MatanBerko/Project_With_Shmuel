@@ -91,7 +91,16 @@ LEGEND_GREYS = ("0.10", "0.35", "0.55", "0.70")
 MIN_CONTRAST = 1.9                           # lightest shade vs white (WCAG ratio), warn below
 PCT_SCHEME = PERCENTILE_SCHEME_16_84
 MASS_SUM_RTOL = 1e-12                        # mass histograms vs the cached sum n_H
-ROW_LABELS = ("volume fraction per dex", "neutral mass fraction per dex")
+# Normalisation of the drawn curves:
+#   "unit_area"  each curve integrates to 1 over log10 n_H (shape only; linear y
+#                from 0 without tick labels, arbitrary units -- Shelest+26 Fig. 3a)
+#   "fraction"   area = volume fraction (top) / neutral mass fraction (bottom);
+#                log y with tick labels and the HIM text (the previous version)
+NORM = "unit_area"
+ROW_LABELS = {"unit_area": ("volume-weighted PDF (arb. units)", "mass-weighted PDF (arb. units)"),
+              "fraction": ("volume fraction per dex", "neutral mass fraction per dex")}
+PER_COLUMN_X = True                          # each column zooms to its own phase's range
+Y_TOP_PAD_LINEAR = 0.08                      # unit_area: headroom above the highest curve
 # ═══════════════════════════════════════════════════════════════════════
 
 ALL_PHASES = ("CNM", "UNM", "WNM", "HIM")
@@ -150,6 +159,15 @@ def slab_histogram(d, bins):
 def normalised(counts, n_total, edges):
     """weights / (total * bin width in dex): area = fraction of the total."""
     return counts / (n_total * np.diff(edges))
+
+
+def plotted_curve(weights, total, edges, norm=NORM):
+    """The drawn density per dex: unit area ("unit_area") or area = weights.sum()/total ("fraction")."""
+    if norm == "unit_area":
+        return normalised(weights, weights.sum(), edges)
+    if norm == "fraction":
+        return normalised(weights, total, edges)
+    raise ValueError(f"unknown NORM {norm!r}")
 
 
 def neutral_mass(h):
@@ -245,56 +263,73 @@ def main():
             if h["n_cells"][j] < N_MIN_CELLS:
                 dropped.append((p, dd, int(h["n_cells"][j])))
                 continue
-            curves[0][(p, dd)] = normalised(h["counts"][j], h["n_cells"].sum(), edges)
-            curves[1][(p, dd)] = normalised(h["mass"][j], neutral_mass(h), edges)
+            curves[0][(p, dd)] = plotted_curve(h["counts"][j], h["n_cells"].sum(), edges)
+            curves[1][(p, dd)] = plotted_curve(h["mass"][j], neutral_mass(h), edges)
     hw = 0.5 * np.diff(edges)[0]
-    nz = np.concatenate([centres[c > 0] for row in curves for c in row.values()])
-    xlim = (nz.min() - hw - X_MARGIN_DEX, nz.max() + hw + X_MARGIN_DEX)
+    xlim = {}
+    for p in PANEL_PHASES:
+        sel = [cv_ for row in curves for (q, _), cv_ in row.items() if q == p or not PER_COLUMN_X]
+        nz = np.concatenate([centres[cv_ > 0] for cv_ in sel])
+        xlim[p] = (nz.min() - hw - X_MARGIN_DEX, nz.max() + hw + X_MARGIN_DEX)
+    linear = NORM == "unit_area"
     ylim = []
     for row in curves:
-        pos = np.concatenate([c[c > 0] for c in row.values()])
-        ylim.append((pos.min() / 10 ** Y_MARGIN_DEX, pos.max() * 10 ** Y_TOP_MARGIN_DEX))
+        pos = np.concatenate([cv_[cv_ > 0] for cv_ in row.values()])
+        ylim.append((0.0, pos.max() * (1 + Y_TOP_PAD_LINEAR)) if linear else
+                    (pos.min() / 10 ** Y_MARGIN_DEX, pos.max() * 10 ** Y_TOP_MARGIN_DEX))
 
-    fig, axes = plt.subplots(2, 3, figsize=(FIG_W, FIG_H), sharex=True, sharey="row")
+    fig, axes = plt.subplots(2, 3, figsize=(FIG_W, FIG_H), sharex="col", sharey="row")
     for r in range(2):
         for c, p in enumerate(PANEL_PHASES):
             ax = axes[r, c]
             for i, dd in enumerate(SLAB_D_PC):
-                if (p, dd) in curves[r]:
-                    ax.stairs(curves[r][(p, dd)], edges, color=colors[p][i], lw=LINE_LW,
-                              zorder=5 - i, baseline=None)
-            ax.set_yscale("log")
-            ax.set_xlim(*xlim)
+                if (p, dd) not in curves[r]:
+                    continue
+                cv_ = curves[r][(p, dd)]
+                if linear:          # trim to the non-zero span and close down to y = 0
+                    k = np.where(cv_ > 0)[0]
+                    ax.stairs(cv_[k[0]:k[-1] + 1], edges[k[0]:k[-1] + 2], color=colors[p][i],
+                              lw=LINE_LW, zorder=5 - i, baseline=0.0)
+                else:
+                    ax.stairs(cv_, edges, color=colors[p][i], lw=LINE_LW, zorder=5 - i,
+                              baseline=None)
+            if not linear:
+                ax.set_yscale("log")
+            ax.set_xlim(*xlim[p])
             ax.set_ylim(*ylim[r])
+            if linear:
+                ax.set_yticks([])
+                ax.minorticks_off()
             ax.text(0.96, 0.96, p, transform=ax.transAxes, ha="right", va="top",
                     fontsize=TEXT_FS + 1.5, color=colors[p][1], fontweight="bold")
             panel_label(ax, "abcdef"[3 * r + c], loc="upper left")
-        axes[r, 0].set_ylabel(ROW_LABELS[r])
+        axes[r, 0].set_ylabel(ROW_LABELS[NORM][r])
     for ax in axes[1]:
         ax.set_xlabel(r"$\log_{10}(n_\mathrm{H}\,/\,\mathrm{cm^{-3}})$")
-    him = "\n".join([r"HIM $f_V$:"] + [f"{dd:.0f} pc: {summ[dd]['vol_frac'][3]:.3f}"
-                                         for dd in SLAB_D_PC])
-    axes[0, 2].text(0.96, 0.62, him, transform=axes[0, 2].transAxes, ha="right", va="top",
-                    fontsize=TEXT_FS - 0.5, color="0.25", linespacing=1.15)   # empty high-n side
+    if NORM == "fraction":   # the HIM volume fractions (in the caption in unit_area mode)
+        him = "\n".join([r"HIM $f_V$:"] + [f"{dd:.0f} pc: {summ[dd]['vol_frac'][3]:.3f}"
+                                             for dd in SLAB_D_PC])
+        axes[0, 2].text(0.96, 0.62, him, transform=axes[0, 2].transAxes, ha="right", va="top",
+                        fontsize=TEXT_FS - 0.5, color="0.25", linespacing=1.15)
     handles = [Line2D([], [], color=g, lw=LINE_LW) for g in LEGEND_GREYS]
     labels = [rf"$|z - z_\mathrm{{mid}}| = {dd:.0f}$ pc" for dd in SLAB_D_PC]
     fig.legend(handles, labels, loc="outside upper center", ncols=4, frameon=False,
                fontsize=TEXT_FS, handlelength=2.0, columnspacing=1.4,
                title="darker = closer to the midplane", title_fontsize=TEXT_FS)
     provisional_label(fig, loc="upper right")
-    print(f"  x {xlim[0]:.2f} .. {xlim[1]:.2f} dex; y volume {ylim[0][0]:.2e} .. "
-          f"{ylim[0][1]:.2e}; mass {ylim[1][0]:.2e} .. {ylim[1][1]:.2e}")
+    print(f"  NORM = {NORM}; " + "; ".join(f"{p} x {xlim[p][0]:.2f}..{xlim[p][1]:.2f}"
+                                           for p in PANEL_PHASES))
+    print(f"  y volume {ylim[0][0]:.3g} .. {ylim[0][1]:.3g}; mass {ylim[1][0]:.3g} .. {ylim[1][1]:.3g}")
     print("  dropped curves: " + (", ".join(f"{p} d={dd:.0f} ({n} cells)" for p, dd, n in dropped)
                                   or "none"))
-    # area under each drawn curve == its volume / neutral-mass fraction
-    for (p, dd), cv_ in curves[0].items():
-        a = float(np.sum(cv_ * np.diff(edges)))
-        if abs(a - summ[dd]["vol_frac"][ALL_PHASES.index(p)]) > 1e-12:
-            raise RuntimeError(f"{p} d={dd}: area {a} differs from the volume fraction")
-    for (p, dd), cm in curves[1].items():
-        a = float(np.sum(cm * np.diff(edges)))
-        if abs(a - summ[dd]["mass_frac"][p]) > 1e-12:
-            raise RuntimeError(f"{p} d={dd}: area {a} differs from the neutral mass fraction")
+    # area under each drawn curve: 1 (unit_area) or its volume / neutral-mass fraction
+    for r, row in enumerate(curves):
+        for (p, dd), cv_ in row.items():
+            a = float(np.sum(cv_ * np.diff(edges)))
+            want = 1.0 if linear else (summ[dd]["vol_frac"][ALL_PHASES.index(p)] if r == 0
+                                       else summ[dd]["mass_frac"][p])
+            if abs(a - want) > 1e-12:
+                raise RuntimeError(f"{p} d={dd} row {r}: area {a} differs from {want}")
     save_figure(fig, NAME)
     write_report(d, summ, dropped)
 

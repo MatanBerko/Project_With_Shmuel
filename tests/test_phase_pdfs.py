@@ -6,7 +6,9 @@ Fig. 5: the slab histograms of scripts/design/fig_phase_pdfs.py.
    to each phase's fraction of the NEUTRAL mass and the three sum to 1.
 2. SLAB SELECTION on a synthetic grid: a slab made of whole bins is accepted,
    one that cuts a bin is refused.
-3. The cached histograms (skipped if the cache or the cube coordinates are
+3. DRAWN CURVES: unit area per curve in "unit_area" mode, the fraction in
+   "fraction" mode, same shape in both.
+4. The cached histograms (skipped if the cache or the cube coordinates are
    absent): per slab, counts + under/overflow equal the cell counts, the mass
    histograms summed over bins equal the cached sum of n_H of the phase's
    cells, both sets of fractions sum to 1 to 1e-12, and every curve's area
@@ -109,3 +111,26 @@ def test_cached_slabs():
             if p != "HIM":
                 cm = fp.normalised(h["mass"][j], m_neu, edges)
                 assert abs(np.sum(cm * np.diff(edges)) - s["mass_frac"][p]) < 1e-12
+
+
+def test_plotted_curves_unit_area_and_fraction_modes():
+    h = _synthetic_slab(5)
+    for j in NEUTRAL:
+        for w, tot in ((h["counts"][j], h["n_cells"].sum()), (h["mass"][j], fp.neutral_mass(h))):
+            u = fp.plotted_curve(w, tot, EDGES, norm="unit_area")
+            assert abs(np.sum(u * np.diff(EDGES)) - 1.0) < 1e-12
+            f = fp.plotted_curve(w, tot, EDGES, norm="fraction")
+            assert abs(np.sum(f * np.diff(EDGES)) - w.sum() / tot) < 1e-12
+            np.testing.assert_allclose(u * (w.sum() / tot), f, rtol=1e-12)   # same shape
+    with pytest.raises(ValueError):
+        fp.plotted_curve(h["counts"][0], 1.0, EDGES, norm="bogus")
+
+
+def test_cached_plotted_curves_unit_area():
+    d, edges, slabs = _load()
+    for dd, h in slabs.items():
+        for p in fp.PANEL_PHASES:
+            j = fp.ALL_PHASES.index(p)
+            for w, tot in ((h["counts"][j], h["n_cells"].sum()), (h["mass"][j], fp.neutral_mass(h))):
+                u = fp.plotted_curve(w, tot, edges, norm="unit_area")
+                assert abs(np.sum(u * np.diff(edges)) - 1.0) < 1e-12
