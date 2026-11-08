@@ -1,0 +1,46 @@
+PROVISIONAL: f98 cube, n_H = 1653 A'; final cube pending
+P_th = 1.1 n_H k T (physical)
+Fig. 5: phase density distributions vs height
+========================================================================================================
+RAW, footprint |x|,|y| <= 500 pc, balanced midplane z_mid = -11.875 pc. Phases: cached dP/dn flag (CNM, UNM, WNM, HIM),
+as Figs. 6-7. Source: the per-4-pc-bin log10 n_H histograms in cache/turbulence_pdf/turbulence_pdf.npz
+(edges -4 .. 3 in 0.05 dex; under/overflow kept in the counts).
+Slabs: |z - z_c| <= 30 pc; d = 0 is z_c = z_mid, d = 100/200/300 the union of z_c = z_mid - d and z_mid + d.
+Each slab is an exact union of fifteen (d = 0) or thirty 4 pc bins (asserted).
+
+  f_V     volume (cell) fraction of the slab, HIM included in the total
+  f_m     fraction of the NEUTRAL (CNM+UNM+WNM) mass, mass = sum over histogram bins of
+          counts x 10^(bin centre): an approximation, each cell's n_H is taken at its
+          bin centre, i.e. good to +-0.025 dex (+-6%) per cell;
+          HIM is excluded (its density is not physical)
+  log n   median and p16-p84 of log10(n_H/cm^-3), volume weighted, nearest rank on
+          the binned distribution (src.physics.stats.weighted_stats on bin centres):
+          resolution 0.05 dex
+
+ d [pc]    N cells  f_V CNM     UNM     WNM     HIM     sum-1  f_m CNM     UNM     WNM
+      0    7530030   0.0194  0.1734  0.3539  0.4533   0.0e+00   0.2571  0.5268  0.2162
+    100   15060060   0.0091  0.0748  0.3271  0.5890   0.0e+00   0.2561  0.4361  0.3078
+    200   15060060   0.0018  0.0250  0.2500  0.7232   0.0e+00   0.1175  0.3665  0.5160
+    300   15060060   0.0002  0.0095  0.1499  0.8405   0.0e+00   0.0359  0.3004  0.6637
+
+log10 n_H [cm^-3]: median [p16, p84]
+ d [pc]                     CNM                     UNM                     WNM
+      0    0.825 [ 0.675,  1.075]    0.225 [-0.025,  0.475]   -0.475 [-0.775, -0.175]
+    100    0.825 [ 0.675,  1.075]    0.175 [-0.075,  0.425]   -0.675 [-0.925, -0.325]
+    200    0.725 [ 0.625,  0.925]    0.075 [-0.075,  0.325]   -0.825 [-1.025, -0.475]
+    300    0.825 [ 0.725,  1.025]    0.025 [-0.075,  0.275]   -0.875 [-1.075, -0.525]
+
+Cells per phase (curves need >= 100):
+ d [pc]        CNM        UNM        WNM        HIM
+      0     146005    1305749    2664609    3413667
+    100     136634    1126545    4925997    8870884
+    200      27460     376652    3764316   10891632
+    300       2823     142993    2256765   12657479
+
+Dropped curves: none
+
+CHECKS (the script raises if any fails)
+  every slab is a union of whole 4 pc bins; summed counts + under + over == cell counts;
+  d = 0 and d = 300 equal the cache's own slab histograms (slab__hist_log_n, z_mid + 0, +-300);
+  area under every drawn curve == the phase's f_V to 1e-12.
+  max |sum f_V - 1| over the slabs: 0.0e+00
