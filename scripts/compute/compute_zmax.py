@@ -51,6 +51,7 @@ from pathlib import Path
 
 import numpy as np
 import zarr
+from scipy.optimize import curve_fit
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
@@ -172,6 +173,75 @@ def balanced_P(z, nH):
     g, _, z_mid = caa.g_for_setting("mean", z, nH)
     P = hydrostatic.p_tot_kb_full_column(z, gravity.RHO_PER_N * nH, g, z_split=z_mid)
     return z_mid, P
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# ██  DOUBLE-COMPONENT FITS (step 5; cube only)
+# ═══════════════════════════════════════════════════════════════════════
+LN10 = np.log(10.0)
+DBL_Z_MAX_GRID_PC = np.arange(100.0, 750.0 + 1e-9, 10.0)
+DBL_H2_START_PC = 1000.0
+DBL_N2_START_U_PC = 600.0
+DBL_DH_MIN_PC = 1e-6                  # dh > 0 (h2 = h1 + dh)
+DBL_BOUNDS = ([lf.BOUNDS[0][0], lf.BOUNDS[0][1], lf.BOUNDS[0][0], DBL_DH_MIN_PC],
+              [lf.BOUNDS[1][0], lf.BOUNDS[1][1], lf.BOUNDS[1][0], lf.BOUNDS[1][1]])
+DBL_H2_REL_ERR_MAX = 0.5
+DBL_PARAMS = ("n1", "h1", "n2", "h2")
+
+
+def _ln_shape(model, x):
+    """ln of the unit-amplitude profile at x = u/h, finite at large x."""
+    if model == "exp":
+        return -x
+    if model == "gauss":
+        return -0.5 * x ** 2
+    return 2.0 * (np.log(2.0) - x - np.log1p(np.exp(-2.0 * x)))
+
+
+def log_double(model):
+    def f(u, n1, h1, n2, dh):
+        return np.logaddexp(np.log(n1) + _ln_shape(model, u / h1),
+                            np.log(n2) + _ln_shape(model, u / (h1 + dh))) / LN10
+    return f
+
+
+def fit_double(model, u, logn, err, n1_start, h1_start, n2_start):
+    """(params n1, h1, n2, h2; 1-sigma errors; chi2; status) -- as lf.fit_one,
+    with h2 = h1 + dh, dh > 0, and the errors from the covariance
+    (absolute_sigma; sigma_h2^2 = var h1 + var dh + 2 cov)."""
+    f = log_double(model)
+    lo, hi = DBL_BOUNDS
+    dh0 = max(DBL_H2_START_PC - h1_start, 10.0)
+    p0 = [float(np.clip(v, a * 10, b / 10)) for v, a, b in
+          zip((n1_start, h1_start, n2_start, dh0), lo, hi)]
+    nan4 = np.full(4, np.nan)
+    try:
+        p, cov = curve_fit(f, u, logn, p0=p0, sigma=err, absolute_sigma=True,
+                           bounds=DBL_BOUNDS, method="trf", max_nfev=20000)
+    except (RuntimeError, ValueError) as e:
+        return nan4, nan4, np.nan, f"FAILED: {e}"
+    chi2 = float(np.sum(((logn - f(u, *p)) / err) ** 2))
+    with np.errstate(invalid="ignore"):
+        e = np.sqrt(np.diag(cov))
+        e_h2 = np.sqrt(cov[1, 1] + cov[3, 3] + 2.0 * cov[1, 3])
+    par = np.array([p[0], p[1], p[2], p[1] + p[3]])
+    errs = np.array([e[0], e[1], e[2], e_h2])
+    status = "ok"
+    names = ("n1", "h1", "n2", "dh")
+    for name, val, a, b in zip(names, p, lo, hi):
+        if np.isclose(val, a, rtol=1e-6) or np.isclose(val, b, rtol=1e-6):
+            status = f"AT BOUND ({name} = {val:.4g})"
+    if par[3] > lf.BOUNDS[1][1] * (1 + 1e-6):
+        status = f"AT BOUND (h2 = {par[3]:.4g} > {lf.BOUNDS[1][1]:g})"
+    return par, errs, chi2, status
+
+
+def constrained_from(z_grid, ok):
+    """Smallest z_max from which every fit (to the last z_max) is constrained."""
+    if not ok[-1]:
+        return np.nan
+    bad = np.flatnonzero(~ok)
+    return float(z_grid[0] if bad.size == 0 else z_grid[bad[-1] + 1])
 
 
 def truncate(z, n, z_top, is_tail):
@@ -441,6 +511,53 @@ def main():
     c1_vs = {"P0p": A["P0p"][j1000] / P0c1[0] - 1, "P0m": A["P0m"][j1000] / P0c1[1] - 1,
              "alpha": A["alpha_area_vol_sun"][j1000] / a1 - 1}
 
+    # ============================================================ 5. double fits (cube only)
+    print("\n(5) double-component fits, cube only")
+    D, dbl_fail = {}, []
+    for side in lf.SIDES:
+        u, n_bin, sq_bin, hi_edge, npl = lf.bin_side(z, z_mid0, nH, sq_cube, side)
+        err, _, _ = lf.log_errors(sq_bin)
+        check(f"(5) {side}: cube-only bins vs layer_fit cache (max rel <n_H>)",
+              float(np.max(np.abs(n_bin / lfc[f"{side}_nH"] - 1))), 1e-15)
+        check(f"(5) {side}: cube-only bin errors vs layer_fit cache (max abs dex)",
+              float(np.max(np.abs(err - lfc[f"{side}_err_log"]))), 1e-15)
+        logn = np.log10(n_bin)
+        n2_start = float(np.interp(DBL_N2_START_U_PC, u, n_bin))
+        out[f"dbl_{side}_u"], out[f"dbl_{side}_nH"], out[f"dbl_{side}_err_log"] = u, n_bin, err
+        for model in lf.MODELS:
+            ng = DBL_Z_MAX_GRID_PC.size
+            c = {k: np.full(ng, np.nan) for k in
+                 ("n1", "h1", "n2", "h2", "e_n1", "e_h1", "e_n2", "e_h2", "chi2", "rchi2", "N_bins")}
+            c["converged"] = np.zeros(ng, bool)
+            c["at_bound"] = np.zeros(ng, bool)
+            h1_single = lfc[f"{side}_{model}_h"]
+            if not np.allclose(lfc["z_max_grid"], DBL_Z_MAX_GRID_PC):
+                raise RuntimeError("layer_fit z_max grid differs")
+            for i, zm in enumerate(DBL_Z_MAX_GRID_PC):
+                m = hi_edge <= zm + 1e-9
+                N = int(m.sum())
+                par, errs, chi2, status = fit_double(model, u[m], logn[m], err[m], n_bin[0],
+                                                     float(h1_single[i]), n2_start)
+                c["N_bins"][i] = N
+                if status != "ok":
+                    dbl_fail.append((side, model, zm, status))
+                if np.all(np.isfinite(par)):
+                    c["converged"][i] = True
+                    c["at_bound"][i] = status != "ok"
+                    for k, v in zip(DBL_PARAMS, par):
+                        c[k][i] = v
+                    for k, v in zip(DBL_PARAMS, errs):
+                        c[f"e_{k}"][i] = v
+                    c["chi2"][i], c["rchi2"][i] = chi2, chi2 / (N - 4)
+            with np.errstate(invalid="ignore"):
+                c["constrained"] = (c["converged"] & ~c["at_bound"] & np.isfinite(c["e_h2"])
+                                    & (c["e_h2"] / c["h2"] < DBL_H2_REL_ERR_MAX))
+            c["constrained_from"] = np.array([constrained_from(DBL_Z_MAX_GRID_PC, c["constrained"])])
+            D[(side, model)] = c
+            for k, v in c.items():
+                out[f"dbl_{side}_{model}_{k}"] = v
+    out["dbl_z_max_grid"] = DBL_Z_MAX_GRID_PC
+
     for k, v in A.items():
         out[f"zt_{k}"] = v
     out["z_top_grid"] = Z_TOP_GRID_PC
@@ -608,6 +725,61 @@ def main():
     for j, zt in enumerate(Z_TOP_GRID_PC):
         L.append(f"  {zt:>6.0f}{A['alpha_area_vol_sun'][j]:>11.4f}{A['alpha_cell_mean'][j]:>10.4f}"
                  f"{A['alpha_area_vol_mid'][j]:>11.4f}")
+    L += ["", "-" * W, "(5) DOUBLE-COMPONENT FITS (cube only, |z| <= 750 pc)", "-" * W,
+          "  Cube bins exactly as layer_fit (asserted above); centred on z_mid, fitted in log10 space with",
+          "  the 16-square error, curve_fit trf, per side, z_max = 100..750 pc in 10 pc steps:",
+          "    double exp    n1 exp(-u/h1) + n2 exp(-u/h2)",
+          "    double gauss  n1 exp(-u^2/2h1^2) + n2 exp(-u^2/2h2^2)",
+          "    double sech2  n1 sech^2(u/h1) + n2 sech^2(u/h2)",
+          f"  h2 = h1 + dh, dh in [{DBL_DH_MIN_PC:g}, {lf.BOUNDS[1][1]:g}] pc (so h1 < h2); n1, n2 in [{lf.BOUNDS[0][0]:g}, {lf.BOUNDS[1][0]:g}] cm^-3,",
+          f"  h1 in [{lf.BOUNDS[0][1]:g}, {lf.BOUNDS[1][1]:g}] pc; h2 > {lf.BOUNDS[1][1]:g} pc counts as at a bound. Start: n1 = first bin, h1 = the",
+          f"  single fit's h at the same z_max (layer_fit), h2 = {DBL_H2_START_PC:g} pc (dh = h2 - h1, >= 10), n2 = the",
+          f"  binned profile at u = {DBL_N2_START_U_PC:g} pc. Reduced chi2 = chi2 / (N_bins - 4). 1-sigma errors from the",
+          "  covariance (absolute sigma); sigma_h2^2 = var h1 + var dh + 2 cov(h1, dh).",
+          f"  CONSTRAINED: converged, no parameter at a bound, sigma_h2 / h2 < {DBL_H2_REL_ERR_MAX:g}.",
+          "  'constrained from' = the smallest z_max from which every fit up to 750 pc is constrained.",
+          "",
+          "  Fits failed or at a bound:"]
+    if dbl_fail:
+        for side in lf.SIDES:
+            for model in lf.MODELS:
+                zz = [zm for s_, m_, zm, _ in dbl_fail if s_ == side and m_ == model]
+                if zz:
+                    ex = next(st for s_, m_, zm, st in dbl_fail if s_ == side and m_ == model)
+                    L.append(f"    {side:5s} {model:5s} {len(zz):2d} of {DBL_Z_MAX_GRID_PC.size} "
+                             f"(z_max {min(zz):.0f}-{max(zz):.0f}); e.g. {ex[:70]}")
+    else:
+        L.append("    none -- every fit converged inside the bounds.")
+    L += ["", f"  {'side':5s} {'model':5s} {'constrained from':>16s} {'n constr.':>9s}"]
+    for side in lf.SIDES:
+        for model in lf.MODELS:
+            c = D[(side, model)]
+            cf = c["constrained_from"][0]
+            L.append(f"  {side:5s} {model:5s} {(f'{cf:.0f}' if np.isfinite(cf) else 'never'):>16s} "
+                     f"{int(c['constrained'].sum()):>5d}/{c['constrained'].size}")
+    L += ["", "  Full-range fits (z_max = 750 pc), single (layer_fit) and double:",
+          f"  {'side':5s} {'model':5s} {'single rchi2':>12s} {'n1':>16s} {'h1 [pc]':>16s} {'n2':>18s} "
+          f"{'h2 [pc]':>18s} {'rchi2':>7s} {'constr.':>7s}"]
+    for side in lf.SIDES:
+        for model in lf.MODELS:
+            c = D[(side, model)]
+            r1 = float(lfc[f"{side}_{model}_rchi2"][-1])
+            L.append(f"  {side:5s} {model:5s} {r1:12.2f} {c['n1'][-1]:8.4f}+-{c['e_n1'][-1]:<6.4f} "
+                     f"{c['h1'][-1]:8.1f}+-{c['e_h1'][-1]:<6.1f} {c['n2'][-1]:9.5f}+-{c['e_n2'][-1]:<7.5f} "
+                     f"{c['h2'][-1]:9.1f}+-{c['e_h2'][-1]:<7.1f} {c['rchi2'][-1]:7.3f} "
+                     f"{'yes' if c['constrained'][-1] else 'no':>7s}")
+    for side in lf.SIDES:
+        for model in lf.MODELS:
+            c = D[(side, model)]
+            L += ["", f"  FULL TABLE (double) -- {side} side, {model}",
+                  f"  {'z_max':>5s} {'N':>4s} {'n1':>9s} {'h1':>8s} {'n2':>9s} {'h2':>9s} {'e_h2/h2':>8s} "
+                  f"{'rchi2':>8s} {'status':>8s}"]
+            for i, zm in enumerate(DBL_Z_MAX_GRID_PC):
+                st = ("constr." if c["constrained"][i] else
+                      "bound" if c["at_bound"][i] else "failed" if not c["converged"][i] else "loose")
+                L.append(f"  {zm:5.0f} {int(c['N_bins'][i]):4d} {c['n1'][i]:9.4f} {c['h1'][i]:8.1f} "
+                         f"{c['n2'][i]:9.5f} {c['h2'][i]:9.1f} {c['e_h2'][i] / c['h2'][i]:8.3f} "
+                         f"{c['rchi2'][i]:8.3f} {st:>8s}")
     L += ["", f"runtime {time.time() - t0:.0f} s"]
     OUT_TXT_PATH.write_text("\n".join(L) + "\n", encoding="utf-8")
     print("\n".join(L[:200]))
