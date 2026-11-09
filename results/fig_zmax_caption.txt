@@ -17,12 +17,16 @@ exponential n0 exp(-u/h), Gaussian n0 exp(-u^2/2h^2), sech^2 n0 sech^2(u/h). Two
 free n1, h1, n2, h2: the sum of two profiles of the same shape, n1 f(u/h1) + n2 f(u/h2), with
 h2 = h1 + dh and dh > 0, so that h1 < h2. Bounds: n, n1, n2 in [1e-6, 1e3] cm^-3; h, h1 in
 [1, 1e5] pc; dh in [1e-6, 1e5] pc. Two-component start values: h1 from the single fit at the same
-fit range, h2 = 1000 pc, n2 = the binned profile at u = 600 pc, n1 = the first bin. The curves are
-the best fits over the full range, all bins with upper edge <= 750 pc (u <= 748 pc on the upper
-side; u <= 738 pc on the lower side, where the cube ends), drawn over the fitted bins; in (b) the
-two components are drawn dotted in the same colour.
+fit range, h2 = 1000 pc, n2 = the binned profile at u = 600 pc, n1 = the first bin. (a) The
+single-component fits use the fit range z_max = 400 pc (all bins with upper edge <= 400 pc,
+thin vertical lines at z_mid +- 400 pc): solid over the fitted bins, dashed where the same fit is
+extrapolated beyond them to the cube edge. (b) The two-component fits use the full range, all
+bins with upper edge <= 750 pc (u <= 748 pc on the upper side; u <= 738 pc on the lower side,
+where the cube ends), drawn over the fitted bins; the two components are drawn dotted in the same
+colour.
 (c), (d) Reduced chi^2 versus the fit range z_max (all bins with upper edge <= z_max),
-z_max = 100-750 pc in 10 pc steps; solid for the upper side, dashed for the lower side.
+z_max = 100-750 pc in 10 pc steps; solid for the upper side, dashed for the lower side. The thin
+vertical line in (c) marks z_max = 400 pc.
 Reduced chi^2 = chi^2/(N_bins - 2) for one component and chi^2/(N_bins - 4) for two. In (d) a
 two-component fit is drawn only where it is constrained: converged, no parameter at a bound, and
 a relative 1-sigma error on h2 below 50% (errors from the fit covariance;
@@ -32,16 +36,16 @@ Fig. 4) versus the integration height z_top: the density is set to zero at |z| >
 gas self-gravity, the balanced midplane and the weight W are recomputed from the truncated
 profile (stars and dark matter unchanged; P_th unchanged).
 
-Best fits over the full range (z_max = 750 pc); n in cm^-3, h in pc, 1-sigma errors:
-  single component
+Fit parameters shown in (a) and (b); n in cm^-3, h in pc.
+  single component, z_max = 400 pc (reduced chi^2 at z_max = 750 pc in brackets)
   model      side    n0       h       reduced chi^2
-  exp        upper   0.1404   406.5    4.86
-  exp        lower   0.1683   320.9   15.35
-  Gaussian   upper   0.0740   480.1    7.82
-  Gaussian   lower   0.0730   429.6   25.50
-  sech^2     upper   0.0831   581.0    7.20
-  sech^2     lower   0.0915   490.1   22.66
-  two components
+  exp        upper   0.5452   139.5    1.03  (4.86)
+  exp        lower   0.7461   125.3    0.29  (15.35)
+  Gaussian   upper   0.2545   189.5    2.88  (7.82)
+  Gaussian   lower   0.3945   168.7    0.99  (25.50)
+  sech^2     upper   0.3136   214.0    2.13  (7.20)
+  sech^2     lower   0.4583   190.6    0.53  (22.66)
+  two components, z_max = 750 pc, 1-sigma errors
   model      side    n1               h1            n2                  h2                reduced chi^2
   exp        upper   0.995 +- 0.096    72.3 +- 3.8   0.0495 +- 0.0039    1222 +- 178        0.258
   exp        lower   0.968 +- 0.050    89.3 +- 2.8   0.0225 +- 0.0023    at bound (1.0e5)   1.043

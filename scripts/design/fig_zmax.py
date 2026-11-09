@@ -9,11 +9,14 @@ Reads (design only, nothing recomputed):
   cache/zmax/zmax.npz            -- the double fits (dbl_* keys) and the
       headline <alpha_cell> vs z_top (used for z_top <= 750 pc only).
 Layout, two columns x three rows, row 3 spanning both:
-  (a) single component: data line + 16-square band, z_mid; full-range best
-      fits (z_max = 750 pc) of exp / Gaussian / sech2, solid.
+  (a) single component: data line + 16-square band, z_mid; layer_fit's fits
+      of exp / Gaussian / sech2 at z_max = SINGLE_ZMAX, solid over the fitted
+      bins, dashed beyond to the cube edge if SINGLE_EXTRAPOLATE; thin lines
+      at z_mid +- SINGLE_ZMAX.
   (b) two components: same data; full-range best double fits, solid, with
       the two components thin and dotted in the same colour.
-  (c) single: reduced chi2 vs z_max, log y, solid upper / dashed lower.
+  (c) single: reduced chi2 vs z_max, log y, solid upper / dashed lower;
+      thin line at SINGLE_ZMAX.
   (d) double: the same, drawn only where the fit is "constrained".
   (e) <alpha_cell> vs z_top = 300..750 pc; labels at 400 and 750 pc.
 (a)/(b) and (c)/(d) share their y axes.
@@ -45,6 +48,8 @@ from src.plotting.style import (  # noqa: E402
 LAYER_FIT_CACHE = Path("cache/layer_fit/layer_fit.npz")
 ZMAX_CACHE = Path("cache/zmax/zmax.npz")
 NAME = "fig_zmax"
+SINGLE_ZMAX = 400.0                   # pc: the single fits shown in (a)
+SINGLE_EXTRAPOLATE = True             # dashed continuation beyond SINGLE_ZMAX
 FIG_W, FIG_H = 7.0, 7.0
 CUBE_EDGE_PC = 750.0
 Z_RANGE = (-CUBE_EDGE_PC, CUBE_EDGE_PC)
@@ -61,6 +66,8 @@ BAND_KW = dict(color="0.6", alpha=0.35, lw=0)
 FIT_LW = 1.0
 COMP_KW = dict(lw=0.6, ls=(0, (1.0, 1.4)))
 ZMID_KW = dict(color="0.45", lw=0.7, ls=":", zorder=1)
+ZMAX_LINE_KW = dict(color="0.45", lw=0.5, ls="-", zorder=1)
+EXTRAP_LS = (0, (3.0, 1.6))
 ALPHA_LW = 1.6
 ALPHA_MARKS_PC = (400.0, 750.0)
 TEXT_FS = 6.5
@@ -118,18 +125,33 @@ def main():
     ax_e = fig.add_subplot(gs[2, :])
 
     # ------------------------------------------------------------- (a) single
+    i_s = int(np.argmin(np.abs(zg - SINGLE_ZMAX)))
+    if not np.isclose(zg[i_s], SINGLE_ZMAX):
+        raise RuntimeError(f"SINGLE_ZMAX = {SINGLE_ZMAX} is not on layer_fit's z_max grid")
     draw_profile(ax_a, d, z_mid)
+    for s in (-1.0, 1.0):
+        ax_a.axvline(z_mid + s * SINGLE_ZMAX, ymax=0.6, **ZMAX_LINE_KW)   # stops below the legend
     for side in ("upper", "lower"):
-        s, uu = SIGN[side], fit_u(d, side, zg[-1])
+        s, uu = SIGN[side], fit_u(d, side, SINGLE_ZMAX)
+        u_edge = abs((Z_RANGE[1] if s > 0 else Z_RANGE[0]) - z_mid)
         for m in models:
-            n0, h = d[f"{side}_{m}_n0"][-1], d[f"{side}_{m}_h"][-1]
+            n0, h = d[f"{side}_{m}_n0"][i_s], d[f"{side}_{m}_h"][i_s]
             ax_a.plot(z_mid + s * uu, n0 * shape(m, uu / h), color=MODEL_COLORS[m], lw=FIT_LW, zorder=4)
+            if SINGLE_EXTRAPOLATE:
+                ue = np.linspace(uu[-1], u_edge, 300)
+                ax_a.plot(z_mid + s * ue, n0 * shape(m, ue / h), color=MODEL_COLORS[m], lw=FIT_LW,
+                          ls=EXTRAP_LS, zorder=4)
     ax_a.set_ylabel(r"$\langle n_{\rm H}\rangle_{\rm area}$ [cm$^{-3}$]")
     ax_a.set_title("single component", fontsize=TITLE_FS, pad=4)
     panel_label(ax_a, "a", loc="upper left")
+    style_h = [Line2D([], [], color="0.3", lw=FIT_LW)]
+    style_l = ["fitted range"]
+    if SINGLE_EXTRAPOLATE:
+        style_h.append(Line2D([], [], color="0.3", lw=FIT_LW, ls=EXTRAP_LS))
+        style_l.append("extrapolated")
     ax_a.legend([Line2D([], [], **DATA_KW), plt.Rectangle((0, 0), 1, 1, **BAND_KW)]
-                + [Line2D([], [], color=MODEL_COLORS[m], lw=FIT_LW) for m in models],
-                ["data (4 pc bins)", "16-square error"] + [MODEL_LABELS[m] for m in models],
+                + [Line2D([], [], color=MODEL_COLORS[m], lw=FIT_LW) for m in models] + style_h,
+                ["data (4 pc bins)", "16-square error"] + [MODEL_LABELS[m] for m in models] + style_l,
                 loc="upper right", frameon=False, fontsize=TEXT_FS - 0.5, handlelength=1.5,
                 borderaxespad=0.2, labelspacing=0.3)
 
@@ -163,6 +185,7 @@ def main():
         ax.set_xlim(*ZMAX_RANGE)
         ax.set_yscale("log")
         ax.set_xlabel(r"fit range $z_{\max}$ = max $|z - z_{\rm mid}|$  [pc]", labelpad=1)
+    ax_c.axvline(SINGLE_ZMAX, **ZMAX_LINE_KW)
     ax_d.tick_params(labelleft=False)
     ax_c.set_ylabel(r"reduced $\chi^2$")
     panel_label(ax_c, "c", loc="upper left")
