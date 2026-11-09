@@ -1,35 +1,58 @@
 DRAFT caption for the z_max figure (figures/fig_zmax.{png,pdf}) -- PROVISIONAL: f98 cube, n_H = 1653 A'; final cube pending.
-Numbers from cache/layer_fit/layer_fit.npz (results/layer_fit.txt) for (a) and (b), and from
-cache/zmax/zmax.npz (results/zmax.txt, z_top <= 750 pc) for (c). Cube only, |z| <= 750 pc.
+Numbers from cache/layer_fit/layer_fit.npz (results/layer_fit.txt: profile, single fits) and
+cache/zmax/zmax.npz (results/zmax.txt section 5: double fits; section 4: alpha, z_top <= 750 pc).
+Cube only, |z| <= 750 pc.
 
-Figure. The footprint-mean gas density, the quality of single-layer fits and the midplane alpha
-as functions of height, within the cube (|z| <= 750 pc). RAW density, all footprint cells
-(HIM-flagged included), |x|, |y| <= 500 pc, balanced midplane z_mid = -11.9 pc (dotted line).
-(a) <n_H>_area in 4 pc bins of u = |z - z_mid|, upper (z > z_mid) and lower (z < z_mid) sides
-separately, plotted at signed z. The band is the error of log10 <n_H>_area: the standard
+Figure. Single- and two-component layer fits to the footprint-mean gas density, their fit
+quality versus fit range, and the midplane alpha versus integration height, within the cube
+(|z| <= 750 pc). RAW density, all footprint cells (HIM-flagged included), |x|, |y| <= 500 pc,
+balanced midplane z_mid = -11.9 pc (dotted line). Left column: single component; right column:
+two components.
+(a), (b) <n_H>_area in 4 pc bins of u = |z - z_mid|, upper (z > z_mid) and lower (z < z_mid)
+sides separately, plotted at signed z. The band is the error of log10 <n_H>_area: the standard
 deviation of log10 <n_H> over the 16 disjoint 250 x 250 pc squares of the footprint divided by
-sqrt(16). Coloured curves: exponential n0 exp(-u/h), Gaussian n0 exp(-u^2/2h^2) and sech^2
-n0 sech^2(u/h) layers centred on z_mid, with free n0 and h, fitted to the binned log10 density of
-each side by least squares with these errors. Each curve is the best fit over the full range,
-all bins with upper edge <= 750 pc (u <= 748 pc on the upper side; u <= 738 pc on the lower side,
-where the cube ends), drawn over the fitted bins. (b) Reduced chi^2 = chi^2/(N_bins - 2) of the
-same fits versus the fit range z_max (all bins with upper edge <= z_max), z_max = 100-750 pc;
-solid for the upper side, dashed for the lower side. (c) The headline midplane
-<alpha_cell> = <W> <1/P_th> over the slab |z - z_mid| <= 30 pc (as in Fig. 4) versus the
-integration height z_top: the density is set to zero at |z| > z_top, and the gas self-gravity,
-the balanced midplane and the weight W are recomputed from the truncated profile (stars and dark
-matter unchanged; P_th unchanged).
+sqrt(16). All profiles are centred on z_mid and fitted to the binned log10 density of each side
+by least squares with these errors (scipy curve_fit, trf). Single component, free n0 and h:
+exponential n0 exp(-u/h), Gaussian n0 exp(-u^2/2h^2), sech^2 n0 sech^2(u/h). Two components,
+free n1, h1, n2, h2: the sum of two profiles of the same shape, n1 f(u/h1) + n2 f(u/h2), with
+h2 = h1 + dh and dh > 0, so that h1 < h2. Bounds: n, n1, n2 in [1e-6, 1e3] cm^-3; h, h1 in
+[1, 1e5] pc; dh in [1e-6, 1e5] pc. Two-component start values: h1 from the single fit at the same
+fit range, h2 = 1000 pc, n2 = the binned profile at u = 600 pc, n1 = the first bin. The curves are
+the best fits over the full range, all bins with upper edge <= 750 pc (u <= 748 pc on the upper
+side; u <= 738 pc on the lower side, where the cube ends), drawn over the fitted bins; in (b) the
+two components are drawn dotted in the same colour.
+(c), (d) Reduced chi^2 versus the fit range z_max (all bins with upper edge <= z_max),
+z_max = 100-750 pc in 10 pc steps; solid for the upper side, dashed for the lower side.
+Reduced chi^2 = chi^2/(N_bins - 2) for one component and chi^2/(N_bins - 4) for two. In (d) a
+two-component fit is drawn only where it is constrained: converged, no parameter at a bound, and
+a relative 1-sigma error on h2 below 50% (errors from the fit covariance;
+sigma_h2^2 = var h1 + var dh + 2 cov(h1, dh)).
+(e) The headline midplane <alpha_cell> = <W> <1/P_th> over the slab |z - z_mid| <= 30 pc (as in
+Fig. 4) versus the integration height z_top: the density is set to zero at |z| > z_top, and the
+gas self-gravity, the balanced midplane and the weight W are recomputed from the truncated
+profile (stars and dark matter unchanged; P_th unchanged).
 
-Best fits over the full range (a):
-  model      side    n0 [cm^-3]   h [pc]   reduced chi^2
-  exp        upper     0.1404      406.5       4.86
-  exp        lower     0.1683      320.9      15.35
-  Gaussian   upper     0.0740      480.1       7.82
-  Gaussian   lower     0.0730      429.6      25.50
-  sech^2     upper     0.0831      581.0       7.20
-  sech^2     lower     0.0915      490.1      22.66
-All fits for every z_max converged inside the parameter bounds (n0 in [1e-6, 1e3] cm^-3,
-h in [1, 1e5] pc).
+Best fits over the full range (z_max = 750 pc); n in cm^-3, h in pc, 1-sigma errors:
+  single component
+  model      side    n0       h       reduced chi^2
+  exp        upper   0.1404   406.5    4.86
+  exp        lower   0.1683   320.9   15.35
+  Gaussian   upper   0.0740   480.1    7.82
+  Gaussian   lower   0.0730   429.6   25.50
+  sech^2     upper   0.0831   581.0    7.20
+  sech^2     lower   0.0915   490.1   22.66
+  two components
+  model      side    n1               h1            n2                  h2                reduced chi^2
+  exp        upper   0.995 +- 0.096    72.3 +- 3.8   0.0495 +- 0.0039    1222 +- 178        0.258
+  exp        lower   0.968 +- 0.050    89.3 +- 2.8   0.0225 +- 0.0023    at bound (1.0e5)   1.043
+  Gaussian   upper   0.453 +- 0.033   104.3 +- 2.9   0.0450 +- 0.0013     711 +- 26         0.547
+  Gaussian   lower   0.444 +- 0.017   134.4 +- 2.1   0.0265 +- 0.0008    1295 +- 153        0.507
+  sech^2     upper   0.584 +- 0.048   113.4 +- 4.1   0.0431 +- 0.0015    1021 +- 53         0.337
+  sech^2     lower   0.536 +- 0.023   147.5 +- 3.0   0.0228 +- 0.0009    at bound (1.0e5)   0.672
+All single-component fits converged inside the bounds. The lower-side two-component exp and
+sech^2 fits at z_max = 750 pc have dh at its upper bound (h2 = h1 + 1e5 pc) and are not
+constrained. Smallest z_max from which every two-component fit up to 750 pc is constrained,
+upper / lower side: exp 680 / none, Gaussian 280 / 670, sech^2 290 / none.
 
 <alpha_cell> = 1.96 at z_top = 300 pc, 2.31 at 400 pc, 2.56 at 500 pc, 2.84 at 600 pc and 3.25 at
 750 pc (the current fiducial).
