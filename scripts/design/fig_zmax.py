@@ -1,21 +1,20 @@
 """
-fig_zmax -- the density profile, the fit-range chi2 and alpha vs the
-integration height, all to the map's extent (|z| <= 1000 pc).
+fig_zmax -- the density profile with full-range layer fits, the fit-range
+chi2 and alpha vs the integration height, restricted to the cube
+(|z| <= 750 pc). No map query anywhere.
 
-Reads ONLY cache/zmax/zmax.npz (scripts/compute/compute_zmax.py).
+Reads (design only, nothing recomputed):
+  cache/layer_fit/layer_fit.npz  (scripts/validation/layer_fit.py) -- the cube
+      profile in 4 pc bins of |z - z_mid|, its 16-square error, and the fits
+      for z_max = 100..750 pc;
+  cache/zmax/zmax.npz            (scripts/compute/compute_zmax.py) -- the
+      headline <alpha_cell> vs z_top, used only for z_top <= 750 pc (cube only).
 Three stacked panels:
-  (a) <n_H>_area in 4 pc bins of |z - z_mid| on each side, at signed z:
-      the cube (line, 16-square band) and the map query beyond the cube
-      edge (markers, same error as bars). The exp / Gaussian / sech2 fits at
-      each model's knee on each side, solid inside the knee, dashed beyond.
-      Light shading |z - z_mid| <= 400 pc (the analysis box), thin lines at
-      z = +-750 pc (cube edge), dotted z_mid.
-  (b) reduced chi2 vs fit range z_max, log y: solid = upper, dashed = lower;
-      knees as small markers; vertical line at 750 pc.
-  (c) the headline <alpha_cell> vs z_top: solid while only the cube enters
-      (z_top <= 750), dashed where the query enters; labelled markers at
-      400, 750 and 1000 pc; the knee range of (b) as a light band.
-(b) and (c) share the x axis so the knee band lines up with (b).
+  (a) <n_H>_area at signed z, line + 16-square band, z_mid marked; for each
+      model and side ONE solid curve: the best fit over the full range
+      (layer_fit's fit at the last z_max, 750 pc), drawn over the fitted bins.
+  (b) reduced chi2 vs z_max = 100..750 pc, log y: solid = upper, dashed = lower.
+  (c) <alpha_cell> vs z_top = 300..750 pc, labels at 400 and 750 pc.
 """
 
 import sys
@@ -41,30 +40,26 @@ from src.plotting.style import (  # noqa: E402
 # ═══════════════════════════════════════════════════════════════════════
 # ██  CONTROL BLOCK
 # ═══════════════════════════════════════════════════════════════════════
-CACHE = Path("cache/zmax/zmax.npz")
+LAYER_FIT_CACHE = Path("cache/layer_fit/layer_fit.npz")
+ZMAX_CACHE = Path("cache/zmax/zmax.npz")
 NAME = "fig_zmax"
 FIG_W, FIG_H = 5.0, 6.8
-Z_RANGE = (-1020.0, 1020.0)
-Z_TICKS = (-1000, -750, -500, -250, 0, 250, 500, 750, 1000)
-X_RANGE_BC = (100.0, 1000.0)
-N_YLIM = (5e-3, 3.0)
-BOX_HALF_PC = 400.0
 CUBE_EDGE_PC = 750.0
+Z_RANGE = (-CUBE_EDGE_PC, CUBE_EDGE_PC)
+Z_TICKS = (-750, -500, -250, 0, 250, 500, 750)
+ZMAX_RANGE = (100.0, 750.0)
+ZTOP_RANGE = (300.0, 750.0)
+N_YLIM = (5e-3, 3.0)
 MODEL_COLORS = {"exp": "#0072B2", "gauss": "#D55E00", "sech2": "#009E73"}   # as fig_layer_fit
 MODEL_LABELS = {"exp": "exp", "gauss": "Gaussian", "sech2": r"sech$^2$"}
 SIDE_LS = {"upper": "-", "lower": (0, (4.0, 2.0))}
 SIGN = {"upper": 1.0, "lower": -1.0}
-BEYOND_LS = (0, (3.0, 1.6))
 DATA_KW = dict(color="0.15", lw=1.0)
 BAND_KW = dict(color="0.6", alpha=0.35, lw=0)
-QUERY_KW = dict(marker="o", ms=1.8, mfc="none", mec="0.15", mew=0.5, ls="none")
-QUERY_ERR_KW = dict(ecolor="0.55", elinewidth=0.4, capsize=0)
-BOX_KW = dict(color="0.93", lw=0, zorder=0)
-EDGE_KW = dict(color="0.35", lw=0.5, ls="-", zorder=1)
+FIT_LW = 1.0
 ZMID_KW = dict(color="0.45", lw=0.7, ls=":", zorder=1)
-KNEE_BAND_KW = dict(color="0.90", lw=0, zorder=0)
 ALPHA_LW = 1.6
-ALPHA_MARKS_PC = (400.0, 750.0, 1000.0)
+ALPHA_MARKS_PC = (400.0, 750.0)
 TEXT_FS = 6.5
 
 
@@ -78,40 +73,31 @@ def model_density(model, u, n0, h):
 
 def main():
     apply_paper_style()
-    d = np.load(CACHE, allow_pickle=False)
+    d = np.load(LAYER_FIT_CACHE, allow_pickle=False)
+    zc = np.load(ZMAX_CACHE, allow_pickle=False)
     z_mid = float(d["z_mid"][0])
     models = [str(m) for m in d["models"]]
     zg = d["z_max_grid"]
+    if not np.isclose(zg[-1], CUBE_EDGE_PC):
+        raise RuntimeError("layer_fit's last z_max is not 750 pc")
 
     fig, (ax_a, ax_b, ax_c) = plt.subplots(
         3, 1, figsize=(FIG_W, FIG_H), gridspec_kw=dict(height_ratios=(1.35, 1.0, 0.9)))
-    ax_b.sharex(ax_c)
 
     # ------------------------------------------------------------------ (a)
-    ax_a.axvspan(z_mid - BOX_HALF_PC, z_mid + BOX_HALF_PC, **BOX_KW)
-    for s in (-1.0, 1.0):
-        ax_a.axvline(s * CUBE_EDGE_PC, **EDGE_KW)
     ax_a.axvline(z_mid, **ZMID_KW)
     for side in ("upper", "lower"):
         s = SIGN[side]
-        u, n, e, q = (d[f"{side}_u"], d[f"{side}_nH"], d[f"{side}_err_log"], d[f"{side}_is_query"])
+        u, n, e, hi = d[f"{side}_u"], d[f"{side}_nH"], d[f"{side}_err_log"], d[f"{side}_bin_hi"]
         zs = z_mid + s * u
-        c = ~q
-        ax_a.fill_between(zs[c], n[c] * 10 ** (-e[c]), n[c] * 10 ** e[c], **BAND_KW, zorder=2)
-        ax_a.plot(zs[c], n[c], **DATA_KW, zorder=3)
-        ax_a.errorbar(zs[q], n[q], yerr=[n[q] * (1 - 10 ** (-e[q])), n[q] * (10 ** e[q] - 1)],
-                      **QUERY_KW, **QUERY_ERR_KW, zorder=3)
-        u_end = abs((Z_RANGE[1] if s > 0 else Z_RANGE[0]) - z_mid)
+        ax_a.fill_between(zs, n * 10 ** (-e), n * 10 ** e, **BAND_KW, zorder=2)
+        ax_a.plot(zs, n, **DATA_KW, zorder=3)
+        u_fit = float(u[hi <= zg[-1] + 1e-9].max())        # last bin entering the fit
+        uu = np.linspace(0.0, u_fit, 500)
         for m in models:
-            zk = float(d[f"{side}_{m}_knee"][0])
-            if not np.isfinite(zk):
-                continue
-            i = int(np.argmin(np.abs(zg - zk)))
-            n0, h = d[f"{side}_{m}_n0"][i], d[f"{side}_{m}_h"][i]
-            for lo, hi, ls in ((0.0, zk, "-"), (zk, u_end, BEYOND_LS)):
-                uu = np.linspace(lo, hi, 400)
-                ax_a.plot(z_mid + s * uu, model_density(m, uu, n0, h), color=MODEL_COLORS[m],
-                          lw=0.9, ls=ls, zorder=4)
+            n0, h = d[f"{side}_{m}_n0"][-1], d[f"{side}_{m}_h"][-1]
+            ax_a.plot(z_mid + s * uu, model_density(m, uu, n0, h), color=MODEL_COLORS[m],
+                      lw=FIT_LW, zorder=4)
     ax_a.set_yscale("log")
     ax_a.set_ylim(*N_YLIM)
     ax_a.set_xlim(*Z_RANGE)
@@ -119,75 +105,51 @@ def main():
     ax_a.set_xlabel(r"$z$  [pc]", labelpad=1)
     ax_a.set_ylabel(r"$\langle n_{\rm H}\rangle_{\rm area}$ [cm$^{-3}$]")
     panel_label(ax_a, "a", loc="upper left")
-    ax_a.text(z_mid + 8, 1.6e-2, r"$z_{\rm mid}$", fontsize=TEXT_FS, color="0.35",
+    ax_a.text(z_mid + 8, N_YLIM[0] * 1.25, r"$z_{\rm mid}$", fontsize=TEXT_FS, color="0.35",
               ha="left", va="bottom")
-    ax_a.text(CUBE_EDGE_PC - 8, N_YLIM[0] * 1.25, "cube edge", fontsize=TEXT_FS - 0.5, color="0.35",
-              ha="right", va="bottom")
-    leg = ax_a.legend([Line2D([], [], **DATA_KW), plt.Rectangle((0, 0), 1, 1, **BAND_KW),
-                       Line2D([], [], **QUERY_KW)],
-                      ["cube (4 pc bins)", "16-square error", "map query"],
-                      loc="upper left", bbox_to_anchor=(0.0, 0.88), frameon=False,
-                      fontsize=TEXT_FS, handlelength=1.6, borderaxespad=0.3)
-    ax_a.add_artist(leg)
-    ax_a.legend([Line2D([], [], color=MODEL_COLORS[m], lw=0.9) for m in models]
-                + [Line2D([], [], color="0.3", lw=0.9, ls=BEYOND_LS)],
-                [f"{MODEL_LABELS[m]} at its knee" for m in models] + ["beyond the knee"],
+    ax_a.legend([Line2D([], [], **DATA_KW), plt.Rectangle((0, 0), 1, 1, **BAND_KW)]
+                + [Line2D([], [], color=MODEL_COLORS[m], lw=FIT_LW) for m in models],
+                ["data (4 pc bins)", "16-square error"]
+                + [f"{MODEL_LABELS[m]} best fit" for m in models],
                 loc="upper right", bbox_to_anchor=(1.0, 0.95), frameon=False,
                 fontsize=TEXT_FS, handlelength=1.6, borderaxespad=0.3)
 
     # ------------------------------------------------------------------ (b)
     for side in ("upper", "lower"):
         for m in models:
-            r = d[f"{side}_{m}_rchi2"]
-            ax_b.plot(zg, r, color=MODEL_COLORS[m], ls=SIDE_LS[side], lw=1.0, zorder=3)
-            zk = float(d[f"{side}_{m}_knee"][0])
-            if np.isfinite(zk):
-                i = int(np.argmin(np.abs(zg - zk)))
-                ax_b.plot(zg[i], r[i], marker="o" if side == "upper" else "s", ms=3.8,
-                          mfc=MODEL_COLORS[m], mec="white", mew=0.4, ls="none", zorder=4)
-    ax_b.axvline(CUBE_EDGE_PC, **EDGE_KW)
+            ax_b.plot(zg, d[f"{side}_{m}_rchi2"], color=MODEL_COLORS[m], ls=SIDE_LS[side], lw=1.0)
+    ax_b.set_xlim(*ZMAX_RANGE)
     ax_b.set_yscale("log")
     ax_b.set_ylabel(r"reduced $\chi^2$")
     ax_b.set_xlabel(r"fit range $z_{\max}$ = max $|z - z_{\rm mid}|$  [pc]", labelpad=1)
-    ax_b.tick_params(labelbottom=True)
     panel_label(ax_b, "b", loc="upper left")
     ax_b.legend([Line2D([], [], color=MODEL_COLORS[m], lw=1.0) for m in models]
-                + [Line2D([], [], color="0.3", ls=SIDE_LS[s], lw=1.0) for s in ("upper", "lower")]
-                + [Line2D([], [], marker="o", ms=3.0, mfc="0.3", mec="white", ls="none")],
-                [MODEL_LABELS[m] for m in models] + ["upper", "lower", "knee"],
+                + [Line2D([], [], color="0.3", ls=SIDE_LS[s], lw=1.0) for s in ("upper", "lower")],
+                [MODEL_LABELS[m] for m in models] + ["upper", "lower"],
                 loc="lower right", ncol=2, frameon=False, fontsize=TEXT_FS, handlelength=2.0,
                 columnspacing=1.0, borderaxespad=0.3)
 
     # ------------------------------------------------------------------ (c)
-    zt, a = d["z_top_grid"], d["zt_alpha_cell_mean"]
-    k_lo, k_hi = (float(v) for v in d["knee_range"])
-    ax_c.axvspan(k_lo, k_hi, **KNEE_BAND_KW)
-    ax_c.text(0.5 * (k_lo + k_hi), 0.05, "knee range\nof (b)", transform=ax_c.get_xaxis_transform(),
-              ha="center", va="bottom", fontsize=TEXT_FS - 0.5, color="0.4", linespacing=0.9)
-    cube = zt <= CUBE_EDGE_PC + 1e-9
-    qry = zt >= CUBE_EDGE_PC - 1e-9
-    ax_c.plot(zt[cube], a[cube], color=COLOR_ALPHA, lw=ALPHA_LW, zorder=3)
-    ax_c.plot(zt[qry], a[qry], color=COLOR_ALPHA, lw=ALPHA_LW, ls=BEYOND_LS, zorder=3)
-    ax_c.axvline(CUBE_EDGE_PC, **EDGE_KW)
+    zt_all = zc["z_top_grid"]
+    cube = (zt_all >= ZTOP_RANGE[0] - 1e-9) & (zt_all <= ZTOP_RANGE[1] + 1e-9)
+    zt, a = zt_all[cube], zc["zt_alpha_cell_mean"][cube]
+    ax_c.plot(zt, a, color=COLOR_ALPHA, lw=ALPHA_LW, zorder=3)
     for zz in ALPHA_MARKS_PC:
         j = int(np.argmin(np.abs(zt - zz)))
         ax_c.plot(zt[j], a[j], marker="o", ms=3.6, mfc=COLOR_ALPHA, mec="white", mew=0.5,
                   ls="none", zorder=4)
-        lab = f"{a[j]:.2f}" + ("\n(fiducial)" if zz == CUBE_EDGE_PC else "")
-        right = zz == 1000.0
-        ax_c.annotate(lab, (zt[j], a[j]), xytext=(-3 if right else 4, -5), textcoords="offset points",
-                      ha="right" if right else "left", va="top", fontsize=TEXT_FS, color="0.15", linespacing=0.9)
-    ax_c.set_xlim(*X_RANGE_BC)
-    lo, hi = np.nanmin(a), np.nanmax(a)
-    ax_c.set_ylim(lo - 0.45 * (hi - lo), hi + 0.12 * (hi - lo))
+        edge = zz == ZTOP_RANGE[1]
+        lab = f"{a[j]:.2f}" + ("\n(fiducial)" if edge else "")
+        ax_c.annotate(lab, (zt[j], a[j]), xytext=(-5 if edge else 4, -9 if edge else -5), textcoords="offset points",
+                      ha="right" if edge else "left", va="top", fontsize=TEXT_FS, color="0.15",
+                      linespacing=0.9)
+    ax_c.set_xlim(*ZTOP_RANGE)
+    lo, hi = float(a.min()), float(a.max())
+    ax_c.set_ylim(lo - 0.15 * (hi - lo), hi + 0.12 * (hi - lo))
     ax_c.set_ylabel(r"midplane $\langle\alpha_{\rm cell}\rangle$")
     ax_c.set_xlabel(r"integration height $z_{\rm top}$ ($\rho = 0$ at $|z| > z_{\rm top}$)  [pc]",
                     labelpad=1)
     panel_label(ax_c, "c", loc="upper left")
-    ax_c.legend([Line2D([], [], color=COLOR_ALPHA, lw=ALPHA_LW),
-                 Line2D([], [], color=COLOR_ALPHA, lw=ALPHA_LW, ls=BEYOND_LS)],
-                ["cube only", "cube + map query"], loc="lower right", frameon=False,
-                fontsize=TEXT_FS, handlelength=2.2, borderaxespad=0.3)
 
     fig.align_ylabels((ax_a, ax_b, ax_c))
     provisional_label(fig, loc="upper right")

@@ -1,40 +1,35 @@
 DRAFT caption for the z_max figure (figures/fig_zmax.{png,pdf}) -- PROVISIONAL: f98 cube, n_H = 1653 A'; final cube pending.
-Numbers from cache/zmax/zmax.npz (results/zmax.txt; scripts/compute/compute_zmax.py).
+Numbers from cache/layer_fit/layer_fit.npz (results/layer_fit.txt) for (a) and (b), and from
+cache/zmax/zmax.npz (results/zmax.txt, z_top <= 750 pc) for (c). Cube only, |z| <= 750 pc.
 
 Figure. The footprint-mean gas density, the quality of single-layer fits and the midplane alpha
-as functions of height, to |z| = 1000 pc, the largest height at which the Edenhofer+23 map
-('main' flavour, distance range 68.6-1248.1 pc) covers the full 1 kpc x 1 kpc footprint (it does
-so up to |z| = 1028 pc). RAW density, all footprint cells (HIM-flagged included), balanced
-midplane z_mid = -11.9 pc (dotted line). (a) <n_H>_area in 4 pc bins of u = |z - z_mid| on each
-side, plotted at signed z: the cube for |z| <= 750 pc (line) and a direct query of the map beyond
-it (markers; 2 pc x,y grid over the footprint, 4 pc z steps, n_H = 1653 A'). The band and the
-error bars are the error of log10 <n_H>_area: the standard deviation of log10 <n_H> over the 16
-disjoint 250 x 250 pc squares of the footprint divided by sqrt(16). Coloured curves: exponential,
-Gaussian and sech^2 layers centred on z_mid, free amplitude and scale height, fitted to the binned
-log10 density of each side separately, shown for the fit range at that model's knee (solid within
-it, dashed beyond). Light shading: |z - z_mid| <= 400 pc (the analysis box); thin vertical lines:
-the cube edges, z = +-750 pc. (b) Reduced chi^2 = chi^2/(N_bins - 2) of the three fits versus the
-fit range z_max (all bins with upper edge <= z_max), solid for the upper side (z > z_mid), dashed
-for the lower side; markers at the knees, defined as the first z_max at or beyond the minimum of
-reduced chi^2 over z_max <= 400 pc where reduced chi^2 exceeds twice that minimum. The vertical
-line marks 750 pc. (c) The headline midplane <alpha_cell> = <W> <1/P_th> over the slab
-|z - z_mid| <= 30 pc (as in Fig. 4) versus the integration height z_top: the density is set to
-zero at |z| > z_top, and the gas self-gravity, the balanced midplane and the weight W are
-recomputed from the truncated profile (stars and dark matter unchanged; P_th unchanged). Solid:
-z_top <= 750 pc (cube only); dashed: z_top > 750 pc (cube plus map query). The shaded band is the
-range of the knees in (b), 130-260 pc.
+as functions of height, within the cube (|z| <= 750 pc). RAW density, all footprint cells
+(HIM-flagged included), |x|, |y| <= 500 pc, balanced midplane z_mid = -11.9 pc (dotted line).
+(a) <n_H>_area in 4 pc bins of u = |z - z_mid|, upper (z > z_mid) and lower (z < z_mid) sides
+separately, plotted at signed z. The band is the error of log10 <n_H>_area: the standard
+deviation of log10 <n_H> over the 16 disjoint 250 x 250 pc squares of the footprint divided by
+sqrt(16). Coloured curves: exponential n0 exp(-u/h), Gaussian n0 exp(-u^2/2h^2) and sech^2
+n0 sech^2(u/h) layers centred on z_mid, with free n0 and h, fitted to the binned log10 density of
+each side by least squares with these errors. Each curve is the best fit over the full range,
+all bins with upper edge <= 750 pc (u <= 748 pc on the upper side; u <= 738 pc on the lower side,
+where the cube ends), drawn over the fitted bins. (b) Reduced chi^2 = chi^2/(N_bins - 2) of the
+same fits versus the fit range z_max (all bins with upper edge <= z_max), z_max = 100-750 pc;
+solid for the upper side, dashed for the lower side. (c) The headline midplane
+<alpha_cell> = <W> <1/P_th> over the slab |z - z_mid| <= 30 pc (as in Fig. 4) versus the
+integration height z_top: the density is set to zero at |z| > z_top, and the gas self-gravity,
+the balanced midplane and the weight W are recomputed from the truncated profile (stars and dark
+matter unchanged; P_th unchanged).
 
-Knees (z_max, pc), upper / lower side: exponential 260 / 180, Gaussian 160 / 130, sech^2 190 / 130.
-All 546 fits (91 fit ranges x 3 models x 2 sides) converged inside the parameter bounds. At z_max = 1000 pc the reduced chi^2 is
-3.9 / 14.8 (exponential), 6.7 / 24.5 (Gaussian) and 6.0 / 22.1 (sech^2).
-<alpha_cell> = 2.31 at z_top = 400 pc, 3.25 at 750 pc (the current fiducial) and 3.77 at
-1000 pc. The area-averaged alpha_area_vol of the high-|z| tail diagnostic (Sun-centred slab
-|z| <= 30 pc, <P_tot>_area / <P_th>_neutral,vol) is 1.65, 2.32 and 2.69 at the same heights.
+Best fits over the full range (a):
+  model      side    n0 [cm^-3]   h [pc]   reduced chi^2
+  exp        upper     0.1404      406.5       4.86
+  exp        lower     0.1683      320.9      15.35
+  Gaussian   upper     0.0740      480.1       7.82
+  Gaussian   lower     0.0730      429.6      25.50
+  sech^2     upper     0.0831      581.0       7.20
+  sech^2     lower     0.0915      490.1      22.66
+All fits for every z_max converged inside the parameter bounds (n0 in [1e-6, 1e3] cm^-3,
+h in [1, 1e5] pc).
 
-Cube/query mismatch. At the cube's own 2 pc nodes, the map query gives a lower <n_H>_area than
-the cube near the cube edge: query/cube = 0.89 (upper) and 0.78 (lower) at 740 <= |z| <= 750 pc,
-0.91 and 0.84 over 600-750 pc, the visible steps at z = +-750 pc in (a). The ratio is the same with
-and without the cube's orientation mapping and at 2 or 10 pc x,y sampling. It depends on
-heliocentric distance on both sides (0.92-1.05 at 200-700 pc, 0.67-0.87 beyond 700-800 pc),
-which points to a difference between the two renderings of the map: the cube was built from a 2
-kpc sphere rendering, while the query uses the 1.25 kpc 'main' flavour. Nothing is rescaled.
+<alpha_cell> = 1.96 at z_top = 300 pc, 2.31 at 400 pc, 2.56 at 500 pc, 2.84 at 600 pc and 3.25 at
+750 pc (the current fiducial).
