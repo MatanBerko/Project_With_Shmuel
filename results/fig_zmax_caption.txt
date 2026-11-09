@@ -28,11 +28,11 @@ colour.
 z_max = 100-750 pc in 10 pc steps; solid for the upper side, dashed for the lower side. The thin
 vertical line in (c) marks z_max = 400 pc.
 Reduced chi^2 = chi^2/(N_bins - 2) for one component and chi^2/(N_bins - 4) for two. (d) shows
-every converged two-component fit: at normal width where the fit is constrained (no parameter at
-a bound and a relative 1-sigma error on h2 below 50%; errors from the fit covariance,
-sigma_h2^2 = var h1 + var dh + 2 cov(h1, dh)), thin and faded where a parameter is at a bound or
-sigma_h2/h2 >= 0.5. On the lower side the extended layer of the exp and sech^2 models does not
-decline within 750 pc, so their h2 is only a lower limit (> 750 pc).
+every converged two-component fit. A fit is called constrained when no parameter is at a bound
+and the relative 1-sigma error on h2 is below 50% (errors from the fit covariance,
+sigma_h2^2 = var h1 + var dh + 2 cov(h1, dh)); h2 values are quoted only for constrained fits.
+On the lower side the extended layer of the exp and sech^2 models does not decline within
+750 pc, so their h2 is only a lower limit (> 750 pc).
 (e) The headline midplane <alpha_cell> = <W> <1/P_th> over the slab |z - z_mid| <= 30 pc (as in
 Fig. 4) versus the integration height z_top: the density is set to zero at |z| > z_top, and the
 gas self-gravity, the balanced midplane and the weight W are recomputed from the truncated
@@ -50,11 +50,11 @@ Fit parameters shown in (a) and (b); n in cm^-3, h in pc.
   two components, z_max = 750 pc, 1-sigma errors
   model      side    n1               h1            n2                  h2                reduced chi^2
   exp        upper   0.995 +- 0.096    72.3 +- 3.8   0.0495 +- 0.0039    1222 +- 178        0.258
-  exp        lower   0.968 +- 0.050    89.3 +- 2.8   0.0225 +- 0.0023    at bound (1.0e5)   1.043
+  exp        lower   0.968 +- 0.050    89.3 +- 2.8   0.0225 +- 0.0023    > 750 (lower lim.) 1.043
   Gaussian   upper   0.453 +- 0.033   104.3 +- 2.9   0.0450 +- 0.0013     711 +- 26         0.547
   Gaussian   lower   0.444 +- 0.017   134.4 +- 2.1   0.0265 +- 0.0008    1295 +- 153        0.507
   sech^2     upper   0.584 +- 0.048   113.4 +- 4.1   0.0431 +- 0.0015    1021 +- 53         0.337
-  sech^2     lower   0.536 +- 0.023   147.5 +- 3.0   0.0228 +- 0.0009    at bound (1.0e5)   0.672
+  sech^2     lower   0.536 +- 0.023   147.5 +- 3.0   0.0228 +- 0.0009    > 750 (lower lim.) 0.672
 All single-component fits converged inside the bounds. The lower-side two-component exp and
 sech^2 fits at z_max = 750 pc have dh at its upper bound (h2 = h1 + 1e5 pc) and are not
 constrained. Smallest z_max from which every two-component fit up to 750 pc is constrained,
