@@ -1,0 +1,267 @@
+PROVISIONAL: f98 cube, n_H = 1653 A'; final cube pending
+z_max: density profile, chi2 vs fit range and alpha vs integration height to |z| = 1000 pc
+========================================================================================================
+Measures only -- no physics, cache, existing result or figure is changed. No extrapolation:
+every number uses the cube (|z| <= 750 pc) and the Edenhofer+23 map query beyond it.
+
+--------------------------------------------------------------------------------------------------------
+ASSERTIONS (the script raises if any fails)
+--------------------------------------------------------------------------------------------------------
+    0.00e+00  (<= 1e-15)  cube <n_H>_area: ptot_budget vs layer_fit cache (max rel)
+    0.00e+00  (<= 1e-15)  cube <n_H>_area: ptot_budget vs high_z_tail cache (max rel)
+    0.00e+00  (<= 1e-12)  cube 16-square err_log per plane vs layer_fit cache (max abs, dex)
+    0.00e+00  (<= 1e-06)  upper exp: rchi2 vs layer_fit, z_max <= 750 (max rel)
+    0.00e+00  (<= 0e+00)  upper exp: knee vs layer_fit (abs pc)
+    0.00e+00  (<= 1e-06)  upper gauss: rchi2 vs layer_fit, z_max <= 750 (max rel)
+    0.00e+00  (<= 0e+00)  upper gauss: knee vs layer_fit (abs pc)
+    0.00e+00  (<= 1e-06)  upper sech2: rchi2 vs layer_fit, z_max <= 750 (max rel)
+    0.00e+00  (<= 0e+00)  upper sech2: knee vs layer_fit (abs pc)
+    0.00e+00  (<= 1e-06)  lower exp: rchi2 vs layer_fit, z_max <= 740 (max rel)
+    0.00e+00  (<= 0e+00)  lower exp: knee vs layer_fit (abs pc)
+    0.00e+00  (<= 1e-06)  lower gauss: rchi2 vs layer_fit, z_max <= 740 (max rel)
+    0.00e+00  (<= 0e+00)  lower gauss: knee vs layer_fit (abs pc)
+    0.00e+00  (<= 1e-06)  lower sech2: rchi2 vs layer_fit, z_max <= 740 (max rel)
+    0.00e+00  (<= 0e+00)  lower sech2: knee vs layer_fit (abs pc)
+    0.00e+00  (<= 1e-06)  slab <P_th>_neutral,vol at z_mid vs area_alpha (rel)
+    0.00e+00  (<= 1e-06)  slab <1/P_th>^-1 at z_mid vs area_alpha (rel)
+    0.00e+00  (<= 1e-09)  Sun-centred slab <P_th>_neutral,vol vs high_z_tail printed 3356.5 (abs, printed precision)
+    0.00e+00  (<= 1e-06)  table B z_top = 300: P(z) on the cube planes vs high_z_tail cache (max rel)
+    0.00e+00  (<= 1e-06)  table B z_top = 300: slab <P_tot> vs high_z_tail cache (rel)
+    0.00e+00  (<= 1e-09)  table B z_top = 300: P(0+), P(0-), slab P, alpha vs printed (abs, printed precision)
+    0.00e+00  (<= 1e-06)  table B z_top = 400: P(z) on the cube planes vs high_z_tail cache (max rel)
+    0.00e+00  (<= 1e-06)  table B z_top = 400: slab <P_tot> vs high_z_tail cache (rel)
+    0.00e+00  (<= 1e-09)  table B z_top = 400: P(0+), P(0-), slab P, alpha vs printed (abs, printed precision)
+    0.00e+00  (<= 1e-06)  table B z_top = 500: P(z) on the cube planes vs high_z_tail cache (max rel)
+    0.00e+00  (<= 1e-06)  table B z_top = 500: slab <P_tot> vs high_z_tail cache (rel)
+    0.00e+00  (<= 1e-09)  table B z_top = 500: P(0+), P(0-), slab P, alpha vs printed (abs, printed precision)
+    0.00e+00  (<= 1e-06)  table B z_top = 600: P(z) on the cube planes vs high_z_tail cache (max rel)
+    0.00e+00  (<= 1e-06)  table B z_top = 600: slab <P_tot> vs high_z_tail cache (rel)
+    0.00e+00  (<= 1e-09)  table B z_top = 600: P(0+), P(0-), slab P, alpha vs printed (abs, printed precision)
+    0.00e+00  (<= 1e-06)  table B z_top = 750: P(z) on the cube planes vs high_z_tail cache (max rel)
+    0.00e+00  (<= 1e-06)  table B z_top = 750: slab <P_tot> vs high_z_tail cache (rel)
+    0.00e+00  (<= 1e-09)  table B z_top = 750: P(0+), P(0-), slab P, alpha vs printed (abs, printed precision)
+    0.00e+00  (<= 1e-06)  C1 (cached 10 pc tail): P(0+) vs high_z_tail cache (rel)
+    0.00e+00  (<= 1e-06)  C1 (cached 10 pc tail): P(0-) vs high_z_tail cache (rel)
+    0.00e+00  (<= 1e-06)  C1 (cached 10 pc tail): P(z) vs high_z_tail cache c1_P (max rel)
+    0.00e+00  (<= 1e-09)  C1 (cached 10 pc tail): P(0+), P(0-), alpha vs printed (abs, printed precision)
+    0.00e+00  (<= 1e-06)  z_top = 750: z_mid vs ptot_budget (abs pc)
+    9.42e-12  (<= 1e-06)  z_top = 750: balanced slab <W> vs area_alpha (rel)
+    9.42e-12  (<= 1e-06)  z_top = 750: <alpha_cell> vs area_alpha slab (rel)
+    9.42e-12  (<= 1e-06)  z_top = 750: balanced alpha_area_vol vs area_alpha slab (rel)
+
+--------------------------------------------------------------------------------------------------------
+(1) PROFILE BEYOND THE CUBE: map query
+--------------------------------------------------------------------------------------------------------
+  C1 query settings (high_z_tail): Edenhofer2023Query(integrated=False, flavor='main'), mode
+  'mean', heliocentric Galactic (x, y, z), n_H = 1653 A'; a point counts as covered when
+  mean and std are finite. Map distance range [68.6, 1248.1] pc.
+  x,y: the cube's own 2 pc grid over |x|,|y| <= 500 pc (501 x 501 points per plane;
+  the 2 pc step is the finest available and ran in 25 s for all planes, so no coarser step was needed).
+  z: 4 pc steps from the cube edge, upper z = 754..986 pc (59 planes), lower
+  z = -754..-1010 pc (65 planes), i.e. to u = |z - z_mid| = 1000 pc on each side
+  (z_mid = -11.8748 pc); for the integration in (4) a common node set on both sides:
+  |z| = 750, the 4 pc grid 754..998 and 13 z_top nodes (10 pc steps) not on it, to |z| = 1000.
+  The cube is used for |z| <= 750 (Sun frame), the query beyond; so on the upper side the cube
+  reaches u = 761.9 pc and on the lower side u = 738.1 pc. No 4 pc bin mixes
+  cube and query planes.
+  COVERAGE: 1.0000 on every queried plane (min 1.0000); the farthest point (a footprint corner
+  at |z| = 1010) is at 1232.9 pc. The footprint is fully covered
+  up to |z| = sqrt(1248.1^2 - 2 x 500^2) = 1028.5 pc.
+  <n_H>_area and the 16-square error exactly as layer_fit (same squares: compute_area_alpha.
+  patch_ids on the same x,y grid). Under the cube's orientation mapping (-y,-x,+z) the footprint
+  maps onto itself and the 16 squares onto the 16 squares, so neither <n_H>_area nor the error
+  depends on the mapping; the query is made at the cube's (x, y) as C1 did.
+
+       u bin  upper <n_H>  err dex  lower <n_H>  err dex   (query bins, 50 pc means)
+    750-800        0.0223   0.0308       0.0163   0.0200
+    800-850        0.0203   0.0298       0.0153   0.0183
+    850-900        0.0184   0.0273       0.0147   0.0175
+    900-950        0.0169   0.0248       0.0142   0.0174
+    950-1000       0.0158   0.0231       0.0137   0.0175
+
+--------------------------------------------------------------------------------------------------------
+(2) CUBE / QUERY MISMATCH (report only; nothing is rescaled)
+--------------------------------------------------------------------------------------------------------
+  The query with the C1 settings at the cube's own (x, y, z) nodes: every 2 pc cell of the
+  footprint on the cube's planes, compared with the cube's <n_H>_area on the same planes.
+  ratio = sum(query) / sum(cube) over the planes of the range.
+    side   |z| range  identity   mapped   10 pc  r(log)  cell med
+                          2 pc(-y,-x,+z) subsamp  mapped     ratio
+   upper    600-750      0.906    0.906   0.905   0.718     0.958
+   upper    700-750      0.906    0.906   0.904   0.677     0.942
+   upper    740-750      0.890    0.890   0.889   0.690     0.928
+   lower    600-750      0.838    0.838   0.837   0.487     0.885
+   lower    700-750      0.784    0.784   0.782   0.437     0.809
+   lower    740-750      0.780    0.780   0.777   0.422     0.803
+  (identity = query at the cube's (x, y) as C1; mapped = at the true position under the
+   orientation mapping; 10 pc subsamp = query and cube both on the 10 pc sub-grid; r(log) =
+   Pearson r of log10 n per cell, mapped; cell med = median per-cell query/cube, mapped)
+
+  query/cube vs heliocentric distance d (mapped orientation; planes |z| = 100..750 pc every
+  50 pc, all footprint cells; per-bin sum ratio):
+    d [pc]      0    100    200    300    400    500    600    700    800    900   1000   1100   1200
+     upper     --  1.525  0.979  0.916  1.028  1.027  0.982  0.959  0.867  0.758  0.673     --     --
+     lower     --  0.846  0.942  1.045  0.947  0.962  1.012  0.854  0.773  0.714  0.863     --     --
+  FINDING: the ratio is the same with and without the orientation mapping (the footprint maps
+  onto itself) and at 2 pc and 10 pc x,y steps, so neither the x,y sampling step nor the
+  orientation causes it. It depends on heliocentric distance, alike on both sides: 0.92-1.05 for
+  d = 200-700 pc, falling to 0.67-0.87 beyond d = 700-800 pc. A distance-dependent difference
+  between two renderings of the same posterior points to the reconstruction itself: the cube
+  was built from 'localob_edensphere2kpc_edendist.dat' (a 2 kpc sphere), the query uses the
+  'main' (1.25 kpc) flavour, whose outer shells the high-|z| footprint corners approach
+  (d = 1023 pc at |z| = 740). The query's own interpolation (HEALPix bilinear on the sky, linear
+  in distance between shells) applies at every d and cannot by itself produce the trend. The
+  'less_data_but_2kpc' flavour is not on disk, so the flavour cause is likely, not demonstrated.
+
+--------------------------------------------------------------------------------------------------------
+(3) CHI2 VS FIT RANGE: layer_fit's fits on the combined profile
+--------------------------------------------------------------------------------------------------------
+  As layer_fit: 4 pc bins in u = |z - z_mid|, upper / lower separately; exp, Gaussian and sech2
+  centred on z_mid, free n0 and h, fitted in log10 space (curve_fit trf, bounds n0 in
+  [1e-06, 1000] cm^-3, h in [1, 100000] pc); error = 16-square std(log10)/sqrt(16);
+  reduced chi2 = chi2/(N_bins - 2) over the bins with upper edge <= z_max; z_max = 100..1000 pc.
+  Knee: the first z_max at or beyond the minimum of reduced chi2 over z_max <= 400 pc
+  where reduced chi2 exceeds 2x that minimum.
+  Query bins: upper 59 (u = 765.9..997.9), lower 65 (u = 742.1..998.1).
+  Fits failed or at a bound:
+    none -- every fit converged inside the bounds.
+  upper: squares dropped in 0 (bin, square) pairs
+  lower: squares dropped in 0 (bin, square) pairs
+
+  side  model min rchi2    at  knee   h@knee rchi2@750 rchi2@1000   h@1000
+  upper exp       0.201   100   260     98.6      4.86       3.91    471.1
+  upper gauss     0.059   120   160     80.7      7.82       6.71    576.4
+  upper sech2     0.074   140   190    105.5      7.20       6.04    694.0
+  lower exp       0.056   120   180    124.6     15.18      14.80    439.4
+  lower gauss     0.040   100   130     92.9     25.23      24.52    573.2
+  lower sech2     0.038   100   130    122.0     22.43      22.05    673.9
+
+  reduced chi2 vs z_max (every 50 pc):
+   z_max  up-  exp  up-gauss  up-sech2  lo-  exp  lo-gauss  lo-sech2
+     100      0.20      0.07      0.08      0.06      0.04      0.04
+     150      0.23      0.10      0.08      0.09      0.25      0.21
+     200      0.23      0.50      0.28      0.15      0.24      0.19
+     250      0.39      1.19      0.79      0.21      0.71      0.50
+     300      0.54      1.63      1.16      0.19      0.87      0.58
+     350      0.60      1.97      1.38      0.17      0.98      0.60
+     400      1.03      2.88      2.13      0.29      0.99      0.53
+     450      1.52      3.75      2.89      0.39      2.00      0.91
+     500      1.86      4.38      3.46      1.57      5.59      3.09
+     550      2.40      5.23      4.25      4.11     10.94      7.08
+     600      3.19      6.21      5.26      7.35     16.43     11.97
+     650      4.07      7.22      6.35     10.26     20.42     16.19
+     700      4.67      7.75      7.04     13.73     24.19     20.80
+     750      4.86      7.82      7.20     15.18     25.23     22.43
+     800      4.70      7.52      6.95     14.32     23.87     21.28
+     850      4.46      7.17      6.62     13.91     23.31     20.83
+     900      4.22      6.89      6.32     13.92     23.37     20.91
+     950      4.04      6.74      6.14     14.27     23.85     21.39
+    1000      3.91      6.71      6.04     14.80     24.52     22.05
+
+--------------------------------------------------------------------------------------------------------
+(4) ALPHA VS INTEGRATION HEIGHT: rho = 0 beyond |z| = z_top
+--------------------------------------------------------------------------------------------------------
+  rho = 0 where |z| > z_top (Sun frame, as high_z_tail table B); cube for |z| <= 750, the (1)
+  query beyond (4 pc planes plus a node at every 10 pc z_top, so each z_top is a grid node as in
+  table B); each tail starts at the cube edge (high_z_tail.extend_profile). Gas self-gravity
+  from the truncated profile; Guo+20 stars and DM unchanged; P = 0 at the grid edges.
+  alpha_area_vol (high_z_tail definition): mean over |z| <= 30 pc of the Sun-centred P_tot
+     (high_z_tail.budget, z_split = 0) / slab <P_th>_neutral,vol = 3356.46 K cm^-3.
+  <alpha_cell> (Fig. 4 headline): mean over |z - z_mid| <= 30 pc of the balanced-midplane P_tot
+     (compute_area_alpha.g_for_setting + p_tot_kb_full_column split at z_mid, z_mid re-found for
+     each truncated profile) / the slab <1/P_th>^-1 over its non-HIM cells (2406.36 K cm^-3 at
+     the fiducial z_mid).
+  alpha_area_vol (balanced): the same balanced slab <P_tot> / its <P_th>_neutral,vol (bridge).
+
+   z_top    z_mid    P(0+)    P(0-)   slab P a_area,vol  slab <W>  <a_cell> a_area,vol Sigma_gas
+    [pc]     [pc]     (Sun-centred, K cm^-3)    (h_z_t)   (z_mid)  headline    (z_mid)[Msun/pc2]
+     300  -16.303   3974.7   5663.4   4705.5     1.4019    4748.6    1.9631     1.4126     5.887
+     400  -17.423   4727.2   6587.2   5540.9     1.6508    5586.2    2.3093     1.6617     6.229
+     500  -15.552   5425.1   7112.1   6155.1     1.8338    6193.6    2.5641     1.8406     6.440
+     600  -13.915   6156.8   7686.1   6810.5     2.0291    6842.9    2.8378     2.0322     6.639
+     750  -11.875   7245.4   8570.5   7800.3     2.3240    7826.1    3.2523     2.3234     6.908
+     850  -10.544   7843.6   9027.8   8330.3     2.4819    8353.3    3.4713     2.4799     7.038
+    1000   -9.515   8591.8   9668.0   9026.2     2.6892    9045.7    3.7676     2.6854     7.197
+  <alpha_cell>: 2.309 at 400, 3.252 at 750 (current fiducial), 3.768 at 1000 pc
+  (-29.0% and +15.8% relative to 750).
+  z_mid ranges -17.979..-9.515 pc over z_top; the balanced slab holds 30..30 planes.
+
+  z_top = 1000 on this grid vs C1 (high_z_tail, 10 pc x,y and z steps; different query grid):
+    P(0+) +4.75e-04, P(0-) +2.16e-04, alpha_area_vol +1.56e-04 (relative)
+
+  full grid (10 pc):
+   z_top a_area,vol  <a_cell> a_area,vol
+            (h_z_t)  headline    (z_mid)
+     300     1.4019    1.9631     1.4126
+     310     1.4309    2.0037     1.4418
+     320     1.4597    2.0440     1.4708
+     330     1.4883    2.0840     1.4995
+     340     1.5148    2.1211     1.5262
+     350     1.5396    2.1556     1.5511
+     360     1.5638    2.1892     1.5752
+     370     1.5867    2.2210     1.5981
+     380     1.6083    2.2508     1.6196
+     390     1.6296    2.2803     1.6408
+     400     1.6508    2.3093     1.6617
+     410     1.6707    2.3367     1.6814
+     420     1.6897    2.3627     1.7001
+     430     1.7081    2.3880     1.7183
+     440     1.7261    2.4128     1.7362
+     450     1.7440    2.4373     1.7538
+     460     1.7618    2.4619     1.7715
+     470     1.7798    2.4866     1.7892
+     480     1.7977    2.5142     1.8048
+     490     1.8157    2.5391     1.8226
+     500     1.8338    2.5641     1.8406
+     510     1.8522    2.5895     1.8588
+     520     1.8708    2.6152     1.8772
+     530     1.8895    2.6409     1.8957
+     540     1.9082    2.6669     1.9144
+     550     1.9273    2.6932     1.9333
+     560     1.9469    2.7203     1.9527
+     570     1.9671    2.7482     1.9727
+     580     1.9876    2.7765     1.9930
+     590     2.0084    2.8050     2.0135
+     600     2.0291    2.8378     2.0322
+     610     2.0496    2.8662     2.0525
+     620     2.0701    2.8945     2.0727
+     630     2.0904    2.9226     2.0929
+     640     2.1104    2.9503     2.1127
+     650     2.1303    2.9779     2.1325
+     660     2.1501    3.0053     2.1521
+     670     2.1697    3.0325     2.1715
+     680     2.1892    3.0595     2.1909
+     690     2.2087    3.0864     2.2102
+     700     2.2281    3.1133     2.2294
+     710     2.2476    3.1403     2.2488
+     720     2.2671    3.1675     2.2682
+     730     2.2868    3.1947     2.2877
+     740     2.3064    3.2279     2.3060
+     750     2.3240    3.2523     2.3234
+     760     2.3418    3.2771     2.3411
+     770     2.3595    3.3016     2.3587
+     780     2.3738    3.3214     2.3728
+     790     2.3911    3.3454     2.3900
+     800     2.4051    3.3648     2.4039
+     810     2.4220    3.3883     2.4206
+     820     2.4357    3.4073     2.4342
+     830     2.4522    3.4302     2.4506
+     840     2.4656    3.4488     2.4639
+     850     2.4819    3.4713     2.4799
+     860     2.4950    3.4896     2.4930
+     870     2.5110    3.5118     2.5088
+     880     2.5239    3.5297     2.5217
+     890     2.5396    3.5516     2.5373
+     900     2.5524    3.5693     2.5499
+     910     2.5679    3.5909     2.5653
+     920     2.5806    3.6161     2.5774
+     930     2.5960    3.6375     2.5927
+     940     2.6085    3.6550     2.6051
+     950     2.6237    3.6763     2.6203
+     960     2.6361    3.6936     2.6326
+     970     2.6512    3.7146     2.6476
+     980     2.6635    3.7318     2.6598
+     990     2.6784    3.7526     2.6747
+    1000     2.6892    3.7676     2.6854
+
+runtime 47 s
