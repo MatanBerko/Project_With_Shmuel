@@ -27,10 +27,12 @@ colour.
 (c), (d) Reduced chi^2 versus the fit range z_max (all bins with upper edge <= z_max),
 z_max = 100-750 pc in 10 pc steps; solid for the upper side, dashed for the lower side. The thin
 vertical line in (c) marks z_max = 400 pc.
-Reduced chi^2 = chi^2/(N_bins - 2) for one component and chi^2/(N_bins - 4) for two. In (d) a
-two-component fit is drawn only where it is constrained: converged, no parameter at a bound, and
-a relative 1-sigma error on h2 below 50% (errors from the fit covariance;
-sigma_h2^2 = var h1 + var dh + 2 cov(h1, dh)).
+Reduced chi^2 = chi^2/(N_bins - 2) for one component and chi^2/(N_bins - 4) for two. (d) shows
+every converged two-component fit: at normal width where the fit is constrained (no parameter at
+a bound and a relative 1-sigma error on h2 below 50%; errors from the fit covariance,
+sigma_h2^2 = var h1 + var dh + 2 cov(h1, dh)), thin and faded where a parameter is at a bound or
+sigma_h2/h2 >= 0.5. On the lower side the extended layer of the exp and sech^2 models does not
+decline within 750 pc, so their h2 is only a lower limit (> 750 pc).
 (e) The headline midplane <alpha_cell> = <W> <1/P_th> over the slab |z - z_mid| <= 30 pc (as in
 Fig. 4) versus the integration height z_top: the density is set to zero at |z| > z_top, and the
 gas self-gravity, the balanced midplane and the weight W are recomputed from the truncated

@@ -17,7 +17,9 @@ Layout, two columns x three rows, row 3 spanning both:
       the two components thin and dotted in the same colour.
   (c) single: reduced chi2 vs z_max, log y, solid upper / dashed lower;
       thin line at SINGLE_ZMAX.
-  (d) double: the same, drawn only where the fit is "constrained".
+  (d) double: the same for every converged fit; constrained fits at normal
+      width, the rest (a parameter at a bound, or sigma_h2/h2 >= 0.5) thin
+      and faded.
   (e) <alpha_cell> vs z_top = 300..750 pc; labels at 400 and 750 pc.
 (a)/(b) and (c)/(d) share their y axes.
 """
@@ -68,6 +70,7 @@ COMP_KW = dict(lw=0.6, ls=(0, (1.0, 1.4)))
 ZMID_KW = dict(color="0.45", lw=0.7, ls=":", zorder=1)
 ZMAX_LINE_KW = dict(color="0.45", lw=0.5, ls="-", zorder=1)
 EXTRAP_LS = (0, (3.0, 1.6))
+LOOSE_KW = dict(lw=0.5, alpha=0.35, zorder=2)   # (d): fits that are not constrained
 ALPHA_LW = 1.6
 ALPHA_MARKS_PC = (400.0, 750.0)
 TEXT_FS = 6.5
@@ -179,8 +182,10 @@ def main():
         for m in models:
             ax_c.plot(zg, d[f"{side}_{m}_rchi2"], color=MODEL_COLORS[m], ls=SIDE_LS[side], lw=1.0)
             k = f"dbl_{side}_{m}_"
-            r = np.where(zc[k + "constrained"], zc[k + "rchi2"], np.nan)
-            ax_d.plot(zg2, r, color=MODEL_COLORS[m], ls=SIDE_LS[side], lw=1.0)
+            r_all = np.where(zc[k + "converged"], zc[k + "rchi2"], np.nan)
+            r_con = np.where(zc[k + "constrained"], zc[k + "rchi2"], np.nan)
+            ax_d.plot(zg2, r_all, color=MODEL_COLORS[m], ls=SIDE_LS[side], **LOOSE_KW)
+            ax_d.plot(zg2, r_con, color=MODEL_COLORS[m], ls=SIDE_LS[side], lw=1.0, zorder=3)
     for ax in (ax_c, ax_d):
         ax.set_xlim(*ZMAX_RANGE)
         ax.set_yscale("log")
@@ -195,8 +200,10 @@ def main():
                 [MODEL_LABELS[m] for m in models] + ["upper", "lower"],
                 loc="lower right", ncol=2, frameon=False, fontsize=TEXT_FS - 0.5, handlelength=2.0,
                 columnspacing=0.8, borderaxespad=0.2, labelspacing=0.3)
-    ax_d.text(0.97, 0.04, "constrained fits only", transform=ax_d.transAxes, ha="right",
-              va="bottom", fontsize=TEXT_FS - 0.5, color="0.35")
+    ax_d.legend([Line2D([], [], color="0.3", lw=1.0), Line2D([], [], color="0.3", **LOOSE_KW)],
+                ["constrained", r"parameter at a bound or $h_2$ unconstrained"],
+                loc="upper right", frameon=False, fontsize=TEXT_FS - 0.5, handlelength=2.0,
+                borderaxespad=0.2, labelspacing=0.3)
 
     # ------------------------------------------------------------- (e) alpha
     zt_all = zc["z_top_grid"]
