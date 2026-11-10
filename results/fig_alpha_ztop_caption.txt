@@ -1,0 +1,26 @@
+DRAFT caption for the diagnostic figure figures/fig_alpha_ztop.{png,pdf} -- PROVISIONAL: f98 cube, n_H = 1653 A'; final cube pending.
+Numbers from cache/alpha_ztop/alpha_ztop.npz (results/alpha_ztop.txt; scripts/compute/compute_alpha_ztop.py).
+Cube only.
+
+Figure. The vertical profiles of Fig. 4 for four integration heights z_top = 400, 500, 600 and
+750 pc (light to dark; 750 pc, thick, is the fiducial of Fig. 4), in Fig. 4's 4 pc bins of z over
+the 1 kpc x 1 kpc footprint (RAW density). For each z_top the footprint-mean density is set to
+zero at |z| > z_top, and the gas weight W(z) = the integral of rho g from z to the edge of the
+column is recomputed from the truncated profile: footprint-mean gas self-gravity from the
+truncated profile, Guo+20 stars and dark matter, and the balanced midplane re-found for that
+profile (z_mid = -17.4, -15.6, -13.9 and -11.9 pc; the dotted line marks the fiducial one).
+(a) The area-averaged weight <W> per bin for each z_top, and the harmonic-mean thermal pressure
+<1/P_th>^-1 over the non-HIM cells of the bin (black; the same for every z_top). (b) The headline
+<alpha_cell> = <W> <1/P_th> per bin for each z_top, volume-weighted; the shaded band is the
+15th-85th percentile range of the per-cell alpha_cell = <W>/P_th for z_top = 750 pc; the grey
+line marks alpha = 1. (c) The same profiles divided by each z_top's midplane value, <alpha_cell>
+over the slab |z - z_mid| <= 30 pc (with that z_top's z_mid). For z_top = 750 pc every bin
+reproduces Fig. 4 to 1e-10.
+
+Midplane slab <alpha_cell> = 2.31, 2.56, 2.84 and 3.25 for z_top = 400, 500, 600 and 750 pc.
+<alpha_cell>(z) / <alpha_cell>(slab), mean of the bins nearest z_mid +- dz:
+  dz [pc]      z_top 400   500    600    750
+   100              0.90   0.93   0.97   1.00
+   200              0.63   0.74   0.83   0.94
+   300              0.27   0.43   0.56   0.73
+   350              0.14   0.32   0.49   0.68
