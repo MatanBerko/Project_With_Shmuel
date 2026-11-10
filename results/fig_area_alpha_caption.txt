@@ -1,0 +1,21 @@
+DRAFT caption for figures/fig_area_alpha.{png,pdf} -- PROVISIONAL: f98 cube, n_H = 1653 A'; final cube pending.
+Numbers from cache/core/area_alpha.npz (results/area_alpha.txt; scripts/compute/compute_area_alpha.py),
+volume-weighted.
+
+Figure. Vertical profiles of the gas weight, the thermal pressure and their ratio alpha, in 4 pc
+bins of height z over the 1 kpc x 1 kpc footprint (RAW density, balanced midplane
+z_mid = -11.9 pc, dotted line). The gas weight W(z) is the integral of rho g from z to the edge
+of the column (from both edges toward z_mid); it equals the total pressure P_tot only under
+vertical dynamical equilibrium. (a) The area-averaged weight <W>_area, the equal-weight mean of
+the per-column W over all cells of the bin (HIM-flagged cells included), with footprint-mean gas
+self-gravity (solid, fiducial) and without it (dotted; stars and dark matter only), and two
+volume-weighted means of the thermal pressure P_th over the non-HIM cells: the arithmetic mean
+<P_th> (solid) and the harmonic mean <1/P_th>^-1 (dash-dot). (b) The per-cell
+alpha_cell = <W>_area / p_th over the non-HIM cells of each bin, with one area-averaged numerator
+per bin: its median (thick solid), its 15th-85th percentile range (shaded) and its mean
+<alpha_cell> = <W>_area <1/P_th> (dashed), and the ratio of area averages
+alpha_area = <W>_area / <P_th> (thin grey). The grey horizontal line marks alpha = 1. Panel (b)
+uses the fiducial self-gravity setting.
+In the midplane slab |z - z_mid| <= 30 pc: <W>_area = 7826 K cm^-3 with self-gravity (6267 K cm^-3
+without), <P_th> = 3368 K cm^-3, <1/P_th>^-1 = 2406 K cm^-3; <alpha_cell> = 3.25, median
+alpha_cell = 2.70 (15-85%: 1.46-5.39), alpha_area = 2.32.
