@@ -26,6 +26,10 @@ shared within a row:
          cells, so the area is the phase's fraction of the NEUTRAL mass. HIM
          is excluded from this normalisation because its n_H is not physical.
 HIM is not drawn; its volume fraction is printed in the top WNM panel.
+Each histogram is smoothed along log10 n_H with a Gaussian of SMOOTH_SIGMA_BINS
+bins (scipy.ndimage.gaussian_filter1d, mode="constant", cval=0) BEFORE it is
+normalised, and drawn as a line through the bin centres (DRAW_STYLE = "line"),
+cut where it falls below DRAW_FLOOR_REL of its own peak.
 Within a panel the four slabs are shades of the phase colour, darkest =
 midplane. A curve (both rows) is dropped when the phase has fewer than
 N_MIN_CELLS cells in the slab.
@@ -44,6 +48,7 @@ import matplotlib.pyplot as plt  # noqa: E402
 import numpy as np  # noqa: E402
 from matplotlib.colors import to_rgb  # noqa: E402
 from matplotlib.lines import Line2D  # noqa: E402
+from scipy.ndimage import gaussian_filter1d  # noqa: E402
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
@@ -101,6 +106,9 @@ ROW_LABELS = {"unit_area": ("volume-weighted PDF (arb. units)", "mass-weighted P
               "fraction": ("volume fraction per dex", "neutral mass fraction per dex")}
 PER_COLUMN_X = True                          # each column zooms to its own phase's range
 Y_TOP_PAD_LINEAR = 0.08                      # unit_area: headroom above the highest curve
+SMOOTH_SIGMA_BINS = 1.0                      # Gaussian sigma in histogram bins (0 = no smoothing)
+DRAW_STYLE = "line"                          # "line": through the bin centres; "step": the old look
+DRAW_FLOOR_REL = 1e-3                        # "line": not drawn below this fraction of the peak
 # ═══════════════════════════════════════════════════════════════════════
 
 ALL_PHASES = ("CNM", "UNM", "WNM", "HIM")
@@ -161,13 +169,42 @@ def normalised(counts, n_total, edges):
     return counts / (n_total * np.diff(edges))
 
 
-def plotted_curve(weights, total, edges, norm=NORM):
-    """The drawn density per dex: unit area ("unit_area") or area = weights.sum()/total ("fraction")."""
+def smoothed(weights, sigma=SMOOTH_SIGMA_BINS):
+    """Gaussian smoothing along log10 n_H (zero padding), rescaled to keep weights.sum()."""
+    w = np.asarray(weights, dtype=np.float64)
+    if sigma <= 0 or w.sum() == 0:
+        return w
+    s = gaussian_filter1d(w, sigma, mode="constant", cval=0.0)
+    return s * (w.sum() / s.sum())
+
+
+def plotted_curve(weights, total, edges, norm=NORM, sigma=SMOOTH_SIGMA_BINS):
+    """The drawn density per dex: unit area ("unit_area") or area = weights.sum()/total ("fraction"),
+    from the histogram smoothed with sigma bins before normalising."""
+    weights = smoothed(weights, sigma)
     if norm == "unit_area":
         return normalised(weights, weights.sum(), edges)
     if norm == "fraction":
         return normalised(weights, total, edges)
     raise ValueError(f"unknown NORM {norm!r}")
+
+
+def drawn_mask(cv_):
+    """Bins that are drawn: "line" cuts below DRAW_FLOOR_REL of the peak, "step" keeps > 0."""
+    if DRAW_STYLE == "line":
+        return cv_ >= DRAW_FLOOR_REL * cv_.max()
+    return cv_ > 0
+
+
+def half_max_points(cv_, centres):
+    """Outermost log10 n_H where the curve crosses half its peak (linear interpolation)."""
+    half = 0.5 * cv_.max()
+    k = np.where(cv_ >= half)[0]
+    i, j = k[0], k[-1]
+    left = centres[i] if i == 0 else np.interp(half, [cv_[i - 1], cv_[i]], centres[i - 1:i + 1])
+    right = (centres[j] if j == len(cv_) - 1 else
+             np.interp(half, [cv_[j + 1], cv_[j]], [centres[j + 1], centres[j]]))
+    return float(left), float(right)
 
 
 def neutral_mass(h):
@@ -255,7 +292,7 @@ def main():
               + ("  (WARNING: below MIN_CONTRAST)" if cr < MIN_CONTRAST else ""))
 
     # curves per row: 0 = volume, 1 = neutral mass
-    curves, dropped = ({}, {}), []
+    curves, raw, dropped = ({}, {}), ({}, {}), []
     for p in PANEL_PHASES:
         j = ALL_PHASES.index(p)
         for dd in SLAB_D_PC:
@@ -265,16 +302,18 @@ def main():
                 continue
             curves[0][(p, dd)] = plotted_curve(h["counts"][j], h["n_cells"].sum(), edges)
             curves[1][(p, dd)] = plotted_curve(h["mass"][j], neutral_mass(h), edges)
+            raw[0][(p, dd)] = plotted_curve(h["counts"][j], h["n_cells"].sum(), edges, sigma=0)
+            raw[1][(p, dd)] = plotted_curve(h["mass"][j], neutral_mass(h), edges, sigma=0)
     hw = 0.5 * np.diff(edges)[0]
     xlim = {}
     for p in PANEL_PHASES:
         sel = [cv_ for row in curves for (q, _), cv_ in row.items() if q == p or not PER_COLUMN_X]
-        nz = np.concatenate([centres[cv_ > 0] for cv_ in sel])
+        nz = np.concatenate([centres[drawn_mask(cv_)] for cv_ in sel])
         xlim[p] = (nz.min() - hw - X_MARGIN_DEX, nz.max() + hw + X_MARGIN_DEX)
     linear = NORM == "unit_area"
     ylim = []
     for row in curves:
-        pos = np.concatenate([cv_[cv_ > 0] for cv_ in row.values()])
+        pos = np.concatenate([cv_[drawn_mask(cv_)] for cv_ in row.values()])
         ylim.append((0.0, pos.max() * (1 + Y_TOP_PAD_LINEAR)) if linear else
                     (pos.min() / 10 ** Y_MARGIN_DEX, pos.max() * 10 ** Y_TOP_MARGIN_DEX))
 
@@ -286,7 +325,10 @@ def main():
                 if (p, dd) not in curves[r]:
                     continue
                 cv_ = curves[r][(p, dd)]
-                if linear:          # trim to the non-zero span and close down to y = 0
+                if DRAW_STYLE == "line":    # bin centres; gaps where below the floor
+                    ax.plot(centres, np.where(drawn_mask(cv_), cv_, np.nan), color=colors[p][i],
+                            lw=LINE_LW, zorder=5 - i)
+                elif linear:          # trim to the non-zero span and close down to y = 0
                     k = np.where(cv_ > 0)[0]
                     ax.stairs(cv_[k[0]:k[-1] + 1], edges[k[0]:k[-1] + 2], color=colors[p][i],
                               lw=LINE_LW, zorder=5 - i, baseline=0.0)
@@ -330,6 +372,22 @@ def main():
                                        else summ[dd]["mass_frac"][p])
             if abs(a - want) > 1e-12:
                 raise RuntimeError(f"{p} d={dd} row {r}: area {a} differs from {want}")
+    print(f"  smoothing sigma = {SMOOTH_SIGMA_BINS:g} bins ({SMOOTH_SIGMA_BINS * 2 * hw:.3g} dex), "
+          f"DRAW_STYLE = {DRAW_STYLE}")
+    print("  max |area - 1| (full curve): "
+          + f"{max(abs(np.sum(cv_ * np.diff(edges)) - 1) for row in curves for cv_ in row.values()):.1e}"
+          if linear else "")
+    print("  area outside the drawn span, max: "
+          + f"{max(np.sum(np.where(drawn_mask(cv_), 0, cv_) * np.diff(edges)) for row in curves for cv_ in row.values()):.2e}")
+    print("  half-maximum shift from smoothing (smoothed - raw), largest |shift| per panel [dex]:")
+    for r, row in enumerate(curves):
+        for p in PANEL_PHASES:
+            sh = [np.subtract(half_max_points(cv_, centres), half_max_points(raw[r][k], centres))
+                  for k, cv_ in row.items() if k[0] == p]
+            sh = np.array(sh)
+            il, ir = np.argmax(np.abs(sh[:, 0])), np.argmax(np.abs(sh[:, 1]))
+            print(f"    ({'abcdef'[3 * r + PANEL_PHASES.index(p)]}) {p:<4} {('volume', 'mass')[r]:<6}"
+                  f"  left {sh[il, 0]:+.3f}   right {sh[ir, 1]:+.3f}")
     save_figure(fig, NAME)
     write_report(d, summ, dropped)
 
