@@ -7,7 +7,8 @@ Three panels sharing z (Fig. 4's orientation, 4 pc bins, |z| <= 400 pc):
   (a) <W>(z) for z_top = 400, 500, 600, 750 pc (shades of one colour,
       darkest = 750, the fiducial) and <1/P_th>^-1 (black), log y.
   (b) <alpha_cell>(z), same shades; the 15-85% band for z_top = 750 only.
-  (c) the shape <alpha_cell>(z) / <alpha_cell>(slab), each z_top's own slab.
+  (c) the shape <alpha_cell>(z) / <alpha_cell>_mid, each z_top's own midplane value
+      (the mean over |z - z_mid| <= 30 pc; cache key slab_alpha_cell_mean).
 Dotted line: z_mid of the fiducial (z_top = 750); the others lie within 6 pc.
 """
 
@@ -105,7 +106,7 @@ def main():
         ax_c.plot(z, d[k + "alpha_cell_mean"] / float(d[k + "slab_alpha_cell_mean"][0]),
                   color=shade(zt), lw=LW[zt], zorder=3 + zt / 1000)
     ax_c.set_ylim(0.0, 1.25)
-    ax_c.set_ylabel(r"$\langle\alpha_\mathrm{cell}\rangle / \langle\alpha_\mathrm{cell}\rangle_\mathrm{slab}$")
+    ax_c.set_ylabel(r"$\langle\alpha_\mathrm{cell}\rangle / \langle\alpha_\mathrm{cell}\rangle_\mathrm{mid}$")
     panel_label(ax_c, "c", loc="upper left")
 
     for ax, ymin in ((ax_a, 0.25), (ax_b, 0.0), (ax_c, 0.0)):   # (a): starts above the legend

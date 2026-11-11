@@ -13,8 +13,8 @@ METHOD
     <alpha_cell> = <W> <1/P_th> (headline), median alpha_cell, 15-85% range.
   <1/P_th>^-1 per bin is independent of z_top. Because <W> is one number per bin, every
   alpha_cell statistic of a bin scales with <W>: the z_top dependence is the W(z) dependence.
-  Slab: |z - z_mid| <= 30 pc with this z_top's z_mid; <alpha_cell> = slab <W> /
-  slab <1/P_th>^-1 (compute_zmax). Table rows: the bin whose centre is nearest z_mid +- dz.
+  Midplane: the mean over |z - z_mid| <= 30 pc with this z_top's z_mid; <alpha_cell> = midplane
+  <W> / midplane <1/P_th>^-1 (compute_zmax). Table rows: the bin whose centre is nearest z_mid +- dz.
 
 --------------------------------------------------------------------------------------------------------
 ASSERTIONS (the script raises if any fails)
@@ -39,9 +39,9 @@ ASSERTIONS (the script raises if any fails)
     0.00e+00  (<= 1e-06)  z_top = 750: slab <alpha_cell> vs zmax.npz (rel)
 
 --------------------------------------------------------------------------------------------------------
-z_mid AND THE MIDPLANE SLAB
+z_mid AND THE MIDPLANE VALUES
 --------------------------------------------------------------------------------------------------------
-   z_top  z_mid [pc]   slab <W>  slab <alpha_cell>
+   z_top  z_mid [pc]  midplane <W>  midplane <alpha_cell>
      400     -17.423     5586.2             2.3093
      500     -15.552     6193.6             2.5641
      600     -13.915     6842.9             2.8378
@@ -50,8 +50,8 @@ z_mid AND THE MIDPLANE SLAB
 --------------------------------------------------------------------------------------------------------
 <alpha_cell>, mean of the two sides
 --------------------------------------------------------------------------------------------------------
-   |z-z_mid|   z_top 400   z_top 500   z_top 600   z_top 750  / slab 400  / slab 500  / slab 600  / slab 750
-        slab       2.309       2.564       2.838       3.252       1.000       1.000       1.000       1.000
+   |z-z_mid|   z_top 400   z_top 500   z_top 600   z_top 750   / mid 400   / mid 500   / mid 600   / mid 750
+    midplane       2.309       2.564       2.838       3.252       1.000       1.000       1.000       1.000
           50       2.318       2.597       2.882       3.332       1.004       1.013       1.015       1.025
          100       2.076       2.394       2.745       3.258       0.899       0.934       0.967       1.002
          150       1.769       2.149       2.568       3.182       0.766       0.838       0.905       0.978
@@ -63,8 +63,8 @@ z_mid AND THE MIDPLANE SLAB
 --------------------------------------------------------------------------------------------------------
 <alpha_cell>, upper side (z > z_mid)
 --------------------------------------------------------------------------------------------------------
-   |z-z_mid|   z_top 400   z_top 500   z_top 600   z_top 750  / slab 400  / slab 500  / slab 600  / slab 750
-        slab       2.309       2.564       2.838       3.252       1.000       1.000       1.000       1.000
+   |z-z_mid|   z_top 400   z_top 500   z_top 600   z_top 750   / mid 400   / mid 500   / mid 600   / mid 750
+    midplane       2.309       2.564       2.838       3.252       1.000       1.000       1.000       1.000
           50       2.232       2.527       2.826       3.298       0.967       0.985       0.996       1.014
          100       1.925       2.280       2.669       3.209       0.834       0.889       0.941       0.987
          150       1.686       2.128       2.600       3.297       0.730       0.830       0.916       1.014
@@ -76,8 +76,8 @@ z_mid AND THE MIDPLANE SLAB
 --------------------------------------------------------------------------------------------------------
 <alpha_cell>, lower side (z < z_mid)
 --------------------------------------------------------------------------------------------------------
-   |z-z_mid|   z_top 400   z_top 500   z_top 600   z_top 750  / slab 400  / slab 500  / slab 600  / slab 750
-        slab       2.309       2.564       2.838       3.252       1.000       1.000       1.000       1.000
+   |z-z_mid|   z_top 400   z_top 500   z_top 600   z_top 750   / mid 400   / mid 500   / mid 600   / mid 750
+    midplane       2.309       2.564       2.838       3.252       1.000       1.000       1.000       1.000
           50       2.403       2.667       2.938       3.367       1.041       1.040       1.035       1.035
          100       2.226       2.509       2.821       3.306       0.964       0.978       0.994       1.017
          150       1.852       2.171       2.535       3.067       0.802       0.847       0.893       0.943
@@ -85,13 +85,13 @@ z_mid AND THE MIDPLANE SLAB
          250       0.932       1.287       1.712       2.313       0.403       0.502       0.603       0.711
          300       0.498       0.901       1.313       1.966       0.216       0.352       0.463       0.605
          350       0.163       0.551       1.020       1.695       0.070       0.215       0.359       0.521
-  (left block: <alpha_cell>; right block: the shape <alpha_cell>(z) / <alpha_cell>(slab))
+  (left block: <alpha_cell>; right block: the shape <alpha_cell>(z) / <alpha_cell>_midplane)
 
   Bins used (centre z [pc]) for z_top = 750; the others differ by at most one bin:
   +-50: +38/-62, +-100: +90/-110, +-150: +138/-162, +-200: +190/-210, +-250: +238/-262, +-300: +290/-310, +-350: +338/-362
 
 --------------------------------------------------------------------------------------------------------
-SHAPE RELATIVE TO THE FIDUCIAL: [alpha(z)/alpha(slab)]_ztop / [same]_750, per bin
+SHAPE RELATIVE TO THE FIDUCIAL: [alpha(z)/alpha(midplane)]_ztop / [same]_750, per bin
 --------------------------------------------------------------------------------------------------------
   over the bins with |z - z_mid(750)| <= 350 pc:
    z_top     min  median     max

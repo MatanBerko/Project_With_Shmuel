@@ -13,12 +13,13 @@ profile (z_mid = -17.4, -15.6, -13.9 and -11.9 pc; the dotted line marks the fid
 <1/P_th>^-1 over the non-HIM cells of the bin (black; the same for every z_top). (b) The headline
 <alpha_cell> = <W> <1/P_th> per bin for each z_top, volume-weighted; the shaded band is the
 15th-85th percentile range of the per-cell alpha_cell = <W>/P_th for z_top = 750 pc; the grey
-line marks alpha = 1. (c) The same profiles divided by each z_top's midplane value, <alpha_cell>
-over the slab |z - z_mid| <= 30 pc (with that z_top's z_mid). For z_top = 750 pc every bin
-reproduces Fig. 4 to 1e-10.
+line marks alpha = 1. (c) The same profiles divided by each z_top's midplane value
+<alpha_cell>_mid. The midplane value of any quantity is its mean over |z - z_mid| <= 30 pc (with
+that z_top's z_mid), the convention used for every midplane number in the paper. For
+z_top = 750 pc every bin reproduces Fig. 4 to 1e-10.
 
-Midplane slab <alpha_cell> = 2.31, 2.56, 2.84 and 3.25 for z_top = 400, 500, 600 and 750 pc.
-<alpha_cell>(z) / <alpha_cell>(slab), mean of the bins nearest z_mid +- dz:
+Midplane <alpha_cell> = 2.31, 2.56, 2.84 and 3.25 for z_top = 400, 500, 600 and 750 pc.
+<alpha_cell>(z) / <alpha_cell>_mid, mean of the bins nearest z_mid +- dz:
   dz [pc]      z_top 400   500    600    750
    100              0.90   0.93   0.97   1.00
    200              0.63   0.74   0.83   0.94
